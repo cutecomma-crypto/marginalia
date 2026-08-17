@@ -1,0 +1,4 @@
+.playwright-mcp/
+.claude/
+*.png
+_serve_nocache.py

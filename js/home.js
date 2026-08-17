@@ -1,0 +1,77 @@
+import { DB } from './db.js';
+import { escapeHtml } from './utils.js';
+
+// 對照 PROJECT_SPEC.md 第 10 節首頁建議區塊。「我的閱讀」數字概覽併進 stats.js 的側邊欄精簡統計，
+// 這裡只負責「最近輸出」「最近關聯」，放在首頁側邊欄下半部。
+async function buildRecentOutputs(limit) {
+  const [outputs, books] = await Promise.all([DB.getAll('outputs'), DB.getAll('books')]);
+  const bookById = new Map(books.map((b) => [b.id, b]));
+  return outputs
+    .filter((o) => o.text || (o.tags && o.tags.length))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .slice(0, limit)
+    .map((o) => ({ ...o, book: bookById.get(o.bookId) }));
+}
+
+async function buildRecentEdges(limit) {
+  const [edges, nodes, books] = await Promise.all([DB.getAll('edges'), DB.getAll('nodes'), DB.getAll('books')]);
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const bookById = new Map(books.map((b) => [b.id, b]));
+  return edges
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .slice(0, limit)
+    .map((e) => ({
+      ...e,
+      book: bookById.get(e.bookId),
+      fromNode: nodeById.get(e.fromNodeId),
+      toNode: nodeById.get(e.toNodeId),
+    }))
+    .filter((e) => e.fromNode && e.toNode);
+}
+
+function outputItemHtml(o) {
+  const title = o.book ? escapeHtml(o.book.title || '（未命名）') : '（書籍已刪除）';
+  const tags = o.tags && o.tags.length
+    ? `<div class="output-tags">${o.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}</div>`
+    : '';
+  const text = o.text ? `<p class="home-list-text">${escapeHtml(o.text)}</p>` : '';
+  return `
+    <li>
+      <div class="home-list-title">${o.book ? `<a href="#/books/${o.bookId}">${title}</a>` : title}</div>
+      ${tags}
+      ${text}
+    </li>
+  `;
+}
+
+function edgeItemHtml(e) {
+  const title = e.book ? escapeHtml(e.book.title || '（未命名）') : '（書籍已刪除）';
+  return `
+    <li>
+      <div class="home-list-title">${e.book ? `<a href="#/books/${e.bookId}/graph">${title}</a>` : title}</div>
+      <p class="home-list-text">${escapeHtml(e.fromNode.label)} —${escapeHtml(e.label || '關聯')}→ ${escapeHtml(e.toNode.label)}</p>
+    </li>
+  `;
+}
+
+export async function renderRecentActivity(container) {
+  const [outputs, edges] = await Promise.all([
+    buildRecentOutputs(5),
+    buildRecentEdges(5),
+  ]);
+
+  container.innerHTML = `
+    <div class="sidebar-panel">
+      <h4>最近輸出</h4>
+      ${outputs.length === 0
+        ? '<p class="empty">還沒有任何輸出。</p>'
+        : `<ul class="home-list">${outputs.map(outputItemHtml).join('')}</ul>`}
+    </div>
+    <div class="sidebar-panel">
+      <h4>最近關聯</h4>
+      ${edges.length === 0
+        ? '<p class="empty">還沒有任何圖譜關聯。</p>'
+        : `<ul class="home-list">${edges.map(edgeItemHtml).join('')}</ul>`}
+    </div>
+  `;
+}
