@@ -25,6 +25,8 @@ const CATEGORY_GROUPS = [
 // 改放「跨類型的具體議題」或「閱讀情境」，讓一本書能同時貼上分類之外的多個面向。
 const TAG_SUGGESTIONS = ['原生家庭', '溝通表達', '職場', '自我覺察', '想寫心得', '適合重讀', '朋友推薦', '書單挑戰'];
 const FORMAT_OPTIONS = ['紙本', '電子書', '有聲書', '其他'];
+const RETENTION_STATUS_OPTIONS = ['保存', '待售', '借閱', '售出', '轉贈'];
+const DEFAULT_RETENTION_STATUS = '保存';
 
 function datalistOptions(list) {
   return list.map((v) => `<option value="${escapeHtml(v)}"></option>`).join('');
@@ -102,7 +104,21 @@ function categoryOptionsHtml(selected) {
   return legacyOption + groups;
 }
 
-function bookRow(book, favoriteAuthors) {
+function formatDateSlash(dateStr) {
+  return dateStr ? dateStr.replaceAll('-', '/') : '';
+}
+
+// 首頁的狀態標籤：已有完成日期就直接顯示完成日期（最有意義的資訊），
+// 還沒完成的書則退回顯示目前的閱讀狀態（想讀／閱讀中…）。
+function statusBadgeHtml(record) {
+  if (record && record.endDate) {
+    return `<span class="book-status-badge is-completed">🏁 ${escapeHtml(formatDateSlash(record.endDate))}</span>`;
+  }
+  const status = (record && record.status) || '想讀';
+  return `<span class="book-status-badge">${escapeHtml(status)}</span>`;
+}
+
+function bookRow(book, favoriteAuthors, recordMap) {
   const tags = (book.tags || []).join('、');
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
   return `
@@ -111,6 +127,7 @@ function bookRow(book, favoriteAuthors) {
       <td class="author-cell"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${escapeHtml(book.author)}</td>
       <td>${escapeHtml(book.category)}</td>
       <td>${escapeHtml(tags)}</td>
+      <td>${statusBadgeHtml(recordMap.get(book.id))}</td>
     </tr>
   `;
 }
@@ -132,24 +149,63 @@ async function buildSearchIndex(books) {
   }));
 }
 
-function bookTableHtml(list, favoriteAuthors) {
+function bookTableHtml(list, favoriteAuthors, recordMap) {
   return `
     <table class="book-table">
       <thead>
-        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>主題／標籤</th></tr>
+        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>主題／標籤</th><th>狀態</th></tr>
       </thead>
       <tbody>
-        ${list.map((book) => bookRow(book, favoriteAuthors)).join('')}
+        ${list.map((book) => bookRow(book, favoriteAuthors, recordMap)).join('')}
       </tbody>
     </table>
   `;
 }
 
+const SORT_OPTIONS = [
+  { value: 'created-desc', label: '建立時間：新到舊' },
+  { value: 'created-asc', label: '建立時間：舊到新' },
+  { value: 'completed-desc', label: '完成時間：已完成優先' },
+];
+
+function sortBooks(books, recordMap, sortMode) {
+  const list = [...books];
+  if (sortMode === 'created-asc') {
+    list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+  } else if (sortMode === 'completed-desc') {
+    list.sort((a, b) => {
+      const endA = recordMap.get(a.id)?.endDate || '';
+      const endB = recordMap.get(b.id)?.endDate || '';
+      if (endA && endB) return endB.localeCompare(endA);
+      if (endA && !endB) return -1;
+      if (!endA && endB) return 1;
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+  } else {
+    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }
+  return list;
+}
+
+async function buildLatestRecordMap(bookIds) {
+  const allRecords = await DB.getAll('reading_records');
+  const byBook = new Map();
+  for (const record of allRecords) {
+    const current = byBook.get(record.bookId);
+    if (!current || (record.createdAt || '').localeCompare(current.createdAt || '') > 0) {
+      byBook.set(record.bookId, record);
+    }
+  }
+  const map = new Map();
+  for (const id of bookIds) map.set(id, byBook.get(id) || null);
+  return map;
+}
+
 export async function renderBookList(container) {
   const books = await DB.getAll('books');
-  books.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   const index = await buildSearchIndex(books);
   const favoriteAuthors = await getFavoriteAuthorMap();
+  const recordMap = await buildLatestRecordMap(books.map((b) => b.id));
 
   container.innerHTML = `
     <div class="dashboard-layout">
@@ -165,11 +221,12 @@ export async function renderBookList(container) {
         </div>
         <div class="search-row">
           <input type="search" id="book-search" class="search-input" placeholder="搜尋書名、作者，或筆記內容…">
+          <select id="book-sort-select" class="sort-select">
+            ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
+          </select>
           <span class="book-list-count" id="book-list-count">共 ${books.length} 本</span>
         </div>
-        <div id="book-list-body">
-          ${books.length === 0 ? '<p class="empty">還沒有任何書籍，點擊上方新增第一本。</p>' : bookTableHtml(books, favoriteAuthors)}
-        </div>
+        <div id="book-list-body"></div>
       </div>
     </div>
   `;
@@ -179,22 +236,30 @@ export async function renderBookList(container) {
   await renderRecentActivity(container.querySelector('#home-sections-container'));
 
   const searchInput = container.querySelector('#book-search');
+  const sortSelect = container.querySelector('#book-sort-select');
   const bodyEl = container.querySelector('#book-list-body');
   const countEl = container.querySelector('#book-list-count');
 
-  searchInput.addEventListener('input', () => {
+  function renderList() {
     const query = searchInput.value.trim().toLowerCase();
-    if (!query) {
-      bodyEl.innerHTML = books.length === 0 ? '<p class="empty">還沒有任何書籍，點擊上方新增第一本。</p>' : bookTableHtml(books, favoriteAuthors);
-      countEl.textContent = `共 ${books.length} 本`;
-      return;
+    const base = query
+      ? index.filter((entry) => entry.searchText.includes(query)).map((entry) => entry.book)
+      : books;
+    const sorted = sortBooks(base, recordMap, sortSelect.value);
+
+    if (sorted.length === 0) {
+      bodyEl.innerHTML = query
+        ? `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`
+        : '<p class="empty">還沒有任何書籍，點擊上方新增第一本。</p>';
+    } else {
+      bodyEl.innerHTML = bookTableHtml(sorted, favoriteAuthors, recordMap);
     }
-    const matched = index.filter((entry) => entry.searchText.includes(query)).map((entry) => entry.book);
-    bodyEl.innerHTML = matched.length === 0
-      ? `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`
-      : bookTableHtml(matched, favoriteAuthors);
-    countEl.textContent = matched.length === books.length ? `共 ${books.length} 本` : `符合 ${matched.length} 本（共 ${books.length} 本）`;
-  });
+    countEl.textContent = sorted.length === books.length ? `共 ${books.length} 本` : `符合 ${sorted.length} 本（共 ${books.length} 本）`;
+  }
+
+  searchInput.addEventListener('input', renderList);
+  sortSelect.addEventListener('change', renderList);
+  renderList();
 }
 
 function tagChipHtml(tag) {
@@ -255,6 +320,12 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
         </label>
         <label>出版社<input name="publisher" value="${escapeHtml(book.publisher)}"></label>
         <label>出版日期<input type="date" name="publishDate" value="${escapeHtml(book.publishDate)}"></label>
+        <label>分類
+          <select name="category">
+            <option value="">（先不分類）</option>
+            ${categoryOptionsHtml(book.category)}
+          </select>
+        </label>
         <label class="field-wide">封面圖片（選填）
           <div class="cover-upload" id="cover-upload">
             <div class="cover-preview" id="cover-preview">
@@ -270,14 +341,8 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
       </fieldset>
 
       <fieldset class="form-section">
-        <legend>🏷️ 分類</legend>
-        <label>書籍類型
-          <select name="category">
-            <option value="">（先不分類）</option>
-            ${categoryOptionsHtml(book.category)}
-          </select>
-        </label>
-        <label>主題／標籤
+        <legend>🏷️ 標籤</legend>
+        <label class="field-wide">主題／標籤
           <div class="tag-input" id="tags-input">
             <div class="tag-chip-list"></div>
             <input type="text" class="tag-text-input" placeholder="輸入後按 Enter 新增，例如：職場">
@@ -296,7 +361,11 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
             ${FORMAT_OPTIONS.map((f) => `<option value="${escapeHtml(f)}" ${book.format === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
           </select>
         </label>
-        <label class="checkbox field-wide"><input type="checkbox" name="owned" ${book.owned ? 'checked' : ''}> 是否擁有</label>
+        <label>存留狀態
+          <select name="retentionStatus">
+            ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+          </select>
+        </label>
       </fieldset>
 
       ${isNew ? `
@@ -374,7 +443,7 @@ export async function renderBookForm(container, rawId) {
       purchaseSource: (data.purchaseSource || '').trim(),
       purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : null,
       format: data.format || '其他',
-      owned: form.elements.owned.checked,
+      retentionStatus: data.retentionStatus || DEFAULT_RETENTION_STATUS,
       category: data.category || '',
       tags: tagApi.getTags(),
       coverImage: data.coverImage || '',
@@ -469,7 +538,7 @@ export async function renderBookDetail(container, rawId) {
             ${detailRow('購買來源', book.purchaseSource)}
             ${detailRow('購買價格', book.purchasePrice)}
             ${detailRow('書籍形式', book.format)}
-            ${detailRow('是否擁有', book.owned ? '是' : '否')}
+            ${detailRow('存留狀態', book.retentionStatus || DEFAULT_RETENTION_STATUS)}
             ${detailRow('書籍類型', book.category)}
           </div>
         </div>
