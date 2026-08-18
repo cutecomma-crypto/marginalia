@@ -5,7 +5,7 @@ import { escapeHtml } from './utils.js';
 // 人物跨群組連線標註關係。範圍限單一書籍。
 // 狀態標籤預設清單，照懸疑推理小說常見用語分三組，使用者也可以自己手動輸入不在清單裡的詞。
 const STATUS_PRESET_GROUPS = [
-  { label: '被害/生死', options: ['歿/死亡', '殺', '重傷'] },
+  { label: '被害/生死', options: ['歿/死亡', '重傷'] },
   { label: '嫌疑/身份', options: ['嫌疑人', '真凶', '被害人', '臥底', '黑幕'] },
   { label: '狀態', options: ['失蹤', '在逃', '保釋', '隱姓埋名'] },
 ];
