@@ -861,57 +861,6 @@ header h1 a {
   margin: 0;
 }
 
-.tag-input {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.4rem 0.5rem;
-  background: var(--surface);
-}
-
-.tag-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.tag-chip-list:not(:empty) {
-  margin-bottom: 0.4rem;
-}
-
-.tag-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: var(--primary-soft);
-  color: var(--primary-hover);
-  border-radius: 999px;
-  padding: 0.15rem 0.4rem 0.15rem 0.7rem;
-  font-size: 0.8rem;
-}
-
-.tag-chip-remove {
-  border: none;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 0.9rem;
-  line-height: 1;
-  padding: 0 0.15rem;
-}
-
-.tag-text-input {
-  width: 100%;
-  border: none;
-  background: transparent;
-  font-size: 0.85rem;
-  padding: 0.15rem 0;
-  color: var(--text);
-}
-
-.tag-text-input:focus {
-  outline: none;
-}
-
 .detail-tags {
   display: flex;
   flex-wrap: wrap;

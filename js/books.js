@@ -8,8 +8,7 @@ import { renderRecentActivity } from './home.js';
 import { getFavoriteAuthorMap, toggleFavoriteAuthor, renderFavoriteAuthorsPanel } from './authors.js';
 import { escapeHtml } from './utils.js';
 
-// 對照 PROJECT_SPEC.md 第 1 節。「書籍類型」是固定選項的單選分類；
-// 「主題／標籤」是可自由新增的多值標籤，兩者刻意分開，不混成同一欄位。
+// 對照 PROJECT_SPEC.md 第 1 節。「書籍類型」是固定選項的單選分類。
 // 大分類參考誠品的八大類架構，細項直接採用使用者 Notion「類型」欄位裡實際在用的詞彙，
 // 太冷門、沒對照到的維持「其他」，不硬塞進某一類。
 const CATEGORY_GROUPS = [
@@ -21,16 +20,9 @@ const CATEGORY_GROUPS = [
   { label: '科普教育', options: ['科普教育', '醫學保健', '語言學習'] },
   { label: '其他', options: ['工具書／參考', '童書／青少年', '其他'] },
 ];
-// 標籤故意不放跟分類重疊的類型詞（心理學／歷史／哲學…已經是分類選項），
-// 改放「跨類型的具體議題」或「閱讀情境」，讓一本書能同時貼上分類之外的多個面向。
-const TAG_SUGGESTIONS = ['原生家庭', '溝通表達', '職場', '自我覺察', '想寫心得', '適合重讀', '朋友推薦', '書單挑戰'];
 const FORMAT_OPTIONS = ['紙本', '電子書', '有聲書', '其他'];
 const RETENTION_STATUS_OPTIONS = ['保存', '待售', '借閱', '售出', '轉贈'];
 const DEFAULT_RETENTION_STATUS = '保存';
-
-function datalistOptions(list) {
-  return list.map((v) => `<option value="${escapeHtml(v)}"></option>`).join('');
-}
 
 // 上傳的封面圖直接壓縮成 base64 存進 IndexedDB（純本機，不用連網、不用外部圖床）。
 // 縮到最長邊 500px、JPEG 品質 0.82，避免原圖太大把資料庫和備份檔案撐爆。
@@ -119,15 +111,16 @@ function statusBadgeHtml(record) {
 }
 
 function bookRow(book, favoriteAuthors, recordMap) {
-  const tags = (book.tags || []).join('、');
+  const record = recordMap.get(book.id);
+  const completedDate = record && record.endDate ? formatDateSlash(record.endDate) : '—';
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
   return `
     <tr>
       <td><a href="#/books/${book.id}">${escapeHtml(book.title || '（未命名）')}</a></td>
       <td class="author-cell"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${escapeHtml(book.author)}</td>
       <td>${escapeHtml(book.category)}</td>
-      <td>${escapeHtml(tags)}</td>
-      <td>${statusBadgeHtml(recordMap.get(book.id))}</td>
+      <td>${escapeHtml(completedDate)}</td>
+      <td>${statusBadgeHtml(record)}</td>
     </tr>
   `;
 }
@@ -153,7 +146,7 @@ function bookTableHtml(list, favoriteAuthors, recordMap) {
   return `
     <table class="book-table">
       <thead>
-        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>主題／標籤</th><th>狀態</th></tr>
+        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th><th>狀態</th></tr>
       </thead>
       <tbody>
         ${list.map((book) => bookRow(book, favoriteAuthors, recordMap)).join('')}
@@ -262,50 +255,6 @@ export async function renderBookList(container) {
   renderList();
 }
 
-function tagChipHtml(tag) {
-  return `<span class="tag-chip">${escapeHtml(tag)}<button type="button" class="tag-chip-remove" data-tag="${escapeHtml(tag)}" aria-label="移除">×</button></span>`;
-}
-
-// 主題／標籤的自由新增小元件：打字按 Enter（或逗號）變成一個 chip，跟表單其他欄位不同，
-// 不是原生 input，所以送出時要另外呼叫 getTags() 取值，不能靠 FormData。
-function setupTagInput(root, initialTags) {
-  let tags = [...initialTags];
-  const chipList = root.querySelector('.tag-chip-list');
-  const textInput = root.querySelector('.tag-text-input');
-
-  function render() {
-    chipList.innerHTML = tags.map(tagChipHtml).join('');
-    chipList.querySelectorAll('.tag-chip-remove').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        tags = tags.filter((t) => t !== btn.dataset.tag);
-        render();
-      });
-    });
-  }
-  render();
-
-  function addFromInput() {
-    const value = textInput.value.trim();
-    if (value && !tags.includes(value)) {
-      tags.push(value);
-      render();
-    }
-    textInput.value = '';
-  }
-
-  textInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ',') {
-      event.preventDefault();
-      addFromInput();
-    }
-  });
-  textInput.addEventListener('blur', () => {
-    if (textInput.value.trim()) addFromInput();
-  });
-
-  return { getTags: () => tags };
-}
-
 function formTemplate(book, isNew, isFavoriteAuthor) {
   return `
     <form id="book-form" class="book-form" novalidate>
@@ -337,17 +286,6 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
             </div>
           </div>
           <input type="hidden" name="coverImage" id="cover-image-value" value="${escapeHtml(book.coverImage || '')}">
-        </label>
-      </fieldset>
-
-      <fieldset class="form-section">
-        <legend>🏷️ 標籤</legend>
-        <label class="field-wide">主題／標籤
-          <div class="tag-input" id="tags-input">
-            <div class="tag-chip-list"></div>
-            <input type="text" class="tag-text-input" placeholder="輸入後按 Enter 新增，例如：職場">
-            <datalist id="tag-suggestions">${datalistOptions(TAG_SUGGESTIONS)}</datalist>
-          </div>
         </label>
       </fieldset>
 
@@ -412,7 +350,6 @@ export async function renderBookForm(container, rawId) {
   `;
 
   const form = container.querySelector('#book-form');
-  const tagApi = setupTagInput(container.querySelector('#tags-input'), book.tags || []);
   wireCoverUpload(form);
 
   const authorInput = form.elements.author;
@@ -445,7 +382,6 @@ export async function renderBookForm(container, rawId) {
       format: data.format || '其他',
       retentionStatus: data.retentionStatus || DEFAULT_RETENTION_STATUS,
       category: data.category || '',
-      tags: tagApi.getTags(),
       coverImage: data.coverImage || '',
     };
 
