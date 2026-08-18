@@ -382,6 +382,27 @@ header h1 a {
   font-size: 0.92rem;
 }
 
+.sidebar-stat-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sidebar-stat-heading-row h4 {
+  margin: 0 0 0.7rem;
+}
+
+.sidebar-year-select {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  background: var(--surface);
+  color: var(--text-muted);
+  margin-bottom: 0.7rem;
+}
+
 .sidebar-stat-highlight {
   font-size: 1.1rem;
   font-weight: 700;

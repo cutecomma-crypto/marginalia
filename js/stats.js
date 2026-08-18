@@ -114,12 +114,15 @@ export async function renderStatsPanel(container) {
   });
 }
 
-// 首頁側邊欄用的精簡版：拿掉年份切換跟月份分佈，只留數字概覽，讓「所有書籍」有空間當主角。
+// 首頁側邊欄用的精簡版：拿掉月份分佈，只留數字概覽，讓「所有書籍」有空間當主角。
+// 年份仍可切換（下拉選單），因為使用者的完成日期常常橫跨好幾年，不能只鎖死顯示今年。
 export async function renderSidebarStats(container) {
   const [books, records] = await Promise.all([DB.getAll('books'), DB.getAll('reading_records')]);
   const stats = computeStats(books, records);
   const currentYear = String(new Date().getFullYear());
-  const yearCount = stats.byYear[currentYear] || 0;
+  const yearOptions = stats.availableYears.length > 0 ? [...stats.availableYears] : [];
+  if (!yearOptions.includes(currentYear)) yearOptions.unshift(currentYear);
+  const defaultYear = yearOptions.includes(currentYear) ? currentYear : yearOptions[0];
 
   const recordByBook = new Map(records.map((r) => [r.bookId, r]));
   const wantToRead = books.filter((b) => ((recordByBook.get(b.id) || {}).status || '想讀') === '想讀').length;
@@ -129,8 +132,13 @@ export async function renderSidebarStats(container) {
 
   container.innerHTML = `
     <div class="sidebar-panel">
-      <h4>閱讀統計</h4>
-      <div class="sidebar-stat-highlight">${escapeHtml(currentYear)} 年已讀 ${yearCount} 本</div>
+      <div class="sidebar-stat-heading-row">
+        <h4>閱讀統計</h4>
+        <select id="sidebar-stats-year-select" class="sidebar-year-select">
+          ${yearOptions.map((y) => `<option value="${escapeHtml(y)}" ${y === defaultYear ? 'selected' : ''}>${escapeHtml(y)} 年</option>`).join('')}
+        </select>
+      </div>
+      <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYear)} 年已讀 ${stats.byYear[defaultYear] || 0} 本</div>
       <div class="sidebar-stat-grid">
         <div class="sidebar-stat-cell"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
         <div class="sidebar-stat-cell"><span class="v">${wantToRead}</span><span class="l">想讀</span></div>
@@ -148,4 +156,9 @@ export async function renderSidebarStats(container) {
       </ul>
     </div>
   `;
+
+  container.querySelector('#sidebar-stats-year-select').addEventListener('change', (event) => {
+    const year = event.target.value;
+    container.querySelector('#sidebar-stats-highlight').textContent = `${year} 年已讀 ${stats.byYear[year] || 0} 本`;
+  });
 }
