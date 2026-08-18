@@ -100,27 +100,24 @@ function formatDateSlash(dateStr) {
   return dateStr ? dateStr.replaceAll('-', '/') : '';
 }
 
-// 首頁的狀態標籤：已有完成日期就直接顯示完成日期（最有意義的資訊），
-// 還沒完成的書則退回顯示目前的閱讀狀態（想讀／閱讀中…）。
-function statusBadgeHtml(record) {
+// 完成日期欄位：完成了就用綠色小標籤標出日期（視覺上一眼能認出「這本讀完了」），
+// 還沒完成就顯示「—」，不再重複列一整欄閱讀狀態，把空間留給書名。
+function completedDateCell(record) {
   if (record && record.endDate) {
     return `<span class="book-status-badge is-completed">🏁 ${escapeHtml(formatDateSlash(record.endDate))}</span>`;
   }
-  const status = (record && record.status) || '想讀';
-  return `<span class="book-status-badge">${escapeHtml(status)}</span>`;
+  return '<span class="book-status-empty">—</span>';
 }
 
 function bookRow(book, favoriteAuthors, recordMap) {
   const record = recordMap.get(book.id);
-  const completedDate = record && record.endDate ? formatDateSlash(record.endDate) : '—';
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
   return `
     <tr>
       <td><a href="#/books/${book.id}">${escapeHtml(book.title || '（未命名）')}</a></td>
       <td class="author-cell"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${escapeHtml(book.author)}</td>
       <td>${escapeHtml(book.category)}</td>
-      <td>${escapeHtml(completedDate)}</td>
-      <td>${statusBadgeHtml(record)}</td>
+      <td>${completedDateCell(record)}</td>
     </tr>
   `;
 }
@@ -145,8 +142,14 @@ async function buildSearchIndex(books) {
 function bookTableHtml(list, favoriteAuthors, recordMap) {
   return `
     <table class="book-table">
+      <colgroup>
+        <col class="col-title">
+        <col class="col-author">
+        <col class="col-category">
+        <col class="col-completed">
+      </colgroup>
       <thead>
-        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th><th>狀態</th></tr>
+        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th></tr>
       </thead>
       <tbody>
         ${list.map((book) => bookRow(book, favoriteAuthors, recordMap)).join('')}
