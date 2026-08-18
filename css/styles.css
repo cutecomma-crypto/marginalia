@@ -501,19 +501,19 @@ header h1 a {
 }
 
 .book-table .col-title {
-  width: 46%;
+  width: 37%;
 }
 
 .book-table .col-author {
-  width: 20%;
+  width: 25%;
 }
 
 .book-table .col-category {
-  width: 17%;
+  width: 14%;
 }
 
 .book-table .col-completed {
-  width: 17%;
+  width: 24%;
 }
 
 .book-table th,
@@ -522,13 +522,23 @@ header h1 a {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-soft);
   font-size: 0.9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.book-table td:first-child {
+/* 書名／作者絕對不裁切，長內容直接換行；類型／完成日期詞彙固定短，維持單行並置中對齊。 */
+.book-table td:nth-child(1),
+.book-table td:nth-child(2) {
   white-space: normal;
+  word-break: break-word;
+}
+
+.book-table th:nth-child(3),
+.book-table td:nth-child(3),
+.book-table th:nth-child(4),
+.book-table td:nth-child(4) {
+  padding-left: 1.1rem;
+  padding-right: 1.1rem;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .book-table a {

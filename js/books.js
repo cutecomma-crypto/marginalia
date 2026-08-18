@@ -114,8 +114,8 @@ function bookRow(book, favoriteAuthors, recordMap) {
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
   return `
     <tr>
-      <td><a href="#/books/${book.id}">${escapeHtml(book.title || '（未命名）')}</a></td>
-      <td class="author-cell"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${escapeHtml(book.author)}</td>
+      <td><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a></td>
+      <td class="author-cell" title="${escapeHtml(book.author)}"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${escapeHtml(book.author)}</td>
       <td>${escapeHtml(book.category)}</td>
       <td>${completedDateCell(record)}</td>
     </tr>
