@@ -3,7 +3,7 @@ import { escapeHtml, renderTextWithHashtags } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 4 節：低壓力、選填，不要求填完。
 // 閱讀動機一本書只有一筆（存在就更新）；閱讀後輸出可以隨閱讀過程累積多筆。
-export const MOTIVATION_TAGS = ['好奇', '解決問題', '工作需要', '自我成長', '學習某個主題', '別人推薦', '文案吸引', '隨意閱讀', '其他'];
+export const MOTIVATION_TAGS = ['好奇', '解決問題', '工作需要', '自我成長', '主題學習', '別人推薦', '文案吸引', '隨意閱讀', '其他'];
 const REFLECTION_TAGS = ['發現', '思考', '疑問', '認同', '不認同', '聯想到其他事情', '改變了某個看法', '一般心得'];
 
 async function getOutputsByKind(bookId, kind) {
