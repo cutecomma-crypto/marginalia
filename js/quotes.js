@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, renderTextWithHashtags } from './utils.js';
 
 // 頁碼欄位是自由文字（例如「45-47」），排序時只抓第一串數字當排序依據。
 function parsePageNumber(page) {
@@ -68,7 +68,7 @@ export async function renderQuoteSummaryCard(container, bookId) {
             ${preview.map((q) => `
               <li>
                 ${q.page ? `<span class="quote-page-badge">P. ${escapeHtml(q.page)}</span>` : ''}
-                <span class="quote-summary-text">${escapeHtml(q.content)}</span>
+                <span class="quote-summary-text">${renderTextWithHashtags(q.content)}</span>
               </li>
             `).join('')}
           </ul>`}
@@ -87,7 +87,7 @@ function quoteCardHtml(quote) {
         ${quote.page ? `<span class="quote-page-badge">P. ${escapeHtml(quote.page)}</span>` : ''}
       </div>
       <div class="quote-content-wrap">
-        <p class="quote-content is-clamped">${escapeHtml(quote.content)}</p>
+        <p class="quote-content is-clamped">${renderTextWithHashtags(quote.content)}</p>
         <button type="button" class="quote-expand-btn" style="display:none;">展開全文</button>
       </div>
       <div class="quote-actions">

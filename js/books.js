@@ -122,17 +122,33 @@ function bookRow(book, favoriteAuthors, recordMap) {
   `;
 }
 
-// 跨書名／作者／標籤／筆記內容搜尋：把每本書的可搜尋文字先組好，輸入時直接子字串比對。
-async function buildSearchIndex(books) {
-  const allNotes = await DB.getAll('notes');
-  const notesByBook = {};
-  for (const note of allNotes) {
-    if (!notesByBook[note.bookId]) notesByBook[note.bookId] = [];
-    notesByBook[note.bookId].push(note.text);
+function groupTextByBookId(items, field) {
+  const map = {};
+  for (const item of items) {
+    if (!map[item.bookId]) map[item.bookId] = [];
+    map[item.bookId].push(item[field]);
   }
+  return map;
+}
+
+// 跨書名／作者／筆記／佳句／閱讀後輸出內容搜尋（含 #hashtag，因為標籤本來就是內文的一部分，
+// 子字串比對天生就會吃到）：把每本書的可搜尋文字先組好，輸入時直接子字串比對。
+async function buildSearchIndex(books) {
+  const [allNotes, allQuotes, allOutputs] = await Promise.all([
+    DB.getAll('notes'),
+    DB.getAll('quotes'),
+    DB.getAll('outputs'),
+  ]);
+  const notesByBook = groupTextByBookId(allNotes, 'text');
+  const quotesByBook = groupTextByBookId(allQuotes, 'content');
+  const reflectionsByBook = groupTextByBookId(allOutputs.filter((o) => o.kind === 'reflection'), 'text');
+
   return books.map((book) => ({
     book,
-    searchText: [book.title, book.author, ...(book.tags || []), ...(notesByBook[book.id] || [])]
+    searchText: [
+      book.title, book.author, ...(book.tags || []),
+      ...(notesByBook[book.id] || []), ...(quotesByBook[book.id] || []), ...(reflectionsByBook[book.id] || []),
+    ]
       .filter(Boolean)
       .join(' ')
       .toLowerCase(),
@@ -216,7 +232,7 @@ export async function renderBookList(container) {
           <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
         </div>
         <div class="search-row">
-          <input type="search" id="book-search" class="search-input" placeholder="搜尋書名、作者，或筆記內容…">
+          <input type="search" id="book-search" class="search-input" placeholder="搜尋書名、作者、#標籤，或筆記／佳句內容…">
           <select id="book-sort-select" class="sort-select">
             ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
           </select>

@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, renderTextWithHashtags } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 4 節：低壓力、選填，不要求填完。
 // 閱讀動機一本書只有一筆（存在就更新）；閱讀後輸出可以隨閱讀過程累積多筆。
@@ -79,7 +79,7 @@ function reflectionItem(item) {
     <div class="output-item" data-id="${item.id}">
       <button type="button" class="btn btn-danger output-delete" data-id="${item.id}">刪除</button>
       ${item.tags && item.tags.length ? `<div class="output-tags">${item.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-      ${item.text ? `<p>${escapeHtml(item.text)}</p>` : ''}
+      ${item.text ? `<p>${renderTextWithHashtags(item.text)}</p>` : ''}
       <input type="date" class="output-date-input" data-id="${item.id}" value="${escapeHtml(dateValue)}">
     </div>
   `;

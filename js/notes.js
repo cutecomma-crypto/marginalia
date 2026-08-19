@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, renderTextWithHashtags } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 7 節：儲存當下不要求分類／標籤／關聯，之後才由系統協助辨識（P1 以後）。
 async function getNotesForBook(bookId) {
@@ -12,7 +12,7 @@ function noteItem(note) {
   return `
     <div class="output-item" data-id="${note.id}">
       <button type="button" class="btn btn-danger output-delete" data-id="${note.id}">刪除</button>
-      <p>${escapeHtml(note.text)}</p>
+      <p>${renderTextWithHashtags(note.text)}</p>
       <div class="output-date">${escapeHtml((note.createdAt || '').slice(0, 10))}</div>
     </div>
   `;

@@ -2,6 +2,7 @@ import { renderBookList, renderBookForm, renderBookDetail } from './books.js';
 import { renderGraphPage } from './graph.js';
 import { renderQuotesPage } from './quotes.js';
 import { renderBackupPage } from './backup.js';
+import { renderTagPage } from './tags.js';
 
 const app = document.getElementById('app');
 
@@ -16,6 +17,10 @@ async function route() {
   try {
     if (parts[0] === 'backup') {
       await renderBackupPage(app);
+      return;
+    }
+    if (parts[0] === 'tags') {
+      await renderTagPage(app, parts[1]);
       return;
     }
     if (parts[0] !== 'books' || parts.length === 1) {
