@@ -28,6 +28,7 @@ export async function renderNotesSection(container, bookId) {
         <label>想到什麼就先寫下來，之後再整理
           <textarea name="text" rows="2" placeholder="例如：這裡提到榮格，感覺跟之前看的那本書有關"></textarea>
         </label>
+        <p class="hashtag-hint">💡 提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">儲存</button>
         </div>

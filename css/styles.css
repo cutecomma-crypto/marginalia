@@ -1120,6 +1120,12 @@ header h1 a {
   margin-top: 0.4rem;
 }
 
+.hashtag-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: -0.3rem 0 0.8rem;
+}
+
 .output-date-input {
   color: var(--text-muted);
   font-size: 0.75rem;

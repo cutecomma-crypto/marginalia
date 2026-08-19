@@ -100,8 +100,9 @@ export async function renderReflections(container, bookId) {
         <span class="tag-checkboxes">${tagCheckboxes('reflectionTags', REFLECTION_TAGS)}</span>
       </label>
       <label>想寫點什麼都可以
-        <textarea name="text" rows="2"></textarea>
+        <textarea name="text" rows="2" placeholder="寫下你的心得...（提示：輸入 #心理學 或 #榮格 可建立主題標籤）"></textarea>
       </label>
+      <p class="hashtag-hint">💡 提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">新增</button>
       </div>
