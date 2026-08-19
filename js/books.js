@@ -168,13 +168,12 @@ function completedDateCell(record) {
   return '<span class="book-status-empty">—</span>';
 }
 
-function bookRow(book, favoriteAuthors, recordMap, showDragHandle) {
+function bookRow(book, favoriteAuthors, recordMap) {
   const record = recordMap.get(book.id);
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
-  const handle = showDragHandle ? '<span class="row-drag-handle" title="拖曳調整順序">⋮⋮</span>' : '';
   return `
-    <tr data-book-id="${book.id}">
-      <td>${handle}<a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a></td>
+    <tr>
+      <td><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a></td>
       <td class="author-cell" title="${escapeHtml(book.author)}"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${escapeHtml(book.author)}</td>
       <td>${escapeHtml(book.category)}</td>
       <td>${completedDateCell(record)}</td>
@@ -215,9 +214,9 @@ async function buildSearchIndex(books) {
   }));
 }
 
-function bookTableHtml(list, favoriteAuthors, recordMap, showDragHandle) {
+function bookTableHtml(list, favoriteAuthors, recordMap) {
   return `
-    <table class="book-table${showDragHandle ? ' has-drag-handle' : ''}">
+    <table class="book-table">
       <colgroup>
         <col class="col-title">
         <col class="col-author">
@@ -228,28 +227,19 @@ function bookTableHtml(list, favoriteAuthors, recordMap, showDragHandle) {
         <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th></tr>
       </thead>
       <tbody>
-        ${list.map((book) => bookRow(book, favoriteAuthors, recordMap, showDragHandle)).join('')}
+        ${list.map((book) => bookRow(book, favoriteAuthors, recordMap)).join('')}
       </tbody>
     </table>
   `;
 }
 
 const SORT_OPTIONS = [
-  { value: 'custom', label: '自訂排序（可手動拖曳）' },
   { value: 'created-desc', label: '建立時間：新到舊' },
   { value: 'completed-desc', label: '完成時間：新到舊' },
 ];
 
-// 自訂排序：照 book.sortOrder 由小到大排；還沒被手動拖曳排過順序的書（新書、或這個功能上線前
-// 就存在的舊資料）沒有 sortOrder，依建立時間新到舊接在後面，行為跟這個功能還沒出現時一致，
-// 不會讓既有書單一啟用就整個大洗牌。
 function sortBooks(books, recordMap, sortMode) {
   const list = [...books];
-  if (sortMode === 'custom') {
-    const ordered = list.filter((b) => b.sortOrder != null).sort((a, b) => a.sortOrder - b.sortOrder);
-    const unordered = list.filter((b) => b.sortOrder == null).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    return [...ordered, ...unordered];
-  }
   if (sortMode === 'completed-desc') {
     list.sort((a, b) => {
       const endA = recordMap.get(a.id)?.endDate || '';
@@ -300,7 +290,7 @@ export async function renderBookList(container) {
         <div class="search-row">
           <input type="search" id="book-search" class="search-input" placeholder="搜尋書名、作者、#標籤，或筆記／佳句內容…">
           <select id="book-sort-select" class="sort-select">
-            ${SORT_OPTIONS.map((o) => `<option value="${o.value}" ${o.value === 'custom' ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+            ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
           </select>
           <span class="book-list-count" id="book-list-count">共 ${books.length} 本</span>
         </div>
@@ -318,82 +308,19 @@ export async function renderBookList(container) {
   const bodyEl = container.querySelector('#book-list-body');
   const countEl = container.querySelector('#book-list-count');
 
-  // 拖曳排序只在「自訂排序」且沒有搜尋篩選時開放——有篩選的話畫面上只是書籍的一個子集，
-  // 拖出來的順序沒辦法對應回完整清單該有的順序，容易把其他書的順序也弄亂，乾脆直接不給拖。
-  function wireRowDrag(tbodyEl) {
-    tbodyEl.querySelectorAll('.row-drag-handle').forEach((handle) => {
-      handle.addEventListener('mousedown', (event) => {
-        if (event.button !== 0) return;
-        const row = handle.closest('tr');
-        const startY = event.clientY;
-        let dragging = false;
-
-        function clearDropHighlights() {
-          tbodyEl.querySelectorAll('tr').forEach((r) => r.classList.remove('drag-insert-before', 'drag-insert-after'));
-        }
-
-        function onMove(moveEvent) {
-          if (!dragging) {
-            if (Math.abs(moveEvent.clientY - startY) < 5) return;
-            dragging = true;
-            row.classList.add('is-dragging');
-          }
-          clearDropHighlights();
-          const hovered = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
-          const targetRow = hovered ? hovered.closest('tr') : null;
-          if (targetRow && targetRow !== row && tbodyEl.contains(targetRow)) {
-            const rect = targetRow.getBoundingClientRect();
-            const before = moveEvent.clientY < rect.top + rect.height / 2;
-            targetRow.classList.toggle('drag-insert-before', before);
-            targetRow.classList.toggle('drag-insert-after', !before);
-          }
-        }
-
-        async function onUp(upEvent) {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          row.classList.remove('is-dragging');
-          clearDropHighlights();
-          if (!dragging) return;
-          const hovered = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
-          const targetRow = hovered ? hovered.closest('tr') : null;
-          if (!targetRow || targetRow === row || !tbodyEl.contains(targetRow)) return;
-          const rect = targetRow.getBoundingClientRect();
-          const before = upEvent.clientY < rect.top + rect.height / 2;
-          if (before) tbodyEl.insertBefore(row, targetRow);
-          else tbodyEl.insertBefore(row, targetRow.nextSibling);
-
-          const orderedIds = Array.from(tbodyEl.querySelectorAll('tr')).map((r) => Number(r.dataset.bookId));
-          for (let i = 0; i < orderedIds.length; i++) {
-            const book = books.find((b) => b.id === orderedIds[i]);
-            if (book && book.sortOrder !== i) {
-              book.sortOrder = i;
-              await DB.update('books', book);
-            }
-          }
-        }
-
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    });
-  }
-
   function renderList() {
     const query = searchInput.value.trim().toLowerCase();
     const base = query
       ? index.filter((entry) => entry.searchText.includes(query)).map((entry) => entry.book)
       : books;
     const sorted = sortBooks(base, recordMap, sortSelect.value);
-    const showDragHandle = sortSelect.value === 'custom' && !query;
 
     if (sorted.length === 0) {
       bodyEl.innerHTML = query
         ? `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`
         : '<p class="empty">還沒有任何書籍，點擊上方新增第一本。</p>';
     } else {
-      bodyEl.innerHTML = bookTableHtml(sorted, favoriteAuthors, recordMap, showDragHandle);
-      if (showDragHandle) wireRowDrag(bodyEl.querySelector('tbody'));
+      bodyEl.innerHTML = bookTableHtml(sorted, favoriteAuthors, recordMap);
     }
     countEl.textContent = sorted.length === books.length ? `共 ${books.length} 本` : `符合 ${sorted.length} 本（共 ${books.length} 本）`;
   }

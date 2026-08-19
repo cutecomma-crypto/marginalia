@@ -514,27 +514,19 @@ header h1 a {
   color: var(--text);
 }
 
+.book-list-body {
+  overflow-x: auto;
+}
+
 .book-table {
   width: 100%;
-  table-layout: fixed;
   border-collapse: collapse;
   background: var(--surface);
 }
 
-.book-table .col-title {
-  width: 37%;
-}
-
-.book-table .col-author {
-  width: 25%;
-}
-
-.book-table .col-category {
-  width: 14%;
-}
-
+.book-table .col-category,
 .book-table .col-completed {
-  width: 24%;
+  width: 1%;
 }
 
 .book-table th,
@@ -543,15 +535,11 @@ header h1 a {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-soft);
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
-/* 書名／作者絕對不裁切，長內容直接換行；類型／完成日期詞彙固定短，維持單行並置中對齊。 */
-.book-table td:nth-child(1),
-.book-table td:nth-child(2) {
-  white-space: normal;
-  word-break: break-word;
-}
-
+/* 書名／作者交給欄位自然撐開寬度、單行不換行；類型／完成日期詞彙固定短，
+   col 給 1% 等於「只吃內容需要的最小寬度」，釋放出來的空間全部留給書名／作者。 */
 .book-table th:nth-child(3),
 .book-table td:nth-child(3),
 .book-table th:nth-child(4),
@@ -559,37 +547,11 @@ header h1 a {
   padding-left: 1.1rem;
   padding-right: 1.1rem;
   text-align: center;
-  white-space: nowrap;
 }
 
 .book-table a {
   text-decoration: none;
   font-weight: 600;
-}
-
-.row-drag-handle {
-  display: inline-block;
-  cursor: grab;
-  color: var(--text-muted);
-  margin-right: 0.5rem;
-  font-weight: 700;
-  user-select: none;
-}
-
-.row-drag-handle:active {
-  cursor: grabbing;
-}
-
-.book-table.has-drag-handle tbody tr.is-dragging {
-  opacity: 0.5;
-}
-
-.book-table.has-drag-handle tbody tr.drag-insert-before td {
-  box-shadow: inset 0 2px 0 0 var(--primary);
-}
-
-.book-table.has-drag-handle tbody tr.drag-insert-after td {
-  box-shadow: inset 0 -2px 0 0 var(--primary);
 }
 
 .book-list-count {
