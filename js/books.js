@@ -8,18 +8,37 @@ import { renderRecentActivity } from './home.js';
 import { getFavoriteAuthorMap, toggleFavoriteAuthor, renderFavoriteAuthorsPanel } from './authors.js';
 import { escapeHtml } from './utils.js';
 
-// 對照 PROJECT_SPEC.md 第 1 節。「書籍類型」是固定選項的單選分類。
-// 大分類參考誠品的八大類架構，細項直接採用使用者 Notion「類型」欄位裡實際在用的詞彙，
-// 太冷門、沒對照到的維持「其他」，不硬塞進某一類。
+// 對照 PROJECT_SPEC.md 第 1 節。「書籍類型」是固定選項＋可自訂的單選分類。
 const CATEGORY_GROUPS = [
-  { label: '文學', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學', '輕小說', 'BL', '言情小說'] },
-  { label: '商業財經', options: ['投資理財', '企業管理', '經濟趨勢'] },
-  { label: '心理勵志', options: ['心理學理論', '自我提升', '心靈雞湯', '人際關係'] },
-  { label: '人文思辨', options: ['哲學理論', '歷史', '人物傳記', '社會科學'] },
-  { label: '美學生活', options: ['美術設計', '電影表演', '生活風格'] },
-  { label: '科普教育', options: ['科普教育', '醫學保健', '語言學習'] },
-  { label: '其他', options: ['工具書／參考', '童書／青少年', '其他'] },
+  { label: '文學小說', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學', '輕小說', '言情小說', 'BL'] },
+  { label: '商業理財', options: ['職場工作術', '生產力/筆記術', '投資理財', '企業管理', '經濟趨勢'] },
+  { label: '心理勵志', options: ['心理學理論', '自我提升', '人際關係', '心靈雞湯'] },
+  { label: '人文社會', options: ['哲學理論', '歷史', '社會科學', '人物傳記'] },
+  { label: '生活應用/工具', options: ['學習法/思考術', '電腦資訊', '語言學習', '生活風格'] },
+  { label: '藝術設計', options: ['美術設計', '電影表演', '音樂建築'] },
 ];
+const CUSTOM_CATEGORY_VALUE = '__custom__';
+const CUSTOM_CATEGORY_STORAGE_KEY = 'marginalia:customCategories';
+
+// 使用者自己新增的分類存在 localStorage（跟 graph.js 的狀態標籤預設清單同一套做法），
+// 之後每次開表單都要記得，並且要合併進「已知分類」清單，不要被誤判成舊資料。
+function loadCustomCategories() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_CATEGORY_STORAGE_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function addCustomCategory(name) {
+  const list = loadCustomCategories();
+  if (!list.includes(name)) {
+    list.push(name);
+    localStorage.setItem(CUSTOM_CATEGORY_STORAGE_KEY, JSON.stringify(list));
+  }
+  return list;
+}
 const FORMAT_OPTIONS = ['紙本', '電子書', '有聲書', '其他'];
 const RETENTION_STATUS_OPTIONS = ['保存', '待售', '借閱', '售出', '轉贈'];
 const DEFAULT_RETENTION_STATUS = '保存';
@@ -84,7 +103,8 @@ function wireCoverUpload(form) {
 // 舊資料若存了不在新清單裡的分類（例如改版前的「小說／文學」），
 // 不能讓它悄悄消失或被換掉，先當作暫時選項顯示，使用者自己決定要不要換成新分類。
 function categoryOptionsHtml(selected) {
-  const known = CATEGORY_GROUPS.flatMap((g) => g.options);
+  const customCategories = loadCustomCategories();
+  const known = [...CATEGORY_GROUPS.flatMap((g) => g.options), ...customCategories];
   const legacyOption = selected && !known.includes(selected)
     ? `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}（舊分類）</option>`
     : '';
@@ -93,7 +113,31 @@ function categoryOptionsHtml(selected) {
       ${g.options.map((o) => `<option value="${escapeHtml(o)}" ${selected === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
     </optgroup>
   `).join('');
-  return legacyOption + groups;
+  const customGroup = customCategories.length > 0 ? `
+    <optgroup label="自訂分類">
+      ${customCategories.map((o) => `<option value="${escapeHtml(o)}" ${selected === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+    </optgroup>
+  ` : '';
+  return `${legacyOption}${groups}${customGroup}<option value="${CUSTOM_CATEGORY_VALUE}">＋ 自訂分類...</option>`;
+}
+
+// 選到「＋ 自訂分類...」就跳出輸入框問名稱，存進個人分類清單，然後直接選中它；
+// 取消或沒輸入就退回選之前的值，不會讓選單卡在這個不是真分類的選項上。
+function wireCategorySelect(selectEl) {
+  selectEl.dataset.prevValue = selectEl.value;
+  selectEl.addEventListener('change', () => {
+    if (selectEl.value === CUSTOM_CATEGORY_VALUE) {
+      const name = (window.prompt('請輸入新的分類名稱：') || '').trim();
+      if (!name) {
+        selectEl.value = selectEl.dataset.prevValue;
+        return;
+      }
+      addCustomCategory(name);
+      selectEl.innerHTML = `<option value="">（先不分類）</option>${categoryOptionsHtml(name)}`;
+      selectEl.value = name;
+    }
+    selectEl.dataset.prevValue = selectEl.value;
+  });
 }
 
 function formatDateSlash(dateStr) {
@@ -444,6 +488,7 @@ export async function renderBookForm(container, rawId) {
 
   const form = container.querySelector('#book-form');
   wireCoverUpload(form);
+  wireCategorySelect(form.elements.category);
 
   const authorInput = form.elements.author;
   const favoriteBtn = container.querySelector('#author-favorite-btn');
