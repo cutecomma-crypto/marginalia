@@ -30,12 +30,27 @@ function nextGroupColor(existingGroupCount) {
   return GROUP_COLOR_PALETTE[existingGroupCount % GROUP_COLOR_PALETTE.length].hex;
 }
 
-// 關係線顏色改用固定 10 色色盤（跟群組色盤同一套莫蘭迪／暖色調性，取其中 10 色），
-// 取代原本的光譜選色器——關係線只是分類用途，不需要無限色彩選擇。
+// 關係線顏色改用固定 12 色日系馬卡龍柔和色盤（6 欄 x 2 排整齊對齊），
+// 取代原本偏灰暗的莫蘭迪色系——關係線只是分類用途，色調要明亮好認但不刺眼。
 const EDGE_COLOR_PALETTE = [
-  '#8C6D58', '#728C74', '#5C768D', '#A66B6C', '#C89B3C',
-  '#B25B42', '#85768D', '#D9787A', '#2E4057', '#6B2D39',
+  { name: '鼠尾草綠', hex: '#82A3A1' },
+  { name: '靜謐藍綠', hex: '#729B98' },
+  { name: '霧藍', hex: '#6B8EA7' },
+  { name: '風信子紫', hex: '#8F81A3' },
+  { name: '珊瑚暖粉', hex: '#D68F85' },
+  { name: '蜜桃杏橘', hex: '#DE9B72' },
+  { name: '芥末奶油黃', hex: '#E3B04B' },
+  { name: '溫潤淺褐', hex: '#9B8265' },
+  { name: '暖心磚紅', hex: '#D4726B' },
+  { name: '藍灰', hex: '#7B889B' },
+  { name: '深灰藍', hex: '#5B6A72' },
+  { name: '可可棕', hex: '#8B6B5D' },
 ];
+
+function edgeColorNameForHex(hex) {
+  const found = EDGE_COLOR_PALETTE.find((c) => c.hex.toLowerCase() === (hex || '').toLowerCase());
+  return found ? found.name : null;
+}
 // 常見關係預設顏色／線寬，選到這些關係字時自動套用，不用手動調
 const COUPLE_LABELS = ['戀人', '夫妻'];
 const COUPLE_COLOR = '#c9738f';
@@ -83,12 +98,23 @@ function colorId(hex) {
   return (hex || DEFAULT_EDGE_COLOR).replace('#', '');
 }
 
+// 選色的共用邏輯：設定隱藏欄位、更新哪個色塊被打勾、更新下方「目前顏色：XX」文字說明。
+// 手動點色塊、或關係字自動套用預設色（戀人／家人）都走這一份，狀態才不會兜不起來。
+function applyEdgeColor(form, hex) {
+  form.elements.color.value = hex;
+  form.querySelectorAll('.edge-color-swatch').forEach((b) => b.classList.toggle('is-selected', b.dataset.hex.toLowerCase() === hex.toLowerCase()));
+  const label = form.querySelector('.edge-color-current-label');
+  if (label) {
+    const name = edgeColorNameForHex(hex);
+    label.textContent = name ? `目前顏色：${name}` : '';
+  }
+}
+
 function wireCoupleAutoColor(form) {
   form.elements.label.addEventListener('input', () => {
     const preset = presetColorForLabel(form.elements.label.value.trim());
     if (!preset) return;
-    form.elements.color.value = preset;
-    form.querySelectorAll('.edge-color-swatch').forEach((b) => b.classList.toggle('is-selected', b.dataset.hex === preset));
+    applyEdgeColor(form, preset);
   });
 }
 
@@ -360,27 +386,27 @@ function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
   }
 }
 
-// 固定 10 色色盤取代原生光譜選色器：色點直接排一列，點了就套用到隱藏的 color input。
+// 固定 12 色色盤（6 欄 x 2 排）取代原生光譜選色器：色點按 title／aria-label 顯示中文顏色名，
+// 選中的色塊打勾，下方另外顯示一行「目前顏色：XX」文字說明，選了什麼一眼就看到。
 function edgeColorSwatchesHtml(currentColor) {
   const current = currentColor || DEFAULT_EDGE_COLOR;
+  const currentName = edgeColorNameForHex(current);
   return `
     <input type="hidden" name="color" value="${escapeHtml(current)}">
     <div class="edge-color-swatches">
-      ${EDGE_COLOR_PALETTE.map((hex) => `
-        <button type="button" class="edge-color-swatch${hex === current ? ' is-selected' : ''}" data-hex="${hex}" style="background: ${hex};" title="${hex}" aria-label="選擇關係線顏色 ${hex}"></button>
+      ${EDGE_COLOR_PALETTE.map((c) => `
+        <button type="button" class="edge-color-swatch${c.hex.toLowerCase() === current.toLowerCase() ? ' is-selected' : ''}" data-hex="${c.hex}" style="background: ${c.hex};" title="${escapeHtml(c.name)}" aria-label="選擇關係線顏色 ${escapeHtml(c.name)}">
+          <span class="edge-color-check">✓</span>
+        </button>
       `).join('')}
     </div>
+    <div class="edge-color-current-label">${currentName ? `目前顏色：${escapeHtml(currentName)}` : ''}</div>
   `;
 }
 
 function wireEdgeColorSwatches(form) {
-  const hidden = form.elements.color;
-  const swatches = form.querySelectorAll('.edge-color-swatch');
-  swatches.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      hidden.value = btn.dataset.hex;
-      swatches.forEach((b) => b.classList.toggle('is-selected', b === btn));
-    });
+  form.querySelectorAll('.edge-color-swatch').forEach((btn) => {
+    btn.addEventListener('click', () => applyEdgeColor(form, btn.dataset.hex));
   });
 }
 
