@@ -235,12 +235,16 @@ function bookTableHtml(list, favoriteAuthors, recordMap) {
 
 const SORT_OPTIONS = [
   { value: 'created-desc', label: '建立時間：新到舊' },
+  { value: 'created-asc', label: '建立時間：舊到新' },
   { value: 'completed-desc', label: '完成時間：新到舊' },
+  { value: 'completed-asc', label: '完成時間：舊到新' },
 ];
 
 function sortBooks(books, recordMap, sortMode) {
   const list = [...books];
-  if (sortMode === 'completed-desc') {
+  if (sortMode === 'created-asc') {
+    list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+  } else if (sortMode === 'completed-desc') {
     list.sort((a, b) => {
       const endA = recordMap.get(a.id)?.endDate || '';
       const endB = recordMap.get(b.id)?.endDate || '';
@@ -249,8 +253,17 @@ function sortBooks(books, recordMap, sortMode) {
       if (!endA && endB) return 1;
       return (b.createdAt || '').localeCompare(a.createdAt || '');
     });
+  } else if (sortMode === 'completed-asc') {
+    list.sort((a, b) => {
+      const endA = recordMap.get(a.id)?.endDate || '';
+      const endB = recordMap.get(b.id)?.endDate || '';
+      if (endA && endB) return endA.localeCompare(endB);
+      if (endA && !endB) return -1;
+      if (!endA && endB) return 1;
+      return (a.createdAt || '').localeCompare(b.createdAt || '');
+    });
   } else {
-    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // created-desc（預設）
   }
   return list;
 }
