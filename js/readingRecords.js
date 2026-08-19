@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 2 節。頁數不重複存一份，直接沿用書籍資料的「頁數」欄位當分母。
-export const STATUS_OPTIONS = ['想讀', '閱讀中', '已讀完', '暫停', '棄讀', '重讀'];
+export const STATUS_OPTIONS = ['尚未閱讀', '閱讀中', '已讀完', '暫停', '棄讀', '重讀'];
 
 async function getRecordForBook(bookId) {
   const records = await DB.getByIndex('reading_records', 'bookId', bookId);

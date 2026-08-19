@@ -125,7 +125,7 @@ export async function renderSidebarStats(container) {
   const defaultYear = yearOptions.includes(currentYear) ? currentYear : yearOptions[0];
 
   const recordByBook = new Map(records.map((r) => [r.bookId, r]));
-  const wantToRead = books.filter((b) => ((recordByBook.get(b.id) || {}).status || '想讀') === '想讀').length;
+  const wantToRead = books.filter((b) => ((recordByBook.get(b.id) || {}).status || '尚未閱讀') === '尚未閱讀').length;
   const completed = books.filter((b) => (recordByBook.get(b.id) || {}).status === '已讀完').length;
 
   const categoryEntries = Object.entries(stats.libraryByCategory).sort((a, b) => b[1] - a[1]);
@@ -141,7 +141,7 @@ export async function renderSidebarStats(container) {
       <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYear)} 年已讀 ${stats.byYear[defaultYear] || 0} 本</div>
       <div class="sidebar-stat-grid">
         <div class="sidebar-stat-cell"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
-        <div class="sidebar-stat-cell"><span class="v">${wantToRead}</span><span class="l">想讀</span></div>
+        <div class="sidebar-stat-cell"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
         <div class="sidebar-stat-cell"><span class="v">${completed}</span><span class="l">已讀完</span></div>
       </div>
       <div class="sidebar-stat-row"><span>平均評分</span><span>${stats.averageRating !== null ? stats.averageRating.toFixed(1) : '—'}</span></div>

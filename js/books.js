@@ -13,7 +13,7 @@ const CATEGORY_GROUPS = [
   { label: '文學小說', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學', '輕小說', '言情小說', 'BL'] },
   { label: '商業理財', options: ['職場工作術', '生產力/筆記術', '投資理財', '企業管理', '經濟趨勢'] },
   { label: '心理勵志', options: ['心理學理論', '自我提升', '人際關係', '心靈雞湯'] },
-  { label: '人文社會', options: ['哲學理論', '歷史', '社會科學', '人物傳記'] },
+  { label: '人文社會', options: ['歷史', '哲學理論', '人物傳記', '社會科學'] },
   { label: '生活應用/工具', options: ['學習法/思考術', '電腦資訊', '語言學習', '生活風格'] },
   { label: '藝術設計', options: ['美術設計', '電影表演', '音樂建築'] },
 ];
@@ -448,7 +448,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
         <legend>📚 我的閱讀</legend>
         <label>閱讀狀態
           <select name="status">
-            ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${s === '想讀' ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+            ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${s === '尚未閱讀' ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
           </select>
         </label>
         <label class="field-wide">閱讀動機（可複選，選填）
@@ -532,7 +532,7 @@ export async function renderBookForm(container, rawId) {
       const motivationText = (data.motivationText || '').trim();
       await DB.add('reading_records', {
         bookId: targetBookId,
-        status: data.status || '想讀',
+        status: data.status || '尚未閱讀',
         startDate: '',
         endDate: '',
         currentPage: null,
