@@ -244,6 +244,67 @@ header h1 a {
   font-weight: 600;
 }
 
+.category-progress-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.category-progress-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.category-progress-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  width: var(--bar-width, 0%);
+  background: var(--primary-soft);
+}
+
+.category-progress-list .category-progress-item:last-child,
+.category-progress-extra .category-progress-item:last-child {
+  border-bottom: none;
+}
+
+.category-progress-name {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.category-progress-count {
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.category-progress-toggle {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  border-top: 1px dashed var(--border-soft);
+  margin-top: 0.5rem;
+  padding: 0.55rem 0 0.05rem;
+  font-size: 0.78rem;
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.category-progress-toggle:hover {
+  text-decoration: underline;
+}
+
 .home-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

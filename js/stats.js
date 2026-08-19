@@ -114,6 +114,33 @@ export async function renderStatsPanel(container) {
   });
 }
 
+const CATEGORY_LIST_LIMIT = 5;
+
+// 側邊欄「各類型書籍數量」改成垂直清單：名稱靠左、本數靠右，底下一條依比例填色的細線當進度感。
+// 預設只顯示前 5 個熱門分類，避免分類一多整張卡片被撐得太長，其餘的收在「展開更多」裡。
+function categoryProgressListHtml(categoryEntries) {
+  if (categoryEntries.length === 0) return '<p class="empty">還沒有書籍資料。</p>';
+
+  const maxCount = Math.max(...categoryEntries.map(([, count]) => count));
+  const rowHtml = ([cat, count]) => `
+    <div class="category-progress-item" style="--bar-width: ${Math.round((count / maxCount) * 100)}%">
+      <span class="category-progress-name">${escapeHtml(cat)}</span>
+      <span class="category-progress-count">${count} 本</span>
+    </div>
+  `;
+
+  const visible = categoryEntries.slice(0, CATEGORY_LIST_LIMIT);
+  const rest = categoryEntries.slice(CATEGORY_LIST_LIMIT);
+
+  return `
+    <div class="category-progress-list">
+      ${visible.map(rowHtml).join('')}
+      ${rest.length > 0 ? `<div class="category-progress-extra" id="category-progress-extra" hidden>${rest.map(rowHtml).join('')}</div>` : ''}
+    </div>
+    ${rest.length > 0 ? `<button type="button" class="category-progress-toggle" id="category-progress-toggle">展開更多（還有 ${rest.length} 項）</button>` : ''}
+  `;
+}
+
 // 首頁側邊欄用的精簡版：拿掉月份分佈，只留數字概覽，讓「所有書籍」有空間當主角。
 // 年份仍可切換（下拉選單），因為使用者的完成日期常常橫跨好幾年，不能只鎖死顯示今年。
 export async function renderSidebarStats(container) {
@@ -149,11 +176,7 @@ export async function renderSidebarStats(container) {
     </div>
     <div class="sidebar-panel">
       <h4>各類型書籍數量</h4>
-      <ul class="stat-category-list">
-        ${categoryEntries.length === 0
-          ? '<li class="empty">還沒有書籍資料。</li>'
-          : categoryEntries.map(([cat, count]) => `<li><span>${escapeHtml(cat)}</span><span>${count} 本</span></li>`).join('')}
-      </ul>
+      ${categoryProgressListHtml(categoryEntries)}
     </div>
   `;
 
@@ -161,4 +184,15 @@ export async function renderSidebarStats(container) {
     const year = event.target.value;
     container.querySelector('#sidebar-stats-highlight').textContent = `${year} 年已讀 ${stats.byYear[year] || 0} 本`;
   });
+
+  const toggleBtn = container.querySelector('#category-progress-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const extra = container.querySelector('#category-progress-extra');
+      const nowHidden = !extra.hidden;
+      extra.hidden = nowHidden;
+      toggleBtn.textContent = nowHidden ? toggleBtn.dataset.collapsedLabel : '收起';
+    });
+    toggleBtn.dataset.collapsedLabel = toggleBtn.textContent;
+  }
 }
