@@ -100,11 +100,15 @@ function formatDateSlash(dateStr) {
   return dateStr ? dateStr.replaceAll('-', '/') : '';
 }
 
+// 細線條日曆 icon（Lucide 風格），取代原本太搶戲的格子旗 emoji，顏色跟 opacity 故意調淡，
+// 讓它只是個安靜的小提示，不會比日期文字本身還顯眼。
+const CALENDAR_ICON = '<svg class="badge-calendar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>';
+
 // 完成日期欄位：完成了就用綠色小標籤標出日期（視覺上一眼能認出「這本讀完了」），
 // 還沒完成就顯示「—」，不再重複列一整欄閱讀狀態，把空間留給書名。
 function completedDateCell(record) {
   if (record && record.endDate) {
-    return `<span class="book-status-badge is-completed">🏁 ${escapeHtml(formatDateSlash(record.endDate))}</span>`;
+    return `<span class="book-status-badge is-completed">${CALENDAR_ICON} ${escapeHtml(formatDateSlash(record.endDate))}</span>`;
   }
   return '<span class="book-status-empty">—</span>';
 }
