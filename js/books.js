@@ -42,6 +42,8 @@ function addCustomCategory(name) {
 const FORMAT_OPTIONS = ['紙本', '電子書', '有聲書', '其他'];
 const RETENTION_STATUS_OPTIONS = ['保存', '待售', '借閱', '售出', '轉贈'];
 const DEFAULT_RETENTION_STATUS = '保存';
+const BORROWED_RETENTION_STATUS = '借閱';
+const LIBRARY_BORROW_TYPE_OPTIONS = ['實體圖書館', '線上圖書館 / 電子書'];
 
 // 上傳的封面圖直接壓縮成 base64 存進 IndexedDB（純本機，不用連網、不用外部圖床）。
 // 縮到最長邊 500px、JPEG 品質 0.82，避免原圖太大把資料庫和備份檔案撐爆。
@@ -137,6 +139,15 @@ function wireCategorySelect(selectEl) {
       selectEl.value = name;
     }
     selectEl.dataset.prevValue = selectEl.value;
+  });
+}
+
+// 存留狀態選「借閱」才展開圖書館借閱細節，其他狀態下藏起來，避免表單看起來欄位一堆用不到。
+function wireRetentionStatusToggle(form) {
+  const select = form.elements.retentionStatus;
+  const fields = form.querySelector('#library-borrow-fields');
+  select.addEventListener('change', () => {
+    fields.hidden = select.value !== BORROWED_RETENTION_STATUS;
   });
 }
 
@@ -437,10 +448,20 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
           </select>
         </label>
         <label>存留狀態
-          <select name="retentionStatus">
+          <select name="retentionStatus" id="retention-status-select">
             ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
           </select>
         </label>
+        <div class="field-wide library-borrow-fields" id="library-borrow-fields" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === BORROWED_RETENTION_STATUS ? '' : 'hidden'}>
+          <label>借閱管道
+            <select name="libraryBorrowType">
+              ${LIBRARY_BORROW_TYPE_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${book.libraryBorrowType === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+            </select>
+          </label>
+          <label>圖書館名稱
+            <input name="libraryName" value="${escapeHtml(book.libraryName)}" placeholder="例如：市立圖書館、HyRead 電子書平台">
+          </label>
+        </div>
       </fieldset>
 
       ${isNew ? `
@@ -489,6 +510,7 @@ export async function renderBookForm(container, rawId) {
   const form = container.querySelector('#book-form');
   wireCoverUpload(form);
   wireCategorySelect(form.elements.category);
+  wireRetentionStatusToggle(form);
 
   const authorInput = form.elements.author;
   const favoriteBtn = container.querySelector('#author-favorite-btn');
@@ -519,6 +541,8 @@ export async function renderBookForm(container, rawId) {
       purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : null,
       format: data.format || '其他',
       retentionStatus: data.retentionStatus || DEFAULT_RETENTION_STATUS,
+      libraryBorrowType: data.libraryBorrowType || '',
+      libraryName: (data.libraryName || '').trim(),
       category: data.category || '',
       coverImage: data.coverImage || '',
     };
@@ -550,6 +574,14 @@ export async function renderBookForm(container, rawId) {
 function detailRow(label, value) {
   if (value === undefined || value === null || value === '') return '';
   return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`;
+}
+
+// 借閱狀態才附上「（借閱管道 - 圖書館名稱）」補充說明，其他存留狀態單純顯示狀態本身。
+function retentionStatusDisplay(book) {
+  const status = book.retentionStatus || DEFAULT_RETENTION_STATUS;
+  if (status !== BORROWED_RETENTION_STATUS) return status;
+  const detail = [book.libraryBorrowType, book.libraryName].filter(Boolean).join(' - ');
+  return detail ? `${status}（${detail}）` : status;
 }
 
 export async function renderBookDetail(container, rawId) {
@@ -612,7 +644,7 @@ export async function renderBookDetail(container, rawId) {
             ${detailRow('購買來源', book.purchaseSource)}
             ${detailRow('購買價格', book.purchasePrice)}
             ${detailRow('書籍形式', book.format)}
-            ${detailRow('存留狀態', book.retentionStatus || DEFAULT_RETENTION_STATUS)}
+            ${detailRow('存留狀態', retentionStatusDisplay(book))}
             ${detailRow('書籍類型', book.category)}
           </div>
         </div>

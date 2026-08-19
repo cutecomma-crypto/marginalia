@@ -646,6 +646,27 @@ header h1 a {
   align-items: start;
 }
 
+.library-borrow-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1.25rem;
+  border-top: 1px dashed var(--border-soft);
+  padding-top: 0.9rem;
+  margin-top: 0.1rem;
+}
+
+/* 這裡的 display:grid 規則本身也會蓋掉瀏覽器內建的 [hidden]{display:none}
+   （同樣是 class 選擇器優先度，author stylesheet 會贏），要另外補一條讓 hidden 真的生效。 */
+.library-borrow-fields[hidden] {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .library-borrow-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .book-form fieldset .field-wide {
   grid-column: 1 / -1;
 }
