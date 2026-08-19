@@ -12,7 +12,7 @@ import { escapeHtml } from './utils.js';
 // 大分類參考誠品的八大類架構，細項直接採用使用者 Notion「類型」欄位裡實際在用的詞彙，
 // 太冷門、沒對照到的維持「其他」，不硬塞進某一類。
 const CATEGORY_GROUPS = [
-  { label: '文學', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學'] },
+  { label: '文學', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學', '輕小說', 'BL', '言情小說'] },
   { label: '商業財經', options: ['投資理財', '企業管理', '經濟趨勢'] },
   { label: '心理勵志', options: ['心理學理論', '自我提升', '心靈雞湯', '人際關係'] },
   { label: '人文思辨', options: ['哲學理論', '歷史', '人物傳記', '社會科學'] },
@@ -318,7 +318,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
           </select>
         </label>
         <label class="field-wide">閱讀動機（可複選，選填）
-          <span class="tag-checkboxes">${MOTIVATION_TAGS.map((m) => `<label><input type="checkbox" name="motivationTags" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('')}</span>
+          <span class="tag-checkboxes motivation-tags">${MOTIVATION_TAGS.map((m) => `<label><input type="checkbox" name="motivationTags" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('')}</span>
         </label>
         <label class="field-wide">我現在為什麼想讀它？
           <textarea name="motivationText" rows="2" placeholder="低壓力，想到什麼寫什麼，不寫也沒關係"></textarea>

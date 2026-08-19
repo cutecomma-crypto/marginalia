@@ -661,13 +661,6 @@ header h1 a {
   align-items: center;
 }
 
-.book-form input[type="color"] {
-  padding: 0.2rem;
-  height: 2.3rem;
-  width: 100%;
-  cursor: pointer;
-}
-
 .book-form input,
 .book-form select,
 .book-form textarea {
@@ -878,6 +871,19 @@ header h1 a {
   gap: 0.35rem;
 }
 
+/* 閱讀動機選項偏多，硬要保持單行捲動比折成兩行更整齊，其他 tag-checkboxes 用途維持原本自動換行。 */
+.tag-checkboxes.motivation-tags {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+
+.tag-checkboxes.motivation-tags label {
+  flex-shrink: 0;
+  padding: 0.24rem 0.6rem;
+  font-size: 0.76rem;
+}
+
 .tag-checkboxes label {
   position: relative;
   flex-direction: row;
@@ -1032,6 +1038,23 @@ header h1 a {
   color: var(--text-muted);
   font-size: 0.75rem;
   margin-top: 0.4rem;
+}
+
+.output-date-input {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-top: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.1rem 0.2rem;
+  background: transparent;
+  font-family: inherit;
+}
+
+.output-date-input:hover,
+.output-date-input:focus {
+  border-color: var(--border);
+  background: var(--surface-alt);
 }
 
 .output-delete {
@@ -1537,113 +1560,25 @@ header h1 a {
   color: var(--text);
 }
 
-.status-tag-field {
-  position: relative;
-}
-
-.status-tag-field .status-tag-input {
-  width: 100%;
-}
-
-.status-tag-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 40;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 20px rgba(61, 51, 42, 0.18);
-  padding: 0.35rem;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.status-tag-group-label {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  padding: 0.3rem 0.4rem 0.15rem;
-  font-weight: 600;
-}
-
-.status-tag-option {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  padding: 0.32rem 0.45rem;
-  border-radius: 5px;
-  font-size: 0.82rem;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.status-tag-option:hover {
-  background: var(--surface-alt);
-}
-
-.status-tag-option-new {
-  color: var(--primary);
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-soft);
-  border-radius: 0;
-  margin-bottom: 0.25rem;
-  padding-bottom: 0.45rem;
-}
-
-.status-tag-empty {
-  padding: 0.4rem 0.45rem;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-.status-tag-option-row {
+.edge-color-swatches {
   display: flex;
-  align-items: center;
-  gap: 0.15rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
 }
 
-.status-tag-option-row .status-tag-option {
-  flex: 1;
-  min-width: 0;
-}
-
-.status-tag-option-delete {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  line-height: 1;
-  padding: 0.25rem 0.4rem;
-  border-radius: 5px;
+.edge-color-swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
   cursor: pointer;
 }
 
-.status-tag-option-delete:hover {
-  color: var(--danger);
-  background: var(--danger-soft);
-}
-
-.status-tag-reset {
-  display: block;
-  width: 100%;
-  text-align: center;
-  background: none;
-  border: none;
-  border-top: 1px solid var(--border-soft);
-  margin-top: 0.3rem;
-  padding: 0.45rem 0.3rem 0.15rem;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.status-tag-reset:hover {
-  color: var(--primary);
-  text-decoration: underline;
+.edge-color-swatch.is-selected {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--surface);
 }
 
 .graph-hint {
@@ -1714,10 +1649,6 @@ header h1 a {
 .compact-form textarea {
   padding: 0.32rem 0.5rem;
   font-size: 0.85rem;
-}
-
-.compact-form input[type="color"] {
-  height: 1.9rem;
 }
 
 .compact-form .form-actions {

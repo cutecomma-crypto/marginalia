@@ -3,35 +3,8 @@ import { escapeHtml } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 5 節（階層式群組卡片版）：群組容器裝人物卡片，
 // 人物跨群組連線標註關係。範圍限單一書籍。
-// 狀態標籤預設清單，照懸疑推理小說常見用語分三組，使用者也可以自己手動輸入不在清單裡的詞。
-const STATUS_PRESET_GROUPS = [
-  { label: '被害/生死', options: ['歿/死亡', '重傷'] },
-  { label: '嫌疑/身份', options: ['嫌疑人', '真凶', '被害人', '臥底', '黑幕'] },
-  { label: '狀態', options: ['失蹤', '在逃', '保釋', '隱姓埋名'] },
-];
-const STATUS_PRESET_STORAGE_KEY = 'marginalia:statusPresetGroups';
-
-function cloneDefaultStatusPresetGroups() {
-  return STATUS_PRESET_GROUPS.map((g) => ({ label: g.label, options: [...g.options] }));
-}
-
-// 使用者可能刪掉某些預設選項，存在 localStorage，之後開選單、切換頁面都要記得這個客製化結果。
-function loadStatusPresetGroups() {
-  try {
-    const raw = localStorage.getItem(STATUS_PRESET_STORAGE_KEY);
-    if (!raw) return cloneDefaultStatusPresetGroups();
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error('bad shape');
-    return parsed;
-  } catch {
-    return cloneDefaultStatusPresetGroups();
-  }
-}
-
-function saveStatusPresetGroups(groups) {
-  localStorage.setItem(STATUS_PRESET_STORAGE_KEY, JSON.stringify(groups));
-}
-const EDGE_LABELS = ['認識', '懷疑', '家人', '朋友', '戀人', '夫妻', '同事', '上司', '下屬', '敵人', '背叛', '合作', '暗戀', '因果', '導致', '關聯', '我的想法'];
+// 關係名稱、人物狀態標籤都是純自由輸入，不提供預設清單——這張圖不是只給推理小說用，
+// 也可能拿來畫工具書的概念關係（引申出、反駁…），硬塞一份固定詞彙表反而綁死用途。
 const DEFAULT_EDGE_COLOR = '#c2b299';
 const DEFAULT_GROUP_COLOR = '#c1683a';
 // 新增群組時依序輪流套用的 15 色調色盤，深淺都控制在跟白色標題文字有足夠對比的範圍。
@@ -56,6 +29,13 @@ const GROUP_COLOR_PALETTE = [
 function nextGroupColor(existingGroupCount) {
   return GROUP_COLOR_PALETTE[existingGroupCount % GROUP_COLOR_PALETTE.length].hex;
 }
+
+// 關係線顏色改用固定 10 色色盤（跟群組色盤同一套莫蘭迪／暖色調性，取其中 10 色），
+// 取代原本的光譜選色器——關係線只是分類用途，不需要無限色彩選擇。
+const EDGE_COLOR_PALETTE = [
+  '#8C6D58', '#728C74', '#5C768D', '#A66B6C', '#C89B3C',
+  '#B25B42', '#85768D', '#D9787A', '#2E4057', '#6B2D39',
+];
 // 常見關係預設顏色／線寬，選到這些關係字時自動套用，不用手動調
 const COUPLE_LABELS = ['戀人', '夫妻'];
 const COUPLE_COLOR = '#c9738f';
@@ -73,98 +53,6 @@ function presetColorForLabel(label) {
 
 function strokeWidthForLabel() {
   return DEFAULT_STROKE_WIDTH;
-}
-
-// 狀態標籤：可自由輸入的單值下拉輸入框（不是原生 select，也不是原生 datalist——
-// 原生 datalist 沒辦法顯示「新增『XXX』」這種明確的建立提示，所以自己刻一個輕量版）。
-function statusTagFieldHtml(value) {
-  return `
-    <div class="status-tag-field">
-      <input type="text" class="status-tag-input" name="status" value="${escapeHtml(value)}" placeholder="輸入或選擇狀態，留空＝無標籤" autocomplete="off">
-      <div class="status-tag-dropdown" hidden></div>
-    </div>
-  `;
-}
-
-function wireStatusTagInput(root) {
-  const input = root.querySelector('.status-tag-input');
-  const dropdown = root.querySelector('.status-tag-dropdown');
-  if (!input || !dropdown) return;
-
-  let presetGroups = loadStatusPresetGroups();
-
-  function renderDropdown() {
-    const query = input.value.trim();
-    const queryLower = query.toLowerCase();
-    const allOptions = presetGroups.flatMap((g) => g.options);
-    const exactMatch = allOptions.some((o) => o === query);
-
-    let html = '';
-    if (query && !exactMatch) {
-      html += `<button type="button" class="status-tag-option status-tag-option-new" data-value="${escapeHtml(query)}">＋ 新增「${escapeHtml(query)}」</button>`;
-    }
-    for (const group of presetGroups) {
-      const matched = group.options.filter((o) => !query || o.toLowerCase().includes(queryLower));
-      if (matched.length === 0) continue;
-      html += `<div class="status-tag-group-label">${escapeHtml(group.label)}</div>`;
-      html += matched.map((o) => `
-        <div class="status-tag-option-row">
-          <button type="button" class="status-tag-option" data-value="${escapeHtml(o)}">${escapeHtml(o)}</button>
-          <button type="button" class="status-tag-option-delete" data-group="${escapeHtml(group.label)}" data-value="${escapeHtml(o)}" title="從預設清單刪除這個選項">×</button>
-        </div>
-      `).join('');
-    }
-    if (!html) html = '<div class="status-tag-empty">沒有符合的選項，按 Enter 直接新增</div>';
-    html += '<button type="button" class="status-tag-reset">重置為預設標籤</button>';
-    dropdown.innerHTML = html;
-
-    // 用 mousedown 而不是 click：click 會晚於 input 的 blur 觸發，那時候選單已經被 blur 關掉了，點不到。
-    dropdown.querySelectorAll('.status-tag-option').forEach((btn) => {
-      btn.addEventListener('mousedown', (event) => {
-        event.preventDefault();
-        input.value = btn.dataset.value;
-        dropdown.hidden = true;
-      });
-    });
-    // 刪除按鈕：只從「預設選單」拿掉這個選項，不影響已經存在人物身上的狀態值；
-    // 存進 localStorage，之後開任何人物的狀態選單、或重新整理頁面都不會再看到它。
-    dropdown.querySelectorAll('.status-tag-option-delete').forEach((btn) => {
-      btn.addEventListener('mousedown', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const group = presetGroups.find((g) => g.label === btn.dataset.group);
-        if (group) {
-          group.options = group.options.filter((o) => o !== btn.dataset.value);
-          saveStatusPresetGroups(presetGroups);
-        }
-        renderDropdown();
-      });
-    });
-    const resetBtn = dropdown.querySelector('.status-tag-reset');
-    resetBtn.addEventListener('mousedown', (event) => {
-      event.preventDefault();
-      presetGroups = cloneDefaultStatusPresetGroups();
-      saveStatusPresetGroups(presetGroups);
-      renderDropdown();
-    });
-  }
-
-  input.addEventListener('focus', () => {
-    renderDropdown();
-    dropdown.hidden = false;
-  });
-  input.addEventListener('input', () => {
-    renderDropdown();
-    dropdown.hidden = false;
-  });
-  input.addEventListener('blur', () => {
-    dropdown.hidden = true;
-  });
-  input.addEventListener('keydown', (event) => {
-    // Enter 不攔截，讓它照一般表單邏輯送出整張人物表單就好；輸入的文字本身就已經是狀態值了，
-    // 不需要另外按什麼才算「建立」。這裡只是把選單收起來，不擋輸入。
-    if (event.key === 'Escape' || event.key === 'Enter') dropdown.hidden = true;
-  });
 }
 
 // 顏色沒被手動改過（還是預設色）時，依關係字套用常見關係的預設色；
@@ -198,7 +86,9 @@ function colorId(hex) {
 function wireCoupleAutoColor(form) {
   form.elements.label.addEventListener('input', () => {
     const preset = presetColorForLabel(form.elements.label.value.trim());
-    if (preset) form.elements.color.value = preset;
+    if (!preset) return;
+    form.elements.color.value = preset;
+    form.querySelectorAll('.edge-color-swatch').forEach((b) => b.classList.toggle('is-selected', b.dataset.hex === preset));
   });
 }
 
@@ -470,6 +360,30 @@ function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
   }
 }
 
+// 固定 10 色色盤取代原生光譜選色器：色點直接排一列，點了就套用到隱藏的 color input。
+function edgeColorSwatchesHtml(currentColor) {
+  const current = currentColor || DEFAULT_EDGE_COLOR;
+  return `
+    <input type="hidden" name="color" value="${escapeHtml(current)}">
+    <div class="edge-color-swatches">
+      ${EDGE_COLOR_PALETTE.map((hex) => `
+        <button type="button" class="edge-color-swatch${hex === current ? ' is-selected' : ''}" data-hex="${hex}" style="background: ${hex};" title="${hex}" aria-label="選擇關係線顏色 ${hex}"></button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function wireEdgeColorSwatches(form) {
+  const hidden = form.elements.color;
+  const swatches = form.querySelectorAll('.edge-color-swatch');
+  swatches.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      hidden.value = btn.dataset.hex;
+      swatches.forEach((b) => b.classList.toggle('is-selected', b === btn));
+    });
+  });
+}
+
 function edgeStyleFieldsHtml(edge) {
   const edgeData = edge || {};
   return `
@@ -477,7 +391,7 @@ function edgeStyleFieldsHtml(edge) {
       <select name="direction">${directionOptionsHtml(edgeData.direction || 'forward')}</select>
     </label>
     <label>顏色
-      <input type="color" name="color" value="${edgeData.color || DEFAULT_EDGE_COLOR}">
+      ${edgeColorSwatchesHtml(edgeData.color)}
     </label>
     <label>線型
       <select name="lineStyle">
@@ -546,8 +460,7 @@ export async function renderGraphPage(container, rawBookId) {
           <label>從<select name="fromNodeId" id="edge-from"></select></label>
           <label>到<select name="toNodeId" id="edge-to"></select></label>
           <label>關係
-            <input name="label" list="edge-label-options" placeholder="例如：懷疑">
-            <datalist id="edge-label-options">${datalistOptions(EDGE_LABELS)}</datalist>
+            <input name="label" type="text" placeholder="輸入任何關係名稱，例如：懷疑、引申出、反駁、主管">
           </label>
           ${edgeStyleFieldsHtml(null)}
           <div class="form-actions"><button type="submit" class="btn btn-primary">新增關係</button></div>
@@ -602,6 +515,7 @@ export async function renderGraphPage(container, rawBookId) {
   });
 
   wireCoupleAutoColor(edgeForm);
+  wireEdgeColorSwatches(edgeForm);
 
   let groups = [];
   let nodes = [];
@@ -881,7 +795,7 @@ export async function renderGraphPage(container, rawBookId) {
         <label>姓名<input name="label" value="${escapeHtml(person.label)}" required></label>
         <label>頭銜／備註<input name="title" value="${escapeHtml(person.title)}" placeholder="例如：代理警隊長"></label>
         <label>狀態標籤
-          ${statusTagFieldHtml(person.status)}
+          <input type="text" name="status" value="${escapeHtml(person.status)}" placeholder="輸入任何狀態，例如：核心概念、待驗證、臥底">
         </label>
         <label>描述（補充說明，選填）
           <textarea name="description" rows="2">${escapeHtml(person.description)}</textarea>
@@ -900,7 +814,6 @@ export async function renderGraphPage(container, rawBookId) {
       </form>
     `;
     const form = selectionPanel.querySelector('#edit-person-form');
-    wireStatusTagInput(form);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const data = Object.fromEntries(new FormData(form).entries());
@@ -940,7 +853,7 @@ export async function renderGraphPage(container, rawBookId) {
     selectionPanel.innerHTML = `
       <h4>編輯關係</h4>
       <form id="edit-edge-form" class="book-form compact-form">
-        <label>關係<input name="label" list="edge-label-options" value="${escapeHtml(edge.label)}"></label>
+        <label>關係<input name="label" type="text" value="${escapeHtml(edge.label)}" placeholder="輸入任何關係名稱"></label>
         ${edgeStyleFieldsHtml(edge)}
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">儲存</button>
@@ -948,7 +861,9 @@ export async function renderGraphPage(container, rawBookId) {
         </div>
       </form>
     `;
-    wireCoupleAutoColor(selectionPanel.querySelector('#edit-edge-form'));
+    const editEdgeForm = selectionPanel.querySelector('#edit-edge-form');
+    wireCoupleAutoColor(editEdgeForm);
+    wireEdgeColorSwatches(editEdgeForm);
     selectionPanel.querySelector('#edit-edge-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       const data = Object.fromEntries(new FormData(event.target).entries());
