@@ -116,6 +116,12 @@ header h1 a {
   background: var(--surface-alt);
 }
 
+/* .btn 的 display:inline-block 一樣會蓋掉瀏覽器內建的 [hidden]{display:none}（author 規則贏過 UA 規則），
+   凡是會動態 hidden/unhidden 的按鈕（例如分類管理彈窗的「取消編輯」）都要靠這條才真的會消失。 */
+.btn[hidden] {
+  display: none;
+}
+
 .btn-primary {
   background: var(--primary);
   border-color: var(--primary);
@@ -1130,6 +1136,87 @@ header h1 a {
   justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.5rem;
+}
+
+.category-manager-card {
+  width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.category-manager-error {
+  margin: -0.4rem 0 0.8rem;
+  font-size: 0.8rem;
+  color: var(--danger);
+}
+
+.category-manager-divider {
+  border-top: 1px solid var(--border-soft);
+  margin: 1rem 0;
+}
+
+.category-manager-card h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.category-manager-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.category-manager-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-alt);
+}
+
+.category-manager-list li.empty {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  justify-content: center;
+  background: none;
+  border-style: dashed;
+}
+
+.cm-item-name {
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.cm-item-group {
+  margin-right: auto;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+}
+
+.cm-icon-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.cm-icon-btn:hover {
+  background: var(--surface);
 }
 
 .output-list {
