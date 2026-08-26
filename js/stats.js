@@ -18,6 +18,8 @@ export function computeStats(books, records) {
 
   const byYear = {};
   const byYearMonth = {};
+  const byYearCategory = {}; // { year: { category: count } }，給「該年最常閱讀類型」用
+  const byYearRatings = {}; // { year: [rating, ...] }，給「該年平均評分」用
   const completedByCategory = {};
 
   for (const record of completed) {
@@ -30,6 +32,13 @@ export function computeStats(books, records) {
     const book = bookById.get(record.bookId);
     const category = (book && book.category) || '未分類';
     completedByCategory[category] = (completedByCategory[category] || 0) + 1;
+    byYearCategory[year] = byYearCategory[year] || {};
+    byYearCategory[year][category] = (byYearCategory[year][category] || 0) + 1;
+
+    if (record.rating) {
+      byYearRatings[year] = byYearRatings[year] || [];
+      byYearRatings[year].push(record.rating);
+    }
   }
 
   const ratings = records.filter((r) => r.rating).map((r) => r.rating);
@@ -42,11 +51,28 @@ export function computeStats(books, records) {
   return {
     byYear,
     byYearMonth,
+    byYearCategory,
+    byYearRatings,
     availableYears: Object.keys(byYear).sort().reverse(),
     currentlyReading,
     libraryByCategory,
     averageRating,
     mostReadCategory: mostReadEntry ? mostReadEntry[0] : null,
+  };
+}
+
+// 「全部年份」用整體 averageRating／mostReadCategory；選了特定年份，就只看那一年完成的書。
+function statsForYear(stats, totalCompleted, year) {
+  if (!year) {
+    return { highlight: `全部已讀 ${totalCompleted} 本`, averageRating: stats.averageRating, mostReadCategory: stats.mostReadCategory };
+  }
+  const ratings = stats.byYearRatings[year] || [];
+  const averageRating = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
+  const categoryEntries = Object.entries(stats.byYearCategory[year] || {}).sort((a, b) => b[1] - a[1]);
+  return {
+    highlight: `${year} 年已讀 ${stats.byYear[year] || 0} 本`,
+    averageRating,
+    mostReadCategory: categoryEntries[0] ? categoryEntries[0][0] : null,
   };
 }
 
@@ -143,7 +169,10 @@ function categoryProgressListHtml(categoryEntries) {
 
 // 首頁側邊欄用的精簡版：拿掉月份分佈，只留數字概覽，讓「所有書籍」有空間當主角。
 // 年份仍可切換（下拉選單），因為使用者的完成日期常常橫跨好幾年，不能只鎖死顯示今年。
-export async function renderSidebarStats(container) {
+// options.onYearChange(year)：year 是選到的年份字串，選「全部年份」時是 null——
+// 讓外層（書籍列表）可以拿這個狀態去篩選右側清單，兩邊維持同一份「目前選的年份」。
+export async function renderSidebarStats(container, options = {}) {
+  const onYearChange = options.onYearChange || (() => {});
   const [books, records] = await Promise.all([DB.getAll('books'), DB.getAll('reading_records')]);
   const stats = computeStats(books, records);
   const currentYear = String(new Date().getFullYear());
@@ -156,23 +185,25 @@ export async function renderSidebarStats(container) {
   const completed = books.filter((b) => (recordByBook.get(b.id) || {}).status === '已讀完').length;
 
   const categoryEntries = Object.entries(stats.libraryByCategory).sort((a, b) => b[1] - a[1]);
+  const defaultYearStats = statsForYear(stats, completed, defaultYear);
 
   container.innerHTML = `
     <div class="sidebar-panel">
       <div class="sidebar-stat-heading-row">
         <h4>閱讀統計</h4>
         <select id="sidebar-stats-year-select" class="sidebar-year-select">
+          <option value="">全部年份</option>
           ${yearOptions.map((y) => `<option value="${escapeHtml(y)}" ${y === defaultYear ? 'selected' : ''}>${escapeHtml(y)} 年</option>`).join('')}
         </select>
       </div>
-      <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYear)} 年已讀 ${stats.byYear[defaultYear] || 0} 本</div>
+      <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYearStats.highlight)}</div>
       <div class="sidebar-stat-grid">
         <div class="sidebar-stat-cell"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
         <div class="sidebar-stat-cell"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
         <div class="sidebar-stat-cell"><span class="v">${completed}</span><span class="l">已讀完</span></div>
       </div>
-      <div class="sidebar-stat-row"><span>平均評分</span><span>${stats.averageRating !== null ? stats.averageRating.toFixed(1) : '—'}</span></div>
-      <div class="sidebar-stat-row"><span>最常閱讀類型</span><span>${escapeHtml(stats.mostReadCategory || '—')}</span></div>
+      <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
+      <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
     </div>
     <div class="sidebar-panel">
       <h4>各類型書籍數量</h4>
@@ -181,8 +212,12 @@ export async function renderSidebarStats(container) {
   `;
 
   container.querySelector('#sidebar-stats-year-select').addEventListener('change', (event) => {
-    const year = event.target.value;
-    container.querySelector('#sidebar-stats-highlight').textContent = `${year} 年已讀 ${stats.byYear[year] || 0} 本`;
+    const year = event.target.value || null;
+    const yearStats = statsForYear(stats, completed, year);
+    container.querySelector('#sidebar-stats-highlight').textContent = yearStats.highlight;
+    container.querySelector('#sidebar-stats-rating').textContent = yearStats.averageRating !== null ? yearStats.averageRating.toFixed(1) : '—';
+    container.querySelector('#sidebar-stats-category').textContent = yearStats.mostReadCategory || '—';
+    onYearChange(year);
   });
 
   const toggleBtn = container.querySelector('#category-progress-toggle');

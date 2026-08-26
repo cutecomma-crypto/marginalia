@@ -514,7 +514,10 @@ export async function renderBookList(container) {
       </aside>
       <div class="dashboard-main">
         <div class="toolbar">
-          <h2>所有書籍</h2>
+          <div class="toolbar-title-row">
+            <h2 id="book-list-title">所有書籍</h2>
+            <button type="button" class="btn year-filter-reset-btn" id="year-filter-reset-btn" hidden>✕ 顯示全部書籍</button>
+          </div>
           <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
         </div>
         <div class="search-row">
@@ -529,31 +532,62 @@ export async function renderBookList(container) {
     </div>
   `;
 
-  await renderSidebarStats(container.querySelector('#stats-panel-container'));
-  await renderFavoriteAuthorsPanel(container.querySelector('#favorite-authors-container'));
-  await renderRecentActivity(container.querySelector('#home-sections-container'));
-
+  const titleEl = container.querySelector('#book-list-title');
+  const yearResetBtn = container.querySelector('#year-filter-reset-btn');
   const searchInput = container.querySelector('#book-search');
   const sortSelect = container.querySelector('#book-sort-select');
   const bodyEl = container.querySelector('#book-list-body');
   const countEl = container.querySelector('#book-list-count');
 
+  // 左側「閱讀統計」的年份選單跟右側書籍列表是同一份狀態：選了年份，這裡的清單只留
+  // 「該年完成日期在該年份、且狀態已讀完」的書；選回「全部年份」就整個清空篩選。
+  let yearFilter = null;
+
   function renderList() {
     const query = searchInput.value.trim().toLowerCase();
-    const base = query
+    let base = query
       ? index.filter((entry) => entry.searchText.includes(query)).map((entry) => entry.book)
       : books;
+    if (yearFilter) {
+      base = base.filter((book) => {
+        const record = recordMap.get(book.id);
+        return record && record.status === '已讀完' && record.endDate && record.endDate.startsWith(yearFilter);
+      });
+    }
     const sorted = sortBooks(base, recordMap, sortSelect.value);
 
     if (sorted.length === 0) {
       bodyEl.innerHTML = query
         ? `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`
-        : '<p class="empty">還沒有任何書籍，點擊上方新增第一本。</p>';
+        : `<p class="empty">${yearFilter ? `${escapeHtml(yearFilter)} 年沒有已讀完的書籍。` : '還沒有任何書籍，點擊上方新增第一本。'}</p>`;
     } else {
       bodyEl.innerHTML = bookTableHtml(sorted, favoriteAuthors, recordMap);
     }
     countEl.textContent = sorted.length === books.length ? `共 ${books.length} 本` : `符合 ${sorted.length} 本（共 ${books.length} 本）`;
+
+    if (yearFilter) {
+      titleEl.textContent = `${yearFilter} 年已讀完書籍（共 ${sorted.length} 本）`;
+      yearResetBtn.hidden = false;
+    } else {
+      titleEl.textContent = '所有書籍';
+      yearResetBtn.hidden = true;
+    }
   }
+
+  yearResetBtn.addEventListener('click', () => {
+    yearFilter = null;
+    container.querySelector('#sidebar-stats-year-select').value = '';
+    container.querySelector('#sidebar-stats-year-select').dispatchEvent(new Event('change'));
+  });
+
+  await renderSidebarStats(container.querySelector('#stats-panel-container'), {
+    onYearChange: (year) => {
+      yearFilter = year;
+      renderList();
+    },
+  });
+  await renderFavoriteAuthorsPanel(container.querySelector('#favorite-authors-container'));
+  await renderRecentActivity(container.querySelector('#home-sections-container'));
 
   searchInput.addEventListener('input', renderList);
   sortSelect.addEventListener('change', renderList);
