@@ -1144,6 +1144,36 @@ header h1 a {
   overflow-y: auto;
 }
 
+.notion-import-card {
+  width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.notion-import-preview {
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+
+.notion-import-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.notion-import-preview th,
+.notion-import-preview td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.notion-import-preview th {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 .category-manager-error {
   margin: -0.4rem 0 0.8rem;
   font-size: 0.8rem;

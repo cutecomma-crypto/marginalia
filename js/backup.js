@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
+import { wireNotionImportButton } from './notionImport.js';
 
 // 對照 PROJECT_SPEC.md 第 9 節：本地儲存為主，必須支援匯出／匯入／備份，避免資料遺失。
 const STORE_LABELS = {
@@ -90,6 +91,13 @@ export async function renderBackupPage(container) {
       <input type="file" id="import-file" accept="application/json">
       <p id="import-status" class="graph-hint"></p>
     </div>
+
+    <div class="graph-panel">
+      <h4>匯入 Notion 資料</h4>
+      <p class="graph-hint">從 Notion 匯出閱讀紀錄的 CSV 檔案，對照欄位後可以直接併入現有書庫。書名跟現有書籍重複的資料列會自動略過，不會產生重複書籍。</p>
+      <button type="button" class="btn btn-primary" id="notion-import-btn">匯入 Notion 資料 (CSV)</button>
+      <p id="notion-import-status" class="graph-hint"></p>
+    </div>
   `;
 
   container.querySelector('#export-btn').addEventListener('click', async () => {
@@ -130,12 +138,23 @@ export async function renderBackupPage(container) {
         return;
       }
       await importAllData(parsed.data);
-      statusEl.textContent = '匯入完成，資料已還原。';
       fileInput.value = '';
+      // renderBackupPage 會整個重繪這個 container（含 statusEl 自己），要重繪完再設訊息，
+      // 不然訊息會被自己的重繪立刻蓋掉，使用者只會看到空白。
       await renderBackupPage(container);
+      container.querySelector('#import-status').textContent = '匯入完成，資料已還原。';
     } catch (err) {
       statusEl.textContent = `匯入失敗，沒有變更任何資料：檔案不是有效的 JSON（${err.message}）`;
       fileInput.value = '';
     }
   });
+
+  wireNotionImportButton(
+    container.querySelector('#notion-import-btn'),
+    container.querySelector('#notion-import-status'),
+    async (message) => {
+      await renderBackupPage(container);
+      container.querySelector('#notion-import-status').textContent = message;
+    },
+  );
 }
