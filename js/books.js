@@ -10,7 +10,7 @@ import { escapeHtml } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 1 節。「書籍類型」是固定選項＋可自訂的單選分類。
 const CATEGORY_GROUPS = [
-  { label: '文學小說', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學', '輕小說', '言情小說', 'BL'] },
+  { label: '文學小說', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學', '輕小說', '言情小說', '耽美'] },
   { label: '商業理財', options: ['職場工作術', '生產力/筆記術', '投資理財', '企業管理', '經濟趨勢'] },
   { label: '心理勵志', options: ['心理學理論', '自我提升', '人際關係', '心靈雞湯'] },
   { label: '人文社會', options: ['歷史', '哲學理論', '人物傳記', '社會科學'] },
@@ -348,22 +348,22 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
     <form id="book-form" class="book-form" novalidate>
       <fieldset class="form-section">
         <legend>📖 書籍基本資料</legend>
-        <label class="field-required field-wide">書名 *<input name="title" required value="${escapeHtml(book.title)}" placeholder="這本書叫什麼名字？"></label>
-        <label>作者
+        <label class="field-required field-wide" for="field-title">書名 *<input id="field-title" name="title" required value="${escapeHtml(book.title)}" placeholder="這本書叫什麼名字？"></label>
+        <label for="field-author">作者
           <span class="author-input-row">
-            <input name="author" value="${escapeHtml(book.author)}">
+            <input id="field-author" name="author" value="${escapeHtml(book.author)}">
             <button type="button" id="author-favorite-btn" class="star-btn${isFavoriteAuthor ? ' filled' : ''}" title="標記為喜愛的作者">♥</button>
           </span>
         </label>
-        <label>出版社<input name="publisher" value="${escapeHtml(book.publisher)}"></label>
-        <label>出版日期<input type="date" name="publishDate" value="${escapeHtml(book.publishDate)}"></label>
-        <label>分類
-          <select name="category">
+        <label for="field-publisher">出版社<input id="field-publisher" name="publisher" value="${escapeHtml(book.publisher)}"></label>
+        <label for="field-publish-date">出版日期<input id="field-publish-date" type="date" name="publishDate" value="${escapeHtml(book.publishDate)}"></label>
+        <label for="field-category">分類
+          <select id="field-category" name="category">
             <option value="">（先不分類）</option>
             ${categoryOptionsHtml(book.category)}
           </select>
         </label>
-        <label class="field-wide">封面圖片（選填）
+        <label class="field-wide" for="cover-file-input">封面圖片（選填）
           <div class="cover-upload" id="cover-upload">
             <div class="cover-preview" id="cover-preview">
               ${book.coverImage ? `<img src="${book.coverImage}" alt="封面預覽">` : '<span class="cover-preview-empty">尚未上傳封面</span>'}
@@ -379,27 +379,27 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
 
       <fieldset class="form-section form-section-quiet">
         <legend>🛒 擁有／購買資料</legend>
-        <label>購買日期<input type="date" name="purchaseDate" value="${escapeHtml(book.purchaseDate)}"></label>
-        <label>購買來源<input name="purchaseSource" value="${escapeHtml(book.purchaseSource)}"></label>
-        <label>購買價格<input type="number" name="purchasePrice" min="0" value="${escapeHtml(book.purchasePrice)}"></label>
-        <label>書籍形式
-          <select name="format">
+        <label for="field-purchase-date">購買日期<input id="field-purchase-date" type="date" name="purchaseDate" value="${escapeHtml(book.purchaseDate)}"></label>
+        <label for="field-purchase-source">購買來源<input id="field-purchase-source" name="purchaseSource" value="${escapeHtml(book.purchaseSource)}"></label>
+        <label for="field-purchase-price">購買價格<input id="field-purchase-price" type="number" name="purchasePrice" min="0" value="${escapeHtml(book.purchasePrice)}"></label>
+        <label for="field-format">書籍形式
+          <select id="field-format" name="format">
             ${FORMAT_OPTIONS.map((f) => `<option value="${escapeHtml(f)}" ${book.format === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
           </select>
         </label>
-        <label>存留狀態
+        <label for="retention-status-select">存留狀態
           <select name="retentionStatus" id="retention-status-select">
             ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
           </select>
         </label>
         <div class="field-wide library-borrow-fields" id="library-borrow-fields" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === BORROWED_RETENTION_STATUS ? '' : 'hidden'}>
-          <label>借閱管道
-            <select name="libraryBorrowType">
+          <label for="field-library-borrow-type">借閱管道
+            <select id="field-library-borrow-type" name="libraryBorrowType">
               ${LIBRARY_BORROW_TYPE_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${book.libraryBorrowType === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
             </select>
           </label>
-          <label>圖書館名稱
-            <input name="libraryName" value="${escapeHtml(book.libraryName)}" placeholder="例如：市立圖書館、HyRead 電子書平台">
+          <label for="field-library-name">圖書館名稱
+            <input id="field-library-name" name="libraryName" value="${escapeHtml(book.libraryName)}" placeholder="例如：市立圖書館、HyRead 電子書平台">
           </label>
         </div>
       </fieldset>
@@ -407,16 +407,16 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
       ${isNew ? `
       <fieldset class="form-section">
         <legend>📚 我的閱讀</legend>
-        <label>閱讀狀態
-          <select name="status">
+        <label for="field-status">閱讀狀態
+          <select id="field-status" name="status">
             ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${s === '尚未閱讀' ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
           </select>
         </label>
         <label class="field-wide">閱讀動機（可複選，選填）
           <span class="tag-checkboxes motivation-tags">${MOTIVATION_TAGS.map((m) => `<label><input type="checkbox" name="motivationTags" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('')}</span>
         </label>
-        <label class="field-wide">我現在為什麼想讀它？
-          <textarea name="motivationText" rows="2" placeholder="低壓力，想到什麼寫什麼，不寫也沒關係"></textarea>
+        <label class="field-wide" for="field-motivation-text">我現在為什麼想讀它？
+          <textarea id="field-motivation-text" name="motivationText" rows="2" placeholder="低壓力，想到什麼寫什麼，不寫也沒關係"></textarea>
         </label>
       </fieldset>
       ` : ''}

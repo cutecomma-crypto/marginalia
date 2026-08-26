@@ -59,8 +59,8 @@ header nav a {
 }
 
 main {
-  padding: 2rem;
-  max-width: 1100px;
+  padding: 2rem clamp(1.5rem, 4vw, 4rem);
+  max-width: 1440px;
   margin: 0 auto;
 }
 
