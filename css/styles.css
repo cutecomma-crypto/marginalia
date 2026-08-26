@@ -1080,6 +1080,58 @@ header h1 a {
   max-width: 220px;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 27, 20, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+}
+
+.modal-card {
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(35, 27, 20, 0.25);
+  padding: 1.5rem;
+  width: 360px;
+  max-width: 100%;
+}
+
+.modal-card h3 {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+}
+
+.modal-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.modal-card input,
+.modal-card select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
 .output-list {
   margin-top: 1rem;
   display: flex;

@@ -22,19 +22,24 @@ const CUSTOM_CATEGORY_STORAGE_KEY = 'marginalia:customCategories';
 
 // 使用者自己新增的分類存在 localStorage（跟 graph.js 的狀態標籤預設清單同一套做法），
 // 之後每次開表單都要記得，並且要合併進「已知分類」清單，不要被誤判成舊資料。
+// 每筆記錄現在存 { name, group }，才能知道要插進哪個大類別；改版前存的純字串陣列
+// 一樣要讀得出來（視為沒有所屬大類別，退回最底部的「自訂分類」區塊）。
 function loadCustomCategories() {
   try {
     const parsed = JSON.parse(localStorage.getItem(CUSTOM_CATEGORY_STORAGE_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((entry) => (typeof entry === 'string' ? { name: entry, group: '' } : entry))
+      .filter((entry) => entry && entry.name);
   } catch {
     return [];
   }
 }
 
-function addCustomCategory(name) {
+function addCustomCategory(name, group) {
   const list = loadCustomCategories();
-  if (!list.includes(name)) {
-    list.push(name);
+  if (!list.some((c) => c.name === name)) {
+    list.push({ name, group: group || '' });
     localStorage.setItem(CUSTOM_CATEGORY_STORAGE_KEY, JSON.stringify(list));
   }
   return list;
@@ -115,26 +120,90 @@ function wireCoverUpload(form) {
 
 // 舊資料若存了不在新清單裡的分類（例如改版前的「小說／文學」），
 // 不能讓它悄悄消失或被換掉，先當作暫時選項顯示，使用者自己決定要不要換成新分類。
+// 使用者自訂的分類會依照建立時選的大類別，插進對應 optgroup 的最後面；
+// 沒有選大類別的舊資料（改版前存的純字串）才會退回最底部的「自訂分類」區塊。
 function categoryOptionsHtml(selected) {
   const customCategories = loadCustomCategories();
-  const known = [...CATEGORY_GROUPS.flatMap((g) => g.options), ...customCategories];
+  const known = [...CATEGORY_GROUPS.flatMap((g) => g.options), ...customCategories.map((c) => c.name)];
   const legacyOption = selected && !known.includes(selected)
     ? `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}（舊分類）</option>`
     : '';
-  const groups = CATEGORY_GROUPS.map((g) => `
+  const groups = CATEGORY_GROUPS.map((g) => {
+    const extra = customCategories.filter((c) => c.group === g.label).map((c) => c.name);
+    const options = [...g.options, ...extra];
+    return `
     <optgroup label="${escapeHtml(g.label)}">
-      ${g.options.map((o) => `<option value="${escapeHtml(o)}" ${selected === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+      ${options.map((o) => `<option value="${escapeHtml(o)}" ${selected === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
     </optgroup>
-  `).join('');
-  const customGroup = customCategories.length > 0 ? `
+  `;
+  }).join('');
+  const knownGroupLabels = CATEGORY_GROUPS.map((g) => g.label);
+  const orphanCustom = customCategories.filter((c) => !knownGroupLabels.includes(c.group)).map((c) => c.name);
+  const customGroup = orphanCustom.length > 0 ? `
     <optgroup label="自訂分類">
-      ${customCategories.map((o) => `<option value="${escapeHtml(o)}" ${selected === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+      ${orphanCustom.map((o) => `<option value="${escapeHtml(o)}" ${selected === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
     </optgroup>
   ` : '';
   return `${legacyOption}${groups}${customGroup}<option value="${CUSTOM_CATEGORY_VALUE}">＋ 自訂分類...</option>`;
 }
 
-// 選到「＋ 自訂分類...」就跳出輸入框問名稱，存進個人分類清單，然後直接選中它；
+// 新增自訂分類的彈窗：問名稱，也問要放進哪個大類別，選好之後選單才能把它插進正確的 optgroup。
+// 回傳 Promise，取消（背景、Esc、取消鈕）都是 resolve(null)，讓呼叫端可以直接 await。
+function openCustomCategoryModal() {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="custom-category-modal-title">
+        <h3 id="custom-category-modal-title">新增自訂分類</h3>
+        <label for="custom-category-name-input">新分類名稱
+          <input type="text" id="custom-category-name-input" placeholder="例如：卡片盒筆記術">
+        </label>
+        <label for="custom-category-group-select">所屬大類別
+          <select id="custom-category-group-select">
+            ${CATEGORY_GROUPS.map((g) => `<option value="${escapeHtml(g.label)}">${escapeHtml(g.label)}</option>`).join('')}
+          </select>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="custom-category-cancel-btn">取消</button>
+          <button type="button" class="btn btn-primary" id="custom-category-confirm-btn">新增</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    const nameInput = backdrop.querySelector('#custom-category-name-input');
+    const groupSelect = backdrop.querySelector('#custom-category-group-select');
+    nameInput.focus();
+
+    function close(result) {
+      document.removeEventListener('keydown', onKeydown);
+      backdrop.remove();
+      resolve(result);
+    }
+    function confirm() {
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      close({ name, group: groupSelect.value });
+    }
+    function onKeydown(event) {
+      if (event.key === 'Escape') close(null);
+      else if (event.key === 'Enter' && document.activeElement === nameInput) confirm();
+    }
+
+    backdrop.addEventListener('mousedown', (event) => {
+      if (event.target === backdrop) close(null);
+    });
+    backdrop.querySelector('#custom-category-cancel-btn').addEventListener('click', () => close(null));
+    backdrop.querySelector('#custom-category-confirm-btn').addEventListener('click', confirm);
+    document.addEventListener('keydown', onKeydown);
+  });
+}
+
+// 選到「＋ 自訂分類...」就跳出彈窗問名稱和所屬大類別，存進個人分類清單，然後直接選中它；
 // 取消或沒輸入就退回選之前的值，不會讓選單卡在這個不是真分類的選項上。
 function wireCategorySelect(selectEl) {
   selectEl.dataset.prevValue = selectEl.value;
@@ -142,17 +211,17 @@ function wireCategorySelect(selectEl) {
   const suppressCoverFileClick = () => {
     if (fileInput) fileInput.dataset.suppressClickUntil = String(Date.now() + 600);
   };
-  selectEl.addEventListener('change', () => {
+  selectEl.addEventListener('change', async () => {
     if (selectEl.value === CUSTOM_CATEGORY_VALUE) {
-      const name = (window.prompt('請輸入新的分類名稱：') || '').trim();
-      if (!name) {
-        selectEl.value = selectEl.dataset.prevValue;
-        suppressCoverFileClick();
-        return;
-      }
-      addCustomCategory(name);
-      selectEl.innerHTML = `<option value="">（先不分類）</option>${categoryOptionsHtml(name)}`;
-      selectEl.value = name;
+      selectEl.value = selectEl.dataset.prevValue;
+      suppressCoverFileClick();
+      const result = await openCustomCategoryModal();
+      if (!result) return;
+      addCustomCategory(result.name, result.group);
+      selectEl.innerHTML = `<option value="">（先不分類）</option>${categoryOptionsHtml(result.name)}`;
+      selectEl.value = result.name;
+      selectEl.dataset.prevValue = selectEl.value;
+      return;
     }
     selectEl.dataset.prevValue = selectEl.value;
     suppressCoverFileClick();
