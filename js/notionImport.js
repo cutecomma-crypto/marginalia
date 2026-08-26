@@ -291,7 +291,10 @@ export function wireNotionImportButton(button, statusEl, onDone) {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.id = 'notion-import-hidden-file-input';
-  fileInput.accept = '.csv,text/csv';
+  // macOS 的原生選檔視窗有時候是照 MIME type 過濾，而 Notion 匯出的 .csv 常被系統標成
+  // application/vnd.ms-excel 甚至 text/plain，只寫 text/csv 會讓檔案整個變灰點不了；
+  // 這裡把常見的幾種都列進去，讓副檔名／MIME 只要對到一種就能選。
+  fileInput.accept = '.csv,text/csv,application/vnd.ms-excel,text/plain';
   fileInput.style.display = 'none';
   document.body.appendChild(fileInput);
 
@@ -303,7 +306,10 @@ export function wireNotionImportButton(button, statusEl, onDone) {
     if (!file) return;
 
     statusEl.textContent = '讀取 CSV 中…';
-    const text = await file.text();
+    // file.text() 本身就是用 UTF-8 解碼，Notion 匯出的 CSV 沒有編碼問題；
+    // 唯一要處理的是 Excel／部分匯出工具會在檔案最前面加一個 UTF-8 BOM（U+FEFF），
+    // 沒濾掉的話第一個欄位表頭會被污染出一個看不見的字元，選單對照時完全比對不到。
+    const text = (await file.text()).replace(/^﻿/, '');
     const { headers, rows } = parseCsv(text);
     if (headers.length === 0 || rows.length === 0) {
       statusEl.textContent = '匯入失敗：這個 CSV 檔案沒有可用的表頭或資料列。';
