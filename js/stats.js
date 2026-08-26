@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
+import { buildRecordByBookMap, isCompletedInYear } from './bookStats.js';
 
 // 對照 PROJECT_SPEC.md 第 3 節與 B 原則 6：全部自動計算，不可手動輸入。
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -171,11 +172,7 @@ function categoryProgressListHtml(categoryEntries) {
 function categoryEntriesForYear(books, recordByBook, year) {
   const counts = {};
   for (const book of books) {
-    if (year) {
-      const record = recordByBook.get(book.id);
-      const completedInYear = record && record.status === '已讀完' && record.endDate && record.endDate.startsWith(year);
-      if (!completedInYear) continue;
-    }
+    if (year && !isCompletedInYear(recordByBook.get(book.id), year)) continue;
     const category = book.category || '未分類';
     counts[category] = (counts[category] || 0) + 1;
   }
@@ -214,7 +211,7 @@ export async function renderSidebarStats(container, options = {}) {
   if (!yearOptions.includes(currentYear)) yearOptions.unshift(currentYear);
   const defaultYear = yearOptions.includes(currentYear) ? currentYear : yearOptions[0];
 
-  const recordByBook = new Map(records.map((r) => [r.bookId, r]));
+  const recordByBook = buildRecordByBookMap(records);
   const wantToRead = books.filter((b) => ((recordByBook.get(b.id) || {}).status || '尚未閱讀') === '尚未閱讀').length;
   const completed = books.filter((b) => (recordByBook.get(b.id) || {}).status === '已讀完').length;
 

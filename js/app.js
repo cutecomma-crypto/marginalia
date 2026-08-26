@@ -1,4 +1,6 @@
-import { renderBookList, renderBookForm, renderBookDetail } from './books.js';
+import { renderBookList } from './bookList.js';
+import { renderBookForm } from './bookForm.js';
+import { renderBookDetail } from './bookDetail.js';
 import { renderGraphPage } from './graph.js';
 import { renderQuotesPage } from './quotes.js';
 import { renderBackupPage } from './backup.js';

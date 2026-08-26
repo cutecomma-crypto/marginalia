@@ -1,0 +1,280 @@
+import { DB } from './db.js';
+import { escapeHtml } from './utils.js';
+
+// 對照 PROJECT_SPEC.md 第 1 節。「書籍類型」是固定選項＋可自訂的單選分類。
+export const CATEGORY_GROUPS = [
+  { label: '文學小說', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學', '輕小說', '言情小說', '耽美'] },
+  { label: '商業理財', options: ['職場工作術', '生產力/筆記術', '投資理財', '企業管理', '經濟趨勢'] },
+  { label: '心理勵志', options: ['心理學理論', '自我提升', '人際關係', '心靈雞湯'] },
+  { label: '人文社會', options: ['歷史', '哲學理論', '人物傳記', '社會科學'] },
+  { label: '生活應用/工具', options: ['學習法/思考術', '電腦資訊', '語言學習', '生活風格'] },
+  { label: '藝術設計', options: ['美術設計', '電影表演', '音樂建築'] },
+];
+export const CUSTOM_CATEGORY_VALUE = '__custom__';
+const CUSTOM_CATEGORY_STORAGE_KEY = 'marginalia:customCategories';
+
+// 使用者自己新增的分類存在 localStorage（跟 graph.js 的狀態標籤預設清單同一套做法），
+// 之後每次開表單都要記得，並且要合併進「已知分類」清單，不要被誤判成舊資料。
+// 每筆記錄現在存 { name, group }，才能知道要插進哪個大類別；改版前存的純字串陣列
+// 一樣要讀得出來（視為沒有所屬大類別，退回最底部的「自訂分類」區塊）。
+function loadCustomCategories() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_CATEGORY_STORAGE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((entry) => (typeof entry === 'string' ? { name: entry, group: '' } : entry))
+      .filter((entry) => entry && entry.name);
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomCategories(list) {
+  localStorage.setItem(CUSTOM_CATEGORY_STORAGE_KEY, JSON.stringify(list));
+}
+
+function addCustomCategory(name, group) {
+  const list = loadCustomCategories();
+  if (!list.some((c) => c.name === name)) {
+    list.push({ name, group: group || '' });
+    saveCustomCategories(list);
+  }
+  return list;
+}
+
+// 刪除自訂分類時，除了從個人分類清單移除，也要把已經套用這個分類的書籍改回「先不分類」，
+// 不然書籍資料裡會留著一個選單上再也選不到、找不到來源的分類字串。
+async function removeCustomCategoryEverywhere(name) {
+  saveCustomCategories(loadCustomCategories().filter((c) => c.name !== name));
+  const books = await DB.getAll('books');
+  for (const book of books) {
+    if (book.category === name) {
+      await DB.update('books', { ...book, category: '' });
+    }
+  }
+}
+
+// 改名／改所屬大類別：清單裡的記錄直接覆寫；如果名稱真的變了，已經套用舊名稱的書籍也要一起改過去，
+// 不然書籍資料會停留在一個已經不存在的舊分類名稱上。
+async function renameCustomCategoryEverywhere(oldName, newName, newGroup) {
+  saveCustomCategories(loadCustomCategories().map((c) => (c.name === oldName ? { name: newName, group: newGroup || '' } : c)));
+  if (newName === oldName) return;
+  const books = await DB.getAll('books');
+  for (const book of books) {
+    if (book.category === oldName) {
+      await DB.update('books', { ...book, category: newName });
+    }
+  }
+}
+
+// 舊資料若存了不在新清單裡的分類（例如改版前的「小說／文學」），
+// 不能讓它悄悄消失或被換掉，先當作暫時選項顯示，使用者自己決定要不要換成新分類。
+// 使用者自訂的分類會依照建立時選的大類別，插進對應 optgroup 的最後面；
+// 沒有選大類別的舊資料（改版前存的純字串）才會退回最底部的「自訂分類」區塊。
+export function categoryOptionsHtml(selected) {
+  const customCategories = loadCustomCategories();
+  const known = [...CATEGORY_GROUPS.flatMap((g) => g.options), ...customCategories.map((c) => c.name)];
+  const legacyOption = selected && !known.includes(selected)
+    ? `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}（舊分類）</option>`
+    : '';
+  const groups = CATEGORY_GROUPS.map((g) => {
+    const extra = customCategories.filter((c) => c.group === g.label).map((c) => c.name);
+    const options = [...g.options, ...extra];
+    return `
+    <optgroup label="${escapeHtml(g.label)}">
+      ${options.map((o) => `<option value="${escapeHtml(o)}" ${selected === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+    </optgroup>
+  `;
+  }).join('');
+  const knownGroupLabels = CATEGORY_GROUPS.map((g) => g.label);
+  const orphanCustom = customCategories.filter((c) => !knownGroupLabels.includes(c.group)).map((c) => c.name);
+  const customGroup = orphanCustom.length > 0 ? `
+    <optgroup label="自訂分類">
+      ${orphanCustom.map((o) => `<option value="${escapeHtml(o)}" ${selected === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+    </optgroup>
+  ` : '';
+  return `${legacyOption}${groups}${customGroup}<option value="${CUSTOM_CATEGORY_VALUE}">＋ 自訂分類...</option>`;
+}
+
+// 自訂分類管理彈窗：上半是新增／編輯表單，下半是目前所有自訂分類的清單（可編輯、可刪除）。
+// 系統預設的經典分類不會出現在這個清單裡，本來就無從刪改，天生受保護。
+// 回傳 Promise，resolve 成 { name } 表示「請把選單選到這個分類」，resolve(null) 表示維持原本選擇；
+// 不論哪種情況，呼叫端都要重新產生選單內容，因為分類清單在彈窗開著的期間可能被改過。
+function openCustomCategoryModal() {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal-card category-manager-card" role="dialog" aria-modal="true" aria-labelledby="custom-category-modal-title">
+        <h3 id="custom-category-modal-title">自訂分類管理</h3>
+        <label for="custom-category-name-input" id="custom-category-name-label">新分類名稱
+          <input type="text" id="custom-category-name-input" placeholder="例如：卡片盒筆記術">
+        </label>
+        <label for="custom-category-group-select">所屬大類別
+          <select id="custom-category-group-select">
+            ${CATEGORY_GROUPS.map((g) => `<option value="${escapeHtml(g.label)}">${escapeHtml(g.label)}</option>`).join('')}
+          </select>
+        </label>
+        <p class="category-manager-error" id="custom-category-error" hidden></p>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="custom-category-cancel-edit-btn" hidden>取消編輯</button>
+          <button type="button" class="btn btn-primary" id="custom-category-submit-btn">新增</button>
+        </div>
+        <div class="category-manager-divider"></div>
+        <h4>已建立的自訂分類</h4>
+        <ul class="category-manager-list" id="custom-category-list"></ul>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="custom-category-close-btn">關閉</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    const nameLabel = backdrop.querySelector('#custom-category-name-label');
+    const nameInput = backdrop.querySelector('#custom-category-name-input');
+    const groupSelect = backdrop.querySelector('#custom-category-group-select');
+    const errorEl = backdrop.querySelector('#custom-category-error');
+    const submitBtn = backdrop.querySelector('#custom-category-submit-btn');
+    const cancelEditBtn = backdrop.querySelector('#custom-category-cancel-edit-btn');
+    const listEl = backdrop.querySelector('#custom-category-list');
+    nameInput.focus();
+
+    let editingName = null; // 目前正在編輯的原始名稱；null 代表現在是新增模式
+    let lastAppliedName = null; // 最近一次新增／編輯成功的名稱，關閉彈窗時要讓選單選到它
+
+    function showError(message) {
+      errorEl.textContent = message;
+      errorEl.hidden = false;
+    }
+    function clearError() {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
+
+    function enterAddMode() {
+      editingName = null;
+      nameLabel.firstChild.textContent = '新分類名稱';
+      submitBtn.textContent = '新增';
+      cancelEditBtn.hidden = true;
+      nameInput.value = '';
+      groupSelect.value = CATEGORY_GROUPS[0].label;
+      clearError();
+    }
+
+    function enterEditMode(category) {
+      editingName = category.name;
+      nameLabel.firstChild.textContent = '編輯分類名稱';
+      submitBtn.textContent = '更新';
+      cancelEditBtn.hidden = false;
+      nameInput.value = category.name;
+      groupSelect.value = CATEGORY_GROUPS.some((g) => g.label === category.group) ? category.group : CATEGORY_GROUPS[0].label;
+      clearError();
+      nameInput.focus();
+    }
+
+    function renderList() {
+      const categories = loadCustomCategories();
+      listEl.innerHTML = categories.length === 0
+        ? '<li class="empty">還沒有自訂分類。</li>'
+        : categories.map((c) => `
+          <li data-name="${escapeHtml(c.name)}">
+            <span class="cm-item-name">${escapeHtml(c.name)}</span>
+            <span class="cm-item-group">${escapeHtml(c.group || '未分組')}</span>
+            <button type="button" class="cm-icon-btn cm-edit-btn" title="編輯「${escapeHtml(c.name)}」">✏️</button>
+            <button type="button" class="cm-icon-btn cm-delete-btn" title="刪除「${escapeHtml(c.name)}」">🗑️</button>
+          </li>
+        `).join('');
+
+      listEl.querySelectorAll('.cm-edit-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const name = btn.closest('li').dataset.name;
+          const category = categories.find((c) => c.name === name);
+          if (category) enterEditMode(category);
+        });
+      });
+      listEl.querySelectorAll('.cm-delete-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const name = btn.closest('li').dataset.name;
+          if (!window.confirm(`確定要刪除「${name}」分類嗎？已經套用這個分類的書籍會改回「先不分類」。`)) return;
+          await removeCustomCategoryEverywhere(name);
+          if (editingName === name) enterAddMode();
+          if (lastAppliedName === name) lastAppliedName = null;
+          renderList();
+        });
+      });
+    }
+
+    async function submit() {
+      const name = nameInput.value.trim();
+      if (!name) {
+        showError('請輸入分類名稱。');
+        nameInput.focus();
+        return;
+      }
+      const group = groupSelect.value;
+      const allNames = [...CATEGORY_GROUPS.flatMap((g) => g.options), ...loadCustomCategories().map((c) => c.name)];
+      const isDuplicate = allNames.some((n) => n === name && n !== editingName);
+      if (isDuplicate) {
+        showError('這個分類名稱已經存在了。');
+        return;
+      }
+      if (editingName) {
+        await renameCustomCategoryEverywhere(editingName, name, group);
+      } else {
+        addCustomCategory(name, group);
+      }
+      lastAppliedName = name;
+      enterAddMode();
+      renderList();
+    }
+
+    function close() {
+      document.removeEventListener('keydown', onKeydown);
+      backdrop.remove();
+      resolve(lastAppliedName ? { name: lastAppliedName } : null);
+    }
+    function onKeydown(event) {
+      if (event.key === 'Escape') close();
+      else if (event.key === 'Enter' && document.activeElement === nameInput) submit();
+    }
+
+    backdrop.addEventListener('mousedown', (event) => {
+      if (event.target === backdrop) close();
+    });
+    cancelEditBtn.addEventListener('click', enterAddMode);
+    submitBtn.addEventListener('click', submit);
+    backdrop.querySelector('#custom-category-close-btn').addEventListener('click', close);
+    document.addEventListener('keydown', onKeydown);
+
+    renderList();
+  });
+}
+
+// 選到「＋ 自訂分類...」就跳出彈窗問名稱和所屬大類別，存進個人分類清單，然後直接選中它；
+// 取消或沒輸入就退回選之前的值，不會讓選單卡在這個不是真分類的選項上。
+export function wireCategorySelect(selectEl) {
+  selectEl.dataset.prevValue = selectEl.value;
+  const fileInput = selectEl.form ? selectEl.form.querySelector('#cover-file-input') : null;
+  const suppressCoverFileClick = () => {
+    if (fileInput) fileInput.dataset.suppressClickUntil = String(Date.now() + 600);
+  };
+  selectEl.addEventListener('change', async () => {
+    if (selectEl.value === CUSTOM_CATEGORY_VALUE) {
+      const valueBeforeModal = selectEl.dataset.prevValue;
+      selectEl.value = valueBeforeModal;
+      suppressCoverFileClick();
+      const result = await openCustomCategoryModal();
+      // 管理彈窗開著的期間，分類清單可能被新增／改名／刪除過，選單一律重新整套產生；
+      // 原本選的值如果剛好是被刪掉的分類，就自動退回「先不分類」，不留一個選不到的殘影選項。
+      const known = new Set([...CATEGORY_GROUPS.flatMap((g) => g.options), ...loadCustomCategories().map((c) => c.name)]);
+      const nextValue = result ? result.name : (known.has(valueBeforeModal) ? valueBeforeModal : '');
+      selectEl.innerHTML = `<option value="">（先不分類）</option>${categoryOptionsHtml(nextValue)}`;
+      selectEl.value = nextValue;
+      selectEl.dataset.prevValue = selectEl.value;
+      return;
+    }
+    selectEl.dataset.prevValue = selectEl.value;
+    suppressCoverFileClick();
+  });
+  selectEl.addEventListener('blur', suppressCoverFileClick);
+}

@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
+import { buildRecordByBookMap, isCompletedInYear } from './bookStats.js';
 
 // 喜愛作者用「名字」比對，不是綁定某一本書，所以同一位作者的所有書都會一起標記。
 export async function getFavoriteAuthorMap() {
@@ -28,16 +29,12 @@ export async function renderFavoriteAuthorsPanel(container, year = null) {
     DB.getAll('books'),
     DB.getAll('reading_records'),
   ]);
-  const recordByBook = new Map(records.map((r) => [r.bookId, r]));
+  const recordByBook = buildRecordByBookMap(records);
 
   const countByAuthor = {};
   books.forEach((b) => {
     if (!b.author) return;
-    if (year) {
-      const record = recordByBook.get(b.id);
-      const completedInYear = record && record.status === '已讀完' && record.endDate && record.endDate.startsWith(year);
-      if (!completedInYear) return;
-    }
+    if (year && !isCompletedInYear(recordByBook.get(b.id), year)) return;
     countByAuthor[b.author] = (countByAuthor[b.author] || 0) + 1;
   });
 
