@@ -40,7 +40,7 @@ export async function renderReadingSection(container, bookId, book) {
         <label>閱讀進度
           <span class="page-progress">
             第 <input type="number" name="currentPage" min="0" value="${escapeHtml(currentPage)}" class="page-input"> /
-            ${totalPages ? `${escapeHtml(totalPages)} 頁` : '（未填寫總頁數）'}
+            ${totalPages ? `${escapeHtml(totalPages)} 頁` : ''}
             <span id="progress-percentage">${percentage !== null ? `（${percentage}%）` : ''}</span>
           </span>
         </label>
