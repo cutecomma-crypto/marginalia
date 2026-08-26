@@ -580,13 +580,15 @@ export async function renderBookList(container) {
     container.querySelector('#sidebar-stats-year-select').dispatchEvent(new Event('change'));
   });
 
+  const favoriteAuthorsContainer = container.querySelector('#favorite-authors-container');
   await renderSidebarStats(container.querySelector('#stats-panel-container'), {
     onYearChange: (year) => {
       yearFilter = year;
       renderList();
+      renderFavoriteAuthorsPanel(favoriteAuthorsContainer, year);
     },
   });
-  await renderFavoriteAuthorsPanel(container.querySelector('#favorite-authors-container'));
+  await renderFavoriteAuthorsPanel(favoriteAuthorsContainer);
   await renderRecentActivity(container.querySelector('#home-sections-container'));
 
   searchInput.addEventListener('input', renderList);

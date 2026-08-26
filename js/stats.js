@@ -167,10 +167,44 @@ function categoryProgressListHtml(categoryEntries) {
   `;
 }
 
+// 「全部年份」看全站累積的分類分佈；選了年份，只算「那一年完成」的書籍落在哪些分類。
+function categoryEntriesForYear(books, recordByBook, year) {
+  const counts = {};
+  for (const book of books) {
+    if (year) {
+      const record = recordByBook.get(book.id);
+      const completedInYear = record && record.status === '已讀完' && record.endDate && record.endDate.startsWith(year);
+      if (!completedInYear) continue;
+    }
+    const category = book.category || '未分類';
+    counts[category] = (counts[category] || 0) + 1;
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+function categorySectionHtml(categoryEntries, year) {
+  return `
+    <h4>各類型書籍數量${year ? `<span class="sidebar-year-tag">${escapeHtml(year)} 年已讀完</span>` : ''}</h4>
+    ${categoryProgressListHtml(categoryEntries)}
+  `;
+}
+
+function wireCategoryToggle(container) {
+  const toggleBtn = container.querySelector('#category-progress-toggle');
+  if (!toggleBtn) return;
+  toggleBtn.addEventListener('click', () => {
+    const extra = container.querySelector('#category-progress-extra');
+    const nowHidden = !extra.hidden;
+    extra.hidden = nowHidden;
+    toggleBtn.textContent = nowHidden ? toggleBtn.dataset.collapsedLabel : '收起';
+  });
+  toggleBtn.dataset.collapsedLabel = toggleBtn.textContent;
+}
+
 // 首頁側邊欄用的精簡版：拿掉月份分佈，只留數字概覽，讓「所有書籍」有空間當主角。
 // 年份仍可切換（下拉選單），因為使用者的完成日期常常橫跨好幾年，不能只鎖死顯示今年。
 // options.onYearChange(year)：year 是選到的年份字串，選「全部年份」時是 null——
-// 讓外層（書籍列表）可以拿這個狀態去篩選右側清單，兩邊維持同一份「目前選的年份」。
+// 讓外層（書籍列表、喜愛的作者）可以拿這個狀態去同步篩選，全部維持同一份「目前選的年份」。
 export async function renderSidebarStats(container, options = {}) {
   const onYearChange = options.onYearChange || (() => {});
   const [books, records] = await Promise.all([DB.getAll('books'), DB.getAll('reading_records')]);
@@ -184,7 +218,6 @@ export async function renderSidebarStats(container, options = {}) {
   const wantToRead = books.filter((b) => ((recordByBook.get(b.id) || {}).status || '尚未閱讀') === '尚未閱讀').length;
   const completed = books.filter((b) => (recordByBook.get(b.id) || {}).status === '已讀完').length;
 
-  const categoryEntries = Object.entries(stats.libraryByCategory).sort((a, b) => b[1] - a[1]);
   const defaultYearStats = statsForYear(stats, completed, defaultYear);
 
   container.innerHTML = `
@@ -205,11 +238,12 @@ export async function renderSidebarStats(container, options = {}) {
       <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
       <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
     </div>
-    <div class="sidebar-panel">
-      <h4>各類型書籍數量</h4>
-      ${categoryProgressListHtml(categoryEntries)}
-    </div>
+    <div class="sidebar-panel" id="sidebar-category-panel"></div>
   `;
+
+  const categoryPanel = container.querySelector('#sidebar-category-panel');
+  categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, null), null);
+  wireCategoryToggle(categoryPanel);
 
   container.querySelector('#sidebar-stats-year-select').addEventListener('change', (event) => {
     const year = event.target.value || null;
@@ -217,17 +251,10 @@ export async function renderSidebarStats(container, options = {}) {
     container.querySelector('#sidebar-stats-highlight').textContent = yearStats.highlight;
     container.querySelector('#sidebar-stats-rating').textContent = yearStats.averageRating !== null ? yearStats.averageRating.toFixed(1) : '—';
     container.querySelector('#sidebar-stats-category').textContent = yearStats.mostReadCategory || '—';
+
+    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year);
+    wireCategoryToggle(categoryPanel);
+
     onYearChange(year);
   });
-
-  const toggleBtn = container.querySelector('#category-progress-toggle');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      const extra = container.querySelector('#category-progress-extra');
-      const nowHidden = !extra.hidden;
-      extra.hidden = nowHidden;
-      toggleBtn.textContent = nowHidden ? toggleBtn.dataset.collapsedLabel : '收起';
-    });
-    toggleBtn.dataset.collapsedLabel = toggleBtn.textContent;
-  }
 }

@@ -20,18 +20,34 @@ export async function toggleFavoriteAuthor(name, favoriteMap) {
   return favoriteMap;
 }
 
-export async function renderFavoriteAuthorsPanel(container) {
-  const [favoriteMap, books] = await Promise.all([getFavoriteAuthorMap(), DB.getAll('books')]);
-  const names = Array.from(favoriteMap.keys()).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+// year 為 null 代表「全部年份」：本數＝作者全站累積書籍量，名單按字母排序；
+// 指定年份時，本數只算「該年完成」的書，並改成依本數由多到少排序，讓當年讀最多的喜愛作者排在最上面。
+export async function renderFavoriteAuthorsPanel(container, year = null) {
+  const [favoriteMap, books, records] = await Promise.all([
+    getFavoriteAuthorMap(),
+    DB.getAll('books'),
+    DB.getAll('reading_records'),
+  ]);
+  const recordByBook = new Map(records.map((r) => [r.bookId, r]));
+
   const countByAuthor = {};
   books.forEach((b) => {
     if (!b.author) return;
+    if (year) {
+      const record = recordByBook.get(b.id);
+      const completedInYear = record && record.status === '已讀完' && record.endDate && record.endDate.startsWith(year);
+      if (!completedInYear) return;
+    }
     countByAuthor[b.author] = (countByAuthor[b.author] || 0) + 1;
   });
 
+  const names = year
+    ? Array.from(favoriteMap.keys()).sort((a, b) => (countByAuthor[b] || 0) - (countByAuthor[a] || 0) || a.localeCompare(b, 'zh-Hant'))
+    : Array.from(favoriteMap.keys()).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+
   container.innerHTML = `
     <div class="sidebar-panel">
-      <h4>喜愛的作者</h4>
+      <h4>喜愛的作者${year ? `<span class="sidebar-year-tag">${escapeHtml(year)} 年已讀完</span>` : ''}</h4>
       ${names.length === 0
         ? '<p class="empty">還沒有標記喜愛的作者，可以在書籍表單「作者」欄位旁點星號新增。</p>'
         : `<ul class="favorite-author-list">
