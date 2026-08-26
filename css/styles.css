@@ -420,6 +420,30 @@ header h1 a {
   gap: 1rem;
   position: sticky;
   top: 1rem;
+  /* 吸頂固定之後，側邊欄自己要有獨立高度上限＋可捲動，右側書籍清單再長，
+     使用者也只要滑側邊欄本身就能看到最下面的「最近關聯」，不用滑整頁。 */
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.dashboard-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard-sidebar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.dashboard-sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .dashboard-main {
@@ -433,6 +457,8 @@ header h1 a {
   .dashboard-sidebar {
     position: static;
     order: 2;
+    max-height: none;
+    overflow-y: visible;
   }
   .dashboard-main {
     order: 1;
