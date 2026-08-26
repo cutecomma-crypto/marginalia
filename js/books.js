@@ -81,6 +81,17 @@ function wireCoverUpload(form) {
   const valueInput = form.querySelector('#cover-image-value');
   const removeBtn = form.querySelector('#cover-remove-btn');
 
+  // 部分手機瀏覽器在關閉「分類」這種選項很多的原生下拉選單時，偶爾會把關閉當下的觸控事件
+  // 誤判成點在下面緊鄰的檔案輸入框上，憑空跳出選擇檔案視窗。這裡不管實際成因是什麼，
+  // 只要是「分類」欄位剛互動完的一小段時間內，一律擋掉檔案輸入框的點擊，從根本阻止誤觸。
+  fileInput.addEventListener('click', (event) => {
+    const suppressUntil = Number(fileInput.dataset.suppressClickUntil || 0);
+    if (Date.now() < suppressUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
     if (!file) return;
@@ -127,11 +138,16 @@ function categoryOptionsHtml(selected) {
 // 取消或沒輸入就退回選之前的值，不會讓選單卡在這個不是真分類的選項上。
 function wireCategorySelect(selectEl) {
   selectEl.dataset.prevValue = selectEl.value;
+  const fileInput = selectEl.form ? selectEl.form.querySelector('#cover-file-input') : null;
+  const suppressCoverFileClick = () => {
+    if (fileInput) fileInput.dataset.suppressClickUntil = String(Date.now() + 600);
+  };
   selectEl.addEventListener('change', () => {
     if (selectEl.value === CUSTOM_CATEGORY_VALUE) {
       const name = (window.prompt('請輸入新的分類名稱：') || '').trim();
       if (!name) {
         selectEl.value = selectEl.dataset.prevValue;
+        suppressCoverFileClick();
         return;
       }
       addCustomCategory(name);
@@ -139,7 +155,9 @@ function wireCategorySelect(selectEl) {
       selectEl.value = name;
     }
     selectEl.dataset.prevValue = selectEl.value;
+    suppressCoverFileClick();
   });
+  selectEl.addEventListener('blur', suppressCoverFileClick);
 }
 
 // 存留狀態選「借閱」才展開圖書館借閱細節，其他狀態下藏起來，避免表單看起來欄位一堆用不到。
