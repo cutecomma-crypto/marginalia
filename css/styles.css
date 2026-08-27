@@ -711,30 +711,9 @@ header h1 a {
   flex-shrink: 0;
 }
 
-.book-status-badge {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 0.15rem 0.65rem;
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-
-.book-status-badge.is-completed {
-  background: var(--accent-green-soft);
-  color: var(--accent-green);
-}
-
-.badge-calendar-icon {
-  width: 0.8em;
-  height: 0.8em;
-  vertical-align: -0.1em;
-  margin-right: 0.15rem;
+.book-completed-date {
   color: var(--text-muted);
-  opacity: 0.6;
-}
-
-.book-status-empty {
-  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .book-form fieldset {
