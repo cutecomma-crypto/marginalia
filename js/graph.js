@@ -155,7 +155,7 @@ function colorSwatchPickerHtml(group) {
       <button type="button" class="group-color-trigger" style="background: ${escapeHtml(current)};" title="群組顏色" aria-label="選擇群組顏色"></button>
       <div class="group-color-swatches" hidden>
         ${GROUP_COLOR_PALETTE.map((c) => `
-          <button type="button" class="group-color-swatch${c.hex === current ? ' is-selected' : ''}" data-hex="${c.hex}" style="background: ${c.hex};" title="${escapeHtml(c.name)}"></button>
+          <button type="button" class="group-color-swatch${c.hex === current ? ' is-selected' : ''}" data-hex="${c.hex}" style="background: ${c.hex};" data-tooltip="${escapeHtml(c.name)}" aria-label="選擇群組顏色 ${escapeHtml(c.name)}"></button>
         `).join('')}
       </div>
     </div>
@@ -705,12 +705,17 @@ export async function renderGraphPage(container, rawBookId) {
       });
     });
 
-    // 群組卡片自由拖曳：按住把手用滑鼠事件直接搬動卡片（不是 HTML5 drag），
-    // 放開時把當下的畫布座標存進 group.x / group.y，跟人物卡片的拖放邏輯完全分開、互不影響。
-    trackEl.querySelectorAll('.group-drag-handle').forEach((handle) => {
-      handle.addEventListener('mousedown', (event) => {
+    // 群組卡片自由拖曳：整個標題區（名稱、副標旁的空白處，含原本的 ⠿ 把手）都能按住拖曳，
+    // 不用再精準點在那顆小把手上。點到名稱／副標輸入框、顏色選擇器、刪除按鈕則排除，
+    // 讓這些控制項維持原本可以正常點擊、輸入的行為，不會被誤判成拖曳。
+    // 用滑鼠事件直接搬動卡片（不是 HTML5 drag），放開時把座標存進 group.x / group.y，
+    // 跟人物卡片的拖放邏輯完全分開、互不影響。
+    const GROUP_DRAG_EXCLUDE_SELECTOR = '.group-name-input, .group-subtitle-input, .group-color-picker, .group-delete-btn';
+    trackEl.querySelectorAll('.group-card-header').forEach((header) => {
+      header.addEventListener('mousedown', (event) => {
+        if (event.target.closest(GROUP_DRAG_EXCLUDE_SELECTOR)) return;
         event.preventDefault();
-        const card = handle.closest('.group-card[data-group-id]');
+        const card = header.closest('.group-card[data-group-id]');
         if (!card) return;
         const groupId = Number(card.dataset.groupId);
         const startX = event.clientX;

@@ -1740,6 +1740,11 @@ header h1 a {
   flex-direction: column;
   gap: 0.15rem;
   border-radius: 8px 8px 0 0;
+  cursor: grab;
+}
+
+.group-card.is-dragging .group-card-header {
+  cursor: grabbing;
 }
 
 .group-card-header-main {
@@ -1757,6 +1762,7 @@ header h1 a {
   font-size: 1.05rem;
   padding: 0.2rem 0.15rem;
   color: #fff;
+  cursor: text;
 }
 
 .group-name-input:focus {
@@ -1771,6 +1777,7 @@ header h1 a {
   padding: 0 0.15rem 0.05rem;
   color: rgba(255, 255, 255, 0.85);
   width: 100%;
+  cursor: text;
 }
 
 .group-subtitle-input::placeholder {
@@ -1824,6 +1831,7 @@ header h1 a {
 }
 
 .group-color-swatch {
+  position: relative;
   width: 1.3rem;
   height: 1.3rem;
   padding: 0;
@@ -1835,6 +1843,34 @@ header h1 a {
 .group-color-swatch.is-selected {
   border-color: var(--text);
   box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* 色塊懸停提示：色名短小的簡約黑底小標籤，浮在色塊正上方，取代原生 title
+   （原生提示要等一秒才跳、樣式又不受控）。手機用 :active（按住不放）觸發同一個提示。 */
+.group-color-swatch::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.65rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 40;
+}
+
+.group-color-swatch:hover::after,
+.group-color-swatch:active::after,
+.group-color-swatch:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .group-delete-btn {
