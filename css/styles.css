@@ -1592,26 +1592,11 @@ header h1 a {
   margin: -0.3rem 0 0.8rem;
 }
 
-/* 心得輸入框上方的極簡 Markdown 工具列：小小一排圓角按鈕，份量刻意做輕，
-   不搶輸入框本身的焦點，只是舉手之勞的排版輔助。跟右側「編輯／預覽」切換頁籤放同一列。 */
-.md-toolbar-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
-}
-
+/* 心得輸入框上方的極簡工具列：小小一排圓角按鈕，份量刻意做輕，不搶輸入框本身的焦點。 */
 .md-toolbar {
   display: flex;
   gap: 0.35rem;
-}
-
-/* .md-toolbar 的 display:flex 一樣會蓋掉 [hidden]{display:none}（author 規則贏過 UA 規則），
-   切到預覽模式時工具列要用 hidden 屬性藏起來，沒有這條會維持可見。 */
-.md-toolbar[hidden] {
-  display: none;
+  margin-bottom: 0.35rem;
 }
 
 .md-tool-btn {
@@ -1632,48 +1617,71 @@ header h1 a {
   color: var(--text);
 }
 
-.md-view-toggle {
-  display: inline-flex;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.md-view-btn {
-  border: none;
-  background: var(--surface);
-  color: var(--text-muted);
-  padding: 0.2rem 0.65rem;
-  font-size: 0.72rem;
-  cursor: pointer;
-}
-
-.md-view-btn.is-active {
-  background: var(--primary-soft);
-  color: var(--primary-hover);
-  font-weight: 600;
-}
-
-/* 預覽框跟輸入框共用同一個位置（互斥顯示），套用跟已儲存心得一樣的 .reflection-body
-   排版樣式，讓「送出前」跟「送出後」看到的排版效果完全一致，不會有落差。 */
-.reflection-preview-box {
-  min-height: 3.2rem;
+/* 所見即所得輸入區：真正的 contenteditable，粗體/斜體/標題/條列/螢光標記點下去
+   當場就是最終樣子，不會再看到 **這種原始碼符號**。line-height 用無單位數字（不是固定 px），
+   字級縮放時行距會照比例一起變，不會出現字放大後行跟行疊在一起的狀況。 */
+.reflection-editor {
+  min-height: 4.5rem;
   padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border-soft);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--surface-alt);
-  font-size: 0.88rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.6;
+  outline: none;
 }
 
-.reflection-preview-box .empty {
-  padding: 0;
-  font-size: 0.85rem;
+.reflection-editor:focus {
+  border-color: var(--primary);
 }
 
-/* 心得列表顯示時，把工具列插入的語法轉回真的排版效果。 */
-.reflection-body {
-  margin-top: 0.3rem;
+.reflection-editor.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.reflection-editor p {
+  margin: 0.2rem 0;
+}
+
+.reflection-editor h2 {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.reflection-editor ul,
+.reflection-editor ol {
+  margin: 0.3rem 0;
+  padding-left: 1.3rem;
+}
+
+/* 心得列表顯示：新格式（WYSIWYG 存下來的 HTML）直接吃這裡的 h2/ul/p 標籤樣式；
+   .reflection-line／.reflection-heading／.reflection-list 是舊格式（改版前的
+   Markdown 純文字）解析出來的固定 class，兩套並存，互不干擾。 */
+.reflection-body,
+.reflection-editor {
+  line-height: 1.6;
+}
+
+.reflection-body p {
+  margin: 0.3rem 0 0;
+  white-space: pre-wrap;
+}
+
+.reflection-body h2 {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.reflection-body ul,
+.reflection-body ol {
+  margin: 0.3rem 0 0;
+  padding-left: 1.3rem;
 }
 
 .reflection-line {
@@ -1693,7 +1701,7 @@ header h1 a {
 }
 
 .reflection-body mark,
-.reflection-preview-box mark {
+.reflection-editor mark {
   background: var(--gold);
   color: var(--text);
   padding: 0 0.15rem;
@@ -1729,8 +1737,11 @@ header h1 a {
   line-height: 1.35;
 }
 
-.quote-form textarea {
-  min-height: 100px;
+/* 選擇器對到的是 #quote-form 這個 id，不是 class="quote-form"（表單實際上帶的是
+   .book-form）——這條規則原本一直沒生效，佳句內容欄位只吃到 rows="6" 的隱含高度。
+   改成 id 選擇器，並把最小高度拉到 160px，長句子才有足夠的垂直＋水平空間可以閱讀。 */
+#quote-form textarea {
+  min-height: 160px;
 }
 
 .quote-page-label {
