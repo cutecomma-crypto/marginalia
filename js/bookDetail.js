@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { renderReadingSection } from './readingRecords.js';
 import { renderMotivation, renderReflections } from './outputs.js';
 import { renderNotesSection } from './notes.js';
-import { renderQuoteSummaryCard } from './quotes.js';
+import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
 
@@ -53,6 +53,7 @@ export async function renderBookDetail(container, rawId) {
         <button type="button" class="main-tab-btn is-active" data-tab="motivation">💡 閱讀動機</button>
         <button type="button" class="main-tab-btn" data-tab="reflection">✍️ 閱讀後輸出</button>
         <button type="button" class="main-tab-btn" data-tab="notes">📝 快速筆記</button>
+        <button type="button" class="main-tab-btn" data-tab="quotes">💬 佳句摘錄（<span id="quotes-tab-count">0</span> 條）</button>
       </div>
       <div class="main-tab-panel" data-tab-panel="motivation">
         <div id="motivation-container"></div>
@@ -64,9 +65,10 @@ export async function renderBookDetail(container, rawId) {
       <div class="main-tab-panel" data-tab-panel="notes" hidden>
         <div id="notes-section"></div>
       </div>
+      <div class="main-tab-panel" data-tab-panel="quotes" hidden>
+        <div id="quotes-container"></div>
+      </div>
     </div>
-
-    <div class="book-detail-quotes" id="quotes-summary"></div>
   `;
 
   container.querySelector('#delete-book').addEventListener('click', async () => {
@@ -93,6 +95,10 @@ export async function renderBookDetail(container, rawId) {
   await renderReadingSection(container.querySelector('#reading-section'), bookId, book);
   await renderMotivation(container.querySelector('#motivation-container'), bookId);
   await renderReflections(container.querySelector('#reflection-container'), bookId);
-  await renderQuoteSummaryCard(container.querySelector('#quotes-summary'), bookId);
   await renderNotesSection(container.querySelector('#notes-section'), bookId);
+  await renderQuotesWorkspace(container.querySelector('#quotes-container'), bookId, book, {
+    onCountChange: (count) => {
+      container.querySelector('#quotes-tab-count').textContent = count;
+    },
+  });
 }

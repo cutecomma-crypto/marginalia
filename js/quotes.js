@@ -53,31 +53,9 @@ async function copyText(text) {
   }
 }
 
-// ---------- 書籍主頁用的精簡摘要卡片 ----------
-
-export async function renderQuoteSummaryCard(container, bookId) {
-  const quotes = sortByNewest(await getQuotesByBook(bookId));
-  const preview = quotes.slice(0, 2);
-
-  container.innerHTML = `
-    <div class="sidebar-panel quote-summary-card">
-      <h4>💬 佳句摘錄（共 ${quotes.length} 條）</h4>
-      ${preview.length === 0
-        ? '<p class="empty">還沒有摘錄任何佳句。</p>'
-        : `<ul class="quote-summary-list">
-            ${preview.map((q) => `
-              <li>
-                ${q.page ? `<span class="quote-page-badge">P. ${escapeHtml(q.page)}</span>` : ''}
-                <span class="quote-summary-text">${renderTextWithHashtags(q.content)}</span>
-              </li>
-            `).join('')}
-          </ul>`}
-      <a class="btn btn-primary quote-summary-link" href="#/books/${bookId}/quotes">查看／新增所有佳句 ➔</a>
-    </div>
-  `;
-}
-
-// ---------- 獨立佳句子頁面 ----------
+// ---------- 佳句工作區（新增／搜尋／排序／複製／匯出／列表）----------
+// 獨立佳句頁面（/books/:id/quotes）跟書籍詳情頁的「佳句摘錄」Tab 共用同一份邏輯，
+// 差別只在外層有沒有包一層「回列表」的 toolbar，所以拆成這個函式讓兩邊都能呼叫。
 
 function quoteCardHtml(quote) {
   return `
@@ -112,23 +90,15 @@ function quoteEditFormHtml(quote) {
   `;
 }
 
-export async function renderQuotesPage(container, rawBookId) {
-  const bookId = Number(rawBookId);
-  const book = await DB.getById('books', bookId);
-  if (!book) {
-    container.innerHTML = '<p class="empty">找不到這本書。</p>';
-    return;
-  }
-
+// options.onCountChange(total)：每次重繪清單都會回報目前總條數，
+// 書籍詳情頁的「佳句摘錄」Tab 用這個把數字同步更新到分頁按鈕上的「(X 條)」。
+export async function renderQuotesWorkspace(container, bookId, book, options = {}) {
+  const onCountChange = options.onCountChange || (() => {});
   let editingId = null;
   let searchQuery = '';
   let sortMode = 'page';
 
   container.innerHTML = `
-    <div class="toolbar">
-      <a href="#/books/${bookId}">⬅ 回《${escapeHtml(book.title || '未命名')}》</a>
-      <h2>佳句摘錄</h2>
-    </div>
     <div class="quotes-page-layout">
       <div class="quotes-page-form-col">
         <div class="graph-panel">
@@ -169,6 +139,7 @@ export async function renderQuotesPage(container, rawBookId) {
   async function redrawList() {
     let quotes = await getQuotesByBook(bookId);
     const total = quotes.length;
+    onCountChange(total);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       quotes = quotes.filter((item) => item.content.toLowerCase().includes(q));
@@ -294,4 +265,25 @@ export async function renderQuotesPage(container, rawBookId) {
   });
 
   await redrawList();
+}
+
+// ---------- 獨立佳句子頁面（/books/:id/quotes），外面多包一層「回列表」toolbar ----------
+
+export async function renderQuotesPage(container, rawBookId) {
+  const bookId = Number(rawBookId);
+  const book = await DB.getById('books', bookId);
+  if (!book) {
+    container.innerHTML = '<p class="empty">找不到這本書。</p>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="toolbar">
+      <a href="#/books/${bookId}">⬅ 回《${escapeHtml(book.title || '未命名')}》</a>
+      <h2>佳句摘錄</h2>
+    </div>
+    <div id="quotes-workspace"></div>
+  `;
+
+  await renderQuotesWorkspace(container.querySelector('#quotes-workspace'), bookId, book);
 }

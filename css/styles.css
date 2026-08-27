@@ -831,17 +831,45 @@ header h1 a {
   padding: 0.55rem 0.9rem;
   border: none;
   border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
   background: none;
   color: var(--text-muted);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   margin-bottom: -1px;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .main-tab-btn.is-active {
   color: var(--primary);
   border-bottom-color: var(--primary);
+}
+
+/* 四個主題頁籤各自的莫蘭迪／大地色系，選取時用「淡底色＋底線＋文字上色」做出個性區分，
+   未選取一律維持低調的 --text-muted，不搶焦點。 */
+.main-tab-btn[data-tab="motivation"].is-active {
+  color: #8a6a1f;
+  background: rgba(200, 155, 60, 0.16);
+  border-bottom-color: #c89b3c;
+}
+
+.main-tab-btn[data-tab="reflection"].is-active {
+  color: #8b4a32;
+  background: rgba(178, 91, 66, 0.16);
+  border-bottom-color: #b25b42;
+}
+
+.main-tab-btn[data-tab="notes"].is-active {
+  color: #4f6350;
+  background: rgba(114, 140, 116, 0.16);
+  border-bottom-color: #728c74;
+}
+
+.main-tab-btn[data-tab="quotes"].is-active {
+  color: #7a4f68;
+  background: rgba(166, 107, 140, 0.16);
+  border-bottom-color: #a66b8c;
 }
 
 .main-tab-panel {
