@@ -1531,6 +1531,60 @@ header h1 a {
   margin: -0.3rem 0 0.8rem;
 }
 
+/* 心得輸入框上方的極簡 Markdown 工具列：小小一排圓角按鈕，份量刻意做輕，
+   不搶輸入框本身的焦點，只是舉手之勞的排版輔助。 */
+.md-toolbar {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.md-tool-btn {
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 6px;
+  width: 1.8rem;
+  height: 1.8rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.md-tool-btn:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+/* 心得列表顯示時，把工具列插入的語法轉回真的排版效果。 */
+.reflection-body {
+  margin-top: 0.3rem;
+}
+
+.reflection-line {
+  margin: 0.3rem 0 0;
+  white-space: pre-wrap;
+}
+
+.reflection-heading {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.reflection-list {
+  margin: 0.3rem 0 0;
+  padding-left: 1.3rem;
+}
+
+.reflection-body mark {
+  background: var(--gold);
+  color: var(--text);
+  padding: 0 0.15rem;
+  border-radius: 3px;
+}
+
 .output-date-input {
   color: var(--text-muted);
   font-size: 0.75rem;

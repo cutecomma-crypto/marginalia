@@ -17,9 +17,13 @@ export function extractHashtags(text) {
   return [...new Set(Array.from(String(text).matchAll(HASHTAG_PATTERN), (m) => m[1]))];
 }
 
-// 把文字裡的 #標籤轉成可點擊的高亮膠囊，連到標籤總覽頁。標籤只會是字母/數字/底線/中文，
-// 不含 HTML 特殊字元，所以在跳脫過的字串上做替換是安全的，不會破壞既有的跳脫結果。
+// 把「已經跳脫過的」字串裡的 #標籤轉成可點擊的高亮膠囊，連到標籤總覽頁。標籤只會是
+// 字母/數字/底線/中文，不含 HTML 特殊字元，所以在跳脫過的字串上做替換是安全的。
+// 拆成獨立函式，讓 outputs.js 的心得 Markdown 渲染也能重用同一份規則。
+export function applyHashtagLinks(escapedText) {
+  return escapedText.replace(HASHTAG_PATTERN, (match, tag) => `<a class="hashtag-chip" href="#/tags/${encodeURIComponent(tag)}">#${tag}</a>`);
+}
+
 export function renderTextWithHashtags(text) {
-  const escaped = escapeHtml(text);
-  return escaped.replace(HASHTAG_PATTERN, (match, tag) => `<a class="hashtag-chip" href="#/tags/${encodeURIComponent(tag)}">#${tag}</a>`);
+  return applyHashtagLinks(escapeHtml(text));
 }
