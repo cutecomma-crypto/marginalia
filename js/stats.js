@@ -1,7 +1,7 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 import { buildRecordByBookMap, isCompletedInYear } from './bookStats.js';
-import { LENT_OUT_RETENTION_STATUS } from './bookForm.js';
+import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS } from './bookForm.js';
 
 // 對照 PROJECT_SPEC.md 第 3 節與 B 原則 6：全部自動計算，不可手動輸入。
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -181,32 +181,40 @@ function categoryEntriesForYear(books, recordByBook, year) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]);
 }
 
-// 「借出中」快捷篩選按鈕：放在「各類型書籍數量」正上方，不受年份選擇影響
+// 「借出中／借入中」快捷篩選按鈕：放在「各類型書籍數量」正上方，不受年份選擇影響
 // （存留狀態是書籍當下的狀態，不是某一年才成立的事）。0 本時仍顯示，但不能點。
-function lentOutButtonHtml(lentOutCount, isActive) {
+// 兩顆按鈕共用同一個 retentionFilter 狀態、互斥（跟閱讀狀態方塊同一套「單選＋再點一次取消」邏輯）。
+function retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention) {
   return `
-    <button type="button" class="lent-out-filter-btn${isActive ? ' is-active' : ''}" id="lent-out-filter-btn" ${lentOutCount === 0 ? 'disabled' : ''}>
-      📤 借出中（${lentOutCount} 本）
-    </button>
+    <div class="retention-filter-row">
+      <button type="button" class="retention-filter-btn${activeRetention === LENT_OUT_RETENTION_STATUS ? ' is-active' : ''}" data-retention="${LENT_OUT_RETENTION_STATUS}" ${lentOutCount === 0 ? 'disabled' : ''}>
+        📤 借出中（${lentOutCount} 本）
+      </button>
+      <button type="button" class="retention-filter-btn${activeRetention === BORROWED_RETENTION_STATUS ? ' is-active' : ''}" data-retention="${BORROWED_RETENTION_STATUS}" ${borrowedCount === 0 ? 'disabled' : ''}>
+        📥 借入中（${borrowedCount} 本）
+      </button>
+    </div>
   `;
 }
 
-function categorySectionHtml(categoryEntries, year, activeCategory, lentOutCount, isRetentionActive) {
+function categorySectionHtml(categoryEntries, year, activeCategory, lentOutCount, borrowedCount, activeRetention) {
   return `
-    ${lentOutButtonHtml(lentOutCount, isRetentionActive)}
+    ${retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention)}
     <h4>各類型書籍數量${year ? `<span class="sidebar-year-tag">${escapeHtml(year)} 年已讀完</span>` : ''}</h4>
     ${categoryProgressListHtml(categoryEntries, activeCategory)}
   `;
 }
 
-function wireLentOutButton(container, onRetentionFilterChange, setActiveRetention) {
-  const btn = container.querySelector('#lent-out-filter-btn');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    const nowActive = !btn.classList.contains('is-active');
-    btn.classList.toggle('is-active', nowActive);
-    setActiveRetention(nowActive);
-    onRetentionFilterChange(nowActive ? LENT_OUT_RETENTION_STATUS : null);
+function wireRetentionButtons(container, onRetentionFilterChange, setActiveRetention) {
+  container.querySelectorAll('.retention-filter-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nowActive = !btn.classList.contains('is-active');
+      container.querySelectorAll('.retention-filter-btn').forEach((b) => b.classList.remove('is-active'));
+      if (nowActive) btn.classList.add('is-active');
+      const retention = nowActive ? btn.dataset.retention : null;
+      setActiveRetention(retention);
+      onRetentionFilterChange(retention);
+    });
   });
 }
 
@@ -260,8 +268,9 @@ export async function renderSidebarStats(container, options = {}) {
 
   const defaultYearStats = statsForYear(stats, completed, defaultYear);
   const lentOutCount = books.filter((b) => b.retentionStatus === LENT_OUT_RETENTION_STATUS).length;
+  const borrowedCount = books.filter((b) => b.retentionStatus === BORROWED_RETENTION_STATUS).length;
   let activeCategory = null;
-  let activeRetention = false;
+  let activeRetention = null;
 
   container.innerHTML = `
     <div class="sidebar-panel">
@@ -286,10 +295,10 @@ export async function renderSidebarStats(container, options = {}) {
 
   const categoryPanel = container.querySelector('#sidebar-category-panel');
   function renderCategoryPanel(year) {
-    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory, lentOutCount, activeRetention);
+    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory, lentOutCount, borrowedCount, activeRetention);
     wireCategoryToggle(categoryPanel);
     wireCategoryItemClicks(categoryPanel, onCategoryFilterChange, (cat) => { activeCategory = cat; });
-    wireLentOutButton(categoryPanel, onRetentionFilterChange, (isActive) => { activeRetention = isActive; });
+    wireRetentionButtons(categoryPanel, onRetentionFilterChange, (retention) => { activeRetention = retention; });
   }
   renderCategoryPanel(null);
 

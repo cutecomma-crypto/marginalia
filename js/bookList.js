@@ -3,7 +3,14 @@ import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus } from './bookStats.js';
-import { LENT_OUT_RETENTION_STATUS } from './bookForm.js';
+import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS } from './bookForm.js';
+
+// 借出中／借入中兩顆快捷篩選按鈕共用同一個 retentionFilter 狀態，這裡統一決定標題上要顯示哪個中文標籤。
+function retentionFilterLabel(retention) {
+  if (retention === LENT_OUT_RETENTION_STATUS) return '借出中';
+  if (retention === BORROWED_RETENTION_STATUS) return '借入中';
+  return retention;
+}
 
 function formatDateSlash(dateStr) {
   return dateStr ? dateStr.replaceAll('-', '/') : '';
@@ -11,6 +18,10 @@ function formatDateSlash(dateStr) {
 
 // 「顯示全部書籍」按鈕用的細線 X，取代原本比較搶眼、線條較粗的「✕」文字符號。
 const CLOSE_ICON = '<svg class="reset-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+// 視角切換按鈕用的 Lucide 圖示（List／LayoutGrid），取代原本容易模糊、鋸齒的純文字符號（▦／☰）。
+const LIST_ICON = '<svg class="view-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h.01"></path><path d="M3 12h.01"></path><path d="M3 19h.01"></path><path d="M8 5h13"></path><path d="M8 12h13"></path><path d="M8 19h13"></path></svg>';
+const GRID_ICON = '<svg class="view-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>';
 
 // 完成日期欄位：純文字、低調的次要顏色，不用圖示也不用圓角底色框，
 // 完成了顯示日期、還沒完成顯示「—」，樣式統一維持簡約。
@@ -158,7 +169,7 @@ export async function renderBookList(container) {
         <div class="toolbar">
           <div class="toolbar-title-row">
             <h2 id="book-list-title">所有書籍</h2>
-            <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" title="切換為封面網格檢視">▦</button>
+            <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" title="切換為封面網格檢視">${GRID_ICON}</button>
             <button type="button" class="btn year-filter-reset-btn" id="year-filter-reset-btn" hidden>${CLOSE_ICON}顯示全部書籍</button>
           </div>
           <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
@@ -218,7 +229,7 @@ export async function renderBookList(container) {
     if (yearFilter) filterLabels.push(`${yearFilter} 年已讀完`);
     if (statusFilter) filterLabels.push(statusFilter);
     if (categoryFilter) filterLabels.push(categoryFilter);
-    if (retentionFilter) filterLabels.push(retentionFilter === LENT_OUT_RETENTION_STATUS ? '借出中' : retentionFilter);
+    if (retentionFilter) filterLabels.push(retentionFilterLabel(retentionFilter));
 
     if (filterLabels.length > 0) {
       titleEl.textContent = `所有書籍（${filterLabels.join('、')}）`;
@@ -231,8 +242,9 @@ export async function renderBookList(container) {
 
   viewModeBtn.addEventListener('click', () => {
     viewMode = viewMode === 'table' ? 'gallery' : 'table';
-    viewModeBtn.textContent = viewMode === 'table' ? '▦' : '☰';
+    viewModeBtn.innerHTML = viewMode === 'table' ? GRID_ICON : LIST_ICON;
     viewModeBtn.title = viewMode === 'table' ? '切換為封面網格檢視' : '切換為表格檢視';
+    viewModeBtn.classList.toggle('is-active', viewMode === 'gallery');
     renderList();
   });
 
@@ -250,8 +262,8 @@ export async function renderBookList(container) {
     if (activeStatusCell) activeStatusCell.click();
     const activeCategoryItem = container.querySelector('.category-progress-item.is-active');
     if (activeCategoryItem) activeCategoryItem.click();
-    const activeLentOutBtn = container.querySelector('.lent-out-filter-btn.is-active');
-    if (activeLentOutBtn) activeLentOutBtn.click();
+    const activeRetentionBtn = container.querySelector('.retention-filter-btn.is-active');
+    if (activeRetentionBtn) activeRetentionBtn.click();
     renderList();
   });
 

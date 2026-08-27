@@ -2495,55 +2495,62 @@ header h1 a {
   font-weight: 700;
 }
 
-/* 借出中快捷篩選：放在「各類型書籍數量」正上方，跟分類清單留一點距離區隔開來。
-   0 本時仍顯示（讓使用者知道有這個功能存在）但禁用，不能點出空清單。 */
-.lent-out-filter-btn {
+/* 借出中／借入中快捷篩選：放在「各類型書籍數量」正上方，跟分類清單留一點距離區隔開來，
+   兩顆並排、互斥（同時只會有一個 is-active）。0 本時仍顯示（讓使用者知道有這個功能存在）但禁用，不能點出空清單。 */
+.retention-filter-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.retention-filter-btn {
+  flex: 1 1 0;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  margin-bottom: 0.9rem;
-  padding: 0.55rem 0.7rem;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.5rem;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-alt);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.lent-out-filter-btn:hover:not(:disabled) {
+.retention-filter-btn:hover:not(:disabled) {
   background: var(--border-soft);
   transform: translateY(-1px);
 }
 
-.lent-out-filter-btn.is-active {
+.retention-filter-btn.is-active {
   background: var(--primary-soft);
   box-shadow: 0 0 0 2px var(--primary);
   color: var(--primary-hover);
 }
 
-.lent-out-filter-btn:disabled {
+.retention-filter-btn:disabled {
   opacity: 0.55;
   cursor: default;
 }
 
 /* 表格／網格檢視切換：跟「顯示全部書籍」重置鈕一樣是標題旁的次要小按鈕，
-   用同一顆圖示按鈕切換兩種狀態的字符跟 title，不額外佔用版面空間。 */
+   換成 Lucide SVG（List／LayoutGrid）取代容易模糊、鋸齒的純文字符號，無邊框的
+   「ghost icon button」質感——平時透明融入標題列，hover／目前套用的模式才浮現底色。 */
 .view-mode-toggle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.9rem;
   height: 1.9rem;
-  border: 1px solid var(--border);
+  padding: 0.3rem;
+  border: none;
   border-radius: 6px;
-  background: var(--surface);
+  background: transparent;
   color: var(--text-muted);
-  font-size: 1rem;
-  line-height: 1;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
@@ -2551,6 +2558,17 @@ header h1 a {
 .view-mode-toggle-btn:hover {
   background: var(--surface-alt);
   color: var(--text);
+}
+
+.view-mode-toggle-btn.is-active {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+}
+
+.view-mode-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  display: block;
 }
 
 /* 封面網格檢視：跟表格模式共用同一份資料，換一種以封面為主的排版方式。 */
@@ -2597,31 +2615,50 @@ header h1 a {
 }
 
 .book-gallery-info {
-  padding: 0.6rem 0.7rem 0.75rem;
+  padding: 0.6rem 0.65rem 0.7rem;
 }
 
 .book-gallery-title {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .book-gallery-author {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* 書籍類型／完成日期並排在卡片最下面一行：類型字數不定（例如「驚悚小說」），
+   flex 子項預設 min-width:auto 會逼著容器硬把文字擠成兩行造成「驚悚小／說」這種斷字，
+   這裡強制不換行＋超出省略號，完成日期固定寬度不被擠壓。 */
 .book-gallery-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.75rem;
+  gap: 0.4rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
+}
+
+.book-gallery-meta span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.book-gallery-meta span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.book-gallery-meta .book-completed-date {
+  flex: 0 0 auto;
 }
