@@ -93,9 +93,6 @@ export async function renderReflections(container, bookId) {
   container.innerHTML = `
     <h4 class="section-heading">✍️ 閱讀後輸出</h4>
     <form id="reflection-form" class="book-form">
-      <label>日期
-        <input type="date" name="date" value="${escapeHtml(defaultDate)}">
-      </label>
       <label>可以自由選擇（可複選，不用填完）
         <span class="tag-checkboxes">${tagCheckboxes('reflectionTags', REFLECTION_TAGS)}</span>
       </label>
@@ -118,8 +115,8 @@ export async function renderReflections(container, bookId) {
     const tags = readTags(form, 'reflectionTags');
     const text = form.elements.text.value.trim();
     if (tags.length === 0 && !text) return;
-    const date = form.elements.date.value || todayIso();
-    await DB.add('outputs', { bookId, kind: 'reflection', tags, text, date });
+    // 不再讓使用者每次都挑日期，統一沿用頁面頂部「閱讀進度」設定的完成日期（沒完成就是今天）。
+    await DB.add('outputs', { bookId, kind: 'reflection', tags, text, date: defaultDate });
     await renderReflections(container, bookId);
   });
 

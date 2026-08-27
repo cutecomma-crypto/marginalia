@@ -25,7 +25,7 @@ export async function renderReadingSection(container, bookId, book) {
   const percentage = totalPages && currentPage ? Math.round((currentPage / totalPages) * 100) : null;
 
   container.innerHTML = `
-    <div class="reading-section sidebar-panel">
+    <div class="reading-section">
       <h4>閱讀進度</h4>
       <form id="reading-form" class="book-form reading-form">
         <label>狀態

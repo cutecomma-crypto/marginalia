@@ -39,55 +39,49 @@ export async function renderBookDetail(container, rawId) {
         <button type="button" class="btn btn-danger" id="delete-book">刪除</button>
       </div>
     </div>
-    <div class="book-detail-layout">
-      <div class="book-detail-main">
-        <div class="book-detail-header">
-          ${book.coverImage ? `<img class="book-cover-image" src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : ''}
-          <div class="book-detail-header-text">
-            <h2>${escapeHtml(book.title || '（未命名）')}</h2>
-            ${book.tags && book.tags.length ? `
-            <div class="detail-tags">
-              ${book.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}
-            </div>
-            ` : ''}
-          </div>
+    <div class="book-header-panel">
+      ${book.coverImage ? `<img class="book-cover-image" src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : ''}
+      <div class="book-header-info">
+        <h2>${escapeHtml(book.title || '（未命名）')}</h2>
+        ${book.tags && book.tags.length ? `
+        <div class="detail-tags">
+          ${book.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}
         </div>
-        <div class="main-tabs">
-          <div class="main-tab-buttons">
-            <button type="button" class="main-tab-btn is-active" data-tab="motivation">💡 閱讀動機</button>
-            <button type="button" class="main-tab-btn" data-tab="reflection">✍️ 閱讀後輸出</button>
-            <button type="button" class="main-tab-btn" data-tab="notes">📝 快速筆記</button>
-          </div>
-          <div class="main-tab-panel" data-tab-panel="motivation">
-            <div id="motivation-container"></div>
-          </div>
-          <div class="main-tab-panel" data-tab-panel="reflection" hidden>
-            <div id="reflection-container"></div>
-          </div>
-          <div class="main-tab-panel" data-tab-panel="notes" hidden>
-            <div id="notes-section"></div>
-          </div>
+        ` : ''}
+        <h4 class="book-header-subheading">書籍資料</h4>
+        <div class="detail-grid-compact">
+          ${detailRow('作者', book.author ? `${isFavoriteAuthor ? '♥ ' : ''}${book.author}` : book.author)}
+          ${detailRow('出版社', book.publisher)}
+          ${detailRow('出版日期', book.publishDate)}
+          ${detailRow('購買日期', book.purchaseDate)}
+          ${detailRow('購買來源', book.purchaseSource)}
+          ${detailRow('購買價格', book.purchasePrice)}
+          ${detailRow('書籍形式', book.format)}
+          ${detailRow('存留狀態', retentionStatusDisplay(book))}
+          ${detailRow('書籍類型', book.category)}
         </div>
       </div>
-      <aside class="book-detail-sidebar">
-        <div class="sidebar-panel">
-          <h4>書籍資料</h4>
-          <div class="detail-grid-compact">
-            ${detailRow('作者', book.author ? `${isFavoriteAuthor ? '♥ ' : ''}${book.author}` : book.author)}
-            ${detailRow('出版社', book.publisher)}
-            ${detailRow('出版日期', book.publishDate)}
-            ${detailRow('購買日期', book.purchaseDate)}
-            ${detailRow('購買來源', book.purchaseSource)}
-            ${detailRow('購買價格', book.purchasePrice)}
-            ${detailRow('書籍形式', book.format)}
-            ${detailRow('存留狀態', retentionStatusDisplay(book))}
-            ${detailRow('書籍類型', book.category)}
-          </div>
-        </div>
-        <div id="quotes-summary"></div>
-        <div id="reading-section"></div>
-      </aside>
+      <div class="book-header-reading" id="reading-section"></div>
     </div>
+
+    <div class="main-tabs">
+      <div class="main-tab-buttons">
+        <button type="button" class="main-tab-btn is-active" data-tab="motivation">💡 閱讀動機</button>
+        <button type="button" class="main-tab-btn" data-tab="reflection">✍️ 閱讀後輸出</button>
+        <button type="button" class="main-tab-btn" data-tab="notes">📝 快速筆記</button>
+      </div>
+      <div class="main-tab-panel" data-tab-panel="motivation">
+        <div id="motivation-container"></div>
+      </div>
+      <div class="main-tab-panel" data-tab-panel="reflection" hidden>
+        <div id="reflection-container"></div>
+      </div>
+      <div class="main-tab-panel" data-tab-panel="notes" hidden>
+        <div id="notes-section"></div>
+      </div>
+    </div>
+
+    <div class="book-detail-quotes" id="quotes-summary"></div>
   `;
 
   container.querySelector('#delete-book').addEventListener('click', async () => {
