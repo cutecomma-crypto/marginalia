@@ -1830,6 +1830,56 @@ header h1 a {
   width: 95%;
 }
 
+.graph-canvas-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.canvas-zoom-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-end;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 0.3rem 0.5rem;
+}
+
+.canvas-tool-btn {
+  border: none;
+  background: var(--surface-alt);
+  color: var(--text);
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#zoom-reset-btn {
+  width: auto;
+  border-radius: 999px;
+  padding: 0 0.7rem;
+  font-size: 0.78rem;
+}
+
+.canvas-tool-btn:hover {
+  background: var(--border-soft);
+}
+
+.canvas-zoom-level {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  min-width: 2.6rem;
+  text-align: center;
+}
+
 .canvas-wrap {
   width: 100%;
   min-height: 480px;
@@ -1839,6 +1889,22 @@ header h1 a {
   border-radius: 8px;
   overflow: auto;
   padding: 2rem;
+}
+
+/* 全螢幕展繪：整個「縮放工具列＋畫布」一起吃滿螢幕，畫布本身跟著撐開高度，
+   不再受平常那個 640px 上限限制，複雜關係圖才有真正夠用的繪製空間。 */
+.graph-canvas-area:fullscreen,
+.graph-canvas-area:-webkit-full-screen {
+  background: var(--bg);
+  padding: 1rem;
+  height: 100vh;
+}
+
+.graph-canvas-area:fullscreen .canvas-wrap,
+.graph-canvas-area:-webkit-full-screen .canvas-wrap {
+  flex: 1;
+  max-height: none;
+  height: 100%;
 }
 
 .canvas-board {

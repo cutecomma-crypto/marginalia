@@ -462,13 +462,22 @@ export async function renderGraphPage(container, rawBookId) {
       <div class="toolbar-actions">
         <button type="button" class="btn btn-primary" id="add-group-btn">＋ 新增群組</button>
         <button type="button" class="btn drawer-toggle-btn" id="drawer-toggle-btn">🔗 關係／編輯面板</button>
+        <button type="button" class="btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
       </div>
     </div>
     <div class="graph-layout">
-      <div class="canvas-wrap" id="canvas-wrap">
-        <div class="canvas-board" id="canvas-board">
-          <svg class="connections-overlay" id="connections-svg"></svg>
-          <div class="group-track" id="group-track"></div>
+      <div class="graph-canvas-area" id="graph-canvas-area">
+        <div class="canvas-zoom-toolbar" id="canvas-zoom-toolbar">
+          <button type="button" class="canvas-tool-btn" id="zoom-out-btn" title="縮小">－</button>
+          <span class="canvas-zoom-level" id="zoom-level">100%</span>
+          <button type="button" class="canvas-tool-btn" id="zoom-in-btn" title="放大">＋</button>
+          <button type="button" class="canvas-tool-btn" id="zoom-reset-btn" title="重設縮放">重設</button>
+        </div>
+        <div class="canvas-wrap" id="canvas-wrap">
+          <div class="canvas-board" id="canvas-board">
+            <svg class="connections-overlay" id="connections-svg"></svg>
+            <div class="group-track" id="group-track"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -917,6 +926,56 @@ export async function renderGraphPage(container, rawBookId) {
       await reload();
     });
   }
+
+  // 全螢幕展繪：整個「縮放工具列＋畫布」一起進全螢幕，不是只有畫布本身，
+  // 不然全螢幕模式下縮放按鈕會因為不在同一個 fullscreen 元素裡而消失、按不到。
+  const canvasArea = container.querySelector('#graph-canvas-area');
+  const fullscreenBtn = container.querySelector('#fullscreen-btn');
+  fullscreenBtn.addEventListener('click', () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      (canvasArea.requestFullscreen || canvasArea.webkitRequestFullscreen)?.call(canvasArea);
+    }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    fullscreenBtn.textContent = document.fullscreenElement ? '⛶ 退出全螢幕' : '⛶ 全螢幕展繪';
+  });
+
+  // 縮放：直接對 .canvas-board 套 CSS transform:scale，連線用的 SVG 跟人物/群組卡片
+  // 都在它底下，一起等比例縮放；縮放後重新呼叫 drawConnections 讓連線重新對齊卡片新的視覺位置
+  // （drawConnections 是用 getBoundingClientRect 量測，量出來的本來就已經反映縮放後的樣子）。
+  let zoomLevel = 1;
+  const MIN_ZOOM = 0.4;
+  const MAX_ZOOM = 2;
+  const zoomLevelEl = container.querySelector('#zoom-level');
+
+  function applyZoom() {
+    boardEl.style.transform = `scale(${zoomLevel})`;
+    boardEl.style.transformOrigin = '0 0';
+    zoomLevelEl.textContent = `${Math.round(zoomLevel * 100)}%`;
+    requestAnimationFrame(() => drawConnections(svgEl, boardEl, edges, showEdgePanel));
+  }
+
+  container.querySelector('#zoom-in-btn').addEventListener('click', () => {
+    zoomLevel = Math.min(MAX_ZOOM, Math.round((zoomLevel + 0.1) * 10) / 10);
+    applyZoom();
+  });
+  container.querySelector('#zoom-out-btn').addEventListener('click', () => {
+    zoomLevel = Math.max(MIN_ZOOM, Math.round((zoomLevel - 0.1) * 10) / 10);
+    applyZoom();
+  });
+  container.querySelector('#zoom-reset-btn').addEventListener('click', () => {
+    zoomLevel = 1;
+    applyZoom();
+  });
+  // 滾輪縮放：這個畫布本來就寬到需要橫向捲動，把滾輪徵用成縮放後改用拖曳／捲軸捲動，
+  // 是常見圖表編輯器（Figma、Miro）的操作習慣，複雜關係圖用滾輪快速拉近拉遠比較實用。
+  container.querySelector('#canvas-wrap').addEventListener('wheel', (event) => {
+    event.preventDefault();
+    zoomLevel = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round((zoomLevel + (event.deltaY > 0 ? -0.1 : 0.1)) * 10) / 10));
+    applyZoom();
+  }, { passive: false });
 
   addGroupBtn.addEventListener('click', async () => {
     await DB.add('groups', { bookId, name: '新群組', color: nextGroupColor(groups.length) });
