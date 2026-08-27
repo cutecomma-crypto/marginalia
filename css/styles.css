@@ -906,13 +906,13 @@ header h1 a {
   background: var(--surface-alt);
   border: 1px dashed var(--border);
   border-radius: 8px;
-  padding: 0.9rem 1.1rem;
+  padding: 0.65rem 0.9rem;
   margin-bottom: 1.5rem;
 }
 
 .progress-module-heading {
-  margin: 0 0 0.75rem;
-  font-size: 0.82rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -920,11 +920,24 @@ header h1 a {
 .progress-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 0.5rem 1rem;
+  gap: 0.4rem 0.85rem;
 }
 
 .reading-progress-form label {
   margin-bottom: 0;
+  gap: 0.15rem;
+}
+
+/* 閱讀進度／閱讀次數固定並排成一行對半分，不管外層 auto-fit 排到第幾欄都一樣。 */
+.progress-pair-row {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.85rem;
+}
+
+.reading-progress-form .form-actions {
+  margin-top: 0.65rem;
 }
 
 .btn-sm {

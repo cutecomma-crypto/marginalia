@@ -36,14 +36,16 @@ export async function renderReadingSection(container, bookId, book) {
           </label>
           <label>開始日期<input type="date" name="startDate" value="${escapeHtml(record && record.startDate)}"></label>
           <label>完成日期<input type="date" name="endDate" value="${escapeHtml(record && record.endDate)}"></label>
-          <label>閱讀進度
-            <span class="page-progress">
-              第 <input type="number" name="currentPage" min="0" value="${escapeHtml(currentPage)}" class="page-input"> /
-              ${totalPages ? `${escapeHtml(totalPages)} 頁` : ''}
-              <span id="progress-percentage">${percentage !== null ? `（${percentage}%）` : ''}</span>
-            </span>
-          </label>
-          <label>閱讀次數<input type="number" name="readCount" min="0" value="${escapeHtml(record ? record.readCount || 0 : 0)}"></label>
+          <div class="progress-pair-row">
+            <label>閱讀進度
+              <span class="page-progress">
+                第 <input type="number" name="currentPage" min="0" value="${escapeHtml(currentPage)}" class="page-input"> /
+                ${totalPages ? `${escapeHtml(totalPages)} 頁` : ''}
+                <span id="progress-percentage">${percentage !== null ? `（${percentage}%）` : ''}</span>
+              </span>
+            </label>
+            <label>閱讀次數<input type="number" name="readCount" min="0" value="${escapeHtml(record ? record.readCount || 0 : 0)}"></label>
+          </div>
           <label>評分
             <span class="star-rating" id="star-rating">${starButtons(record && record.rating)}</span>
             <input type="hidden" name="rating" value="${record && record.rating ? record.rating : 0}">
