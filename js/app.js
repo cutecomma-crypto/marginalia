@@ -14,6 +14,8 @@ function parseHash() {
 }
 
 async function route() {
+  // 每次換頁（含 Logo 重置）都把捲動位置歸零，不要沿用上一頁滾到一半的位置。
+  window.scrollTo(0, 0);
   const parts = parseHash();
   app.className = '';
   try {
@@ -54,3 +56,15 @@ async function route() {
 
 window.addEventListener('hashchange', route);
 document.addEventListener('DOMContentLoaded', route);
+
+// Logo 點回「所有書籍」的重置 Bug：hash 沒變時瀏覽器不會觸發 hashchange，
+// 已經在 #/books（且沒有任何 /books/:id 之類的子路徑）時單靠 <a href="#/books"> 點下去
+// 完全不會有事情發生——所有搜尋／篩選狀態都活在 bookList.js 的 renderBookList 閉包裡，
+// 沒有重新呼叫就不會被清空。這裡攔下這個特定情境，直接手動重跑一次 route()
+// （等同重新整理出全新的預設列表），其餘情況維持原生 <a> 導航，讓 hashchange 走原本的路徑。
+document.getElementById('brand-logo-link').addEventListener('click', (event) => {
+  if (window.location.hash === '#/books') {
+    event.preventDefault();
+    route();
+  }
+});

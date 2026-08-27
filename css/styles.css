@@ -81,6 +81,17 @@ header h1 a {
   text-decoration: none;
 }
 
+/* Logo 本來就是 <a>，原生游標已經是 pointer，這裡明確寫出來只是不想依賴預設行為；
+   hover 加一點顏色變化，提示「點下去可以回到預設首頁」。 */
+.brand-logo {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.brand-logo:hover {
+  color: var(--primary);
+}
+
 .toolbar {
   display: flex;
   align-items: center;
