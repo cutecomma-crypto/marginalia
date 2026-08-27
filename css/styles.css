@@ -765,6 +765,18 @@ header h1 a {
   grid-column: 1 / -1;
 }
 
+/* 封面圖片要跟左邊的「分類」同一排：手機/平板寬度只有 1～2 欄，就跟其他欄位一樣
+   自然換行；到了桌面 3 欄版面才佔剩下的 2 欄，跟分類並排在同一行。 */
+.book-form fieldset .field-span-2 {
+  grid-column: span 1;
+}
+
+@media (min-width: 860px) {
+  .book-form fieldset .field-span-2 {
+    grid-column: span 2;
+  }
+}
+
 .book-form legend {
   padding: 0 0.4rem;
   font-weight: 600;

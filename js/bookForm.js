@@ -108,7 +108,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
             ${categoryOptionsHtml(book.category)}
           </select>
         </label>
-        <label class="field-wide" for="cover-file-input">封面圖片（選填）
+        <label class="field-span-2" for="cover-file-input">封面圖片（選填）
           <div class="cover-upload" id="cover-upload">
             <div class="cover-preview" id="cover-preview">
               ${book.coverImage ? `<img src="${book.coverImage}" alt="封面預覽">` : '<span class="cover-preview-empty">尚未上傳封面</span>'}

@@ -52,10 +52,10 @@ export async function renderBookDetail(container, rawId) {
           <div class="detail-grid-compact">
             ${detailRow('作者', book.author ? `${isFavoriteAuthor ? '♥ ' : ''}${book.author}` : book.author)}
             ${detailRow('出版社', book.publisher)}
+            ${detailRow('書籍類型', book.category)}
+            ${detailRow('存留狀態', retentionStatusDisplay(book))}
             ${detailRow('出版日期', book.publishDate)}
             ${detailRow('書籍形式', book.format)}
-            ${detailRow('存留狀態', retentionStatusDisplay(book))}
-            ${detailRow('書籍類型', book.category)}
           </div>
         </div>
       </div>
