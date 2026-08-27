@@ -12,6 +12,9 @@ function formatDateSlash(dateStr) {
 // 讓它只是個安靜的小提示，不會比日期文字本身還顯眼。
 const CALENDAR_ICON = '<svg class="badge-calendar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>';
 
+// 「顯示全部書籍」按鈕用的細線 X，取代原本比較搶眼、線條較粗的「✕」文字符號。
+const CLOSE_ICON = '<svg class="reset-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
 // 完成日期欄位：完成了就用綠色小標籤標出日期（視覺上一眼能認出「這本讀完了」），
 // 還沒完成就顯示「—」，不再重複列一整欄閱讀狀態，把空間留給書名。
 function completedDateCell(record) {
@@ -134,7 +137,7 @@ export async function renderBookList(container) {
         <div class="toolbar">
           <div class="toolbar-title-row">
             <h2 id="book-list-title">所有書籍</h2>
-            <button type="button" class="btn year-filter-reset-btn" id="year-filter-reset-btn" hidden>✕ 顯示全部書籍</button>
+            <button type="button" class="btn year-filter-reset-btn" id="year-filter-reset-btn" hidden>${CLOSE_ICON}顯示全部書籍</button>
           </div>
           <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
         </div>

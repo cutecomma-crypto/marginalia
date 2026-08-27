@@ -101,24 +101,6 @@ header h1 a {
   flex-wrap: wrap;
 }
 
-.year-filter-reset-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  background: var(--primary-soft);
-  border: 1px solid #e7d2a8;
-  color: var(--primary-hover);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.year-filter-reset-btn:hover {
-  background: #ecd6ab;
-  border-color: #dcb875;
-}
-
 .toolbar-actions {
   display: flex;
   gap: 0.5rem;
@@ -165,6 +147,32 @@ header h1 a {
 
 .btn-danger:hover {
   background: var(--danger-soft);
+}
+
+/* 這條要放在 .btn 之後：兩者是同層級（單一 class）的選擇器優先度，
+   放前面的話會被 .btn 自己的 border／color 蓋掉（之前就是這樣才會一直看起來像方框）。 */
+.year-filter-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  border: none;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.year-filter-reset-btn:hover {
+  background: var(--border-soft);
+  color: var(--text);
+}
+
+.reset-close-icon {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex-shrink: 0;
 }
 
 .empty {
