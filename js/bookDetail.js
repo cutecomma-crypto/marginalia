@@ -5,19 +5,25 @@ import { renderNotesSection } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
-import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS } from './bookForm.js';
+import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS } from './bookForm.js';
 
 function detailRow(label, value) {
   if (value === undefined || value === null || value === '') return '';
   return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-value">${escapeHtml(value)}</span></div>`;
 }
 
-// 借閱狀態才附上「（借閱管道 - 圖書館名稱）」補充說明，其他存留狀態單純顯示狀態本身。
+// 借閱狀態附上「（借閱管道 - 圖書館名稱）」、借出狀態附上「（借給 XX）」，
+// 其他存留狀態單純顯示狀態本身。
 function retentionStatusDisplay(book) {
   const status = book.retentionStatus || DEFAULT_RETENTION_STATUS;
-  if (status !== BORROWED_RETENTION_STATUS) return status;
-  const detail = [book.libraryBorrowType, book.libraryName].filter(Boolean).join(' - ');
-  return detail ? `${status}（${detail}）` : status;
+  if (status === BORROWED_RETENTION_STATUS) {
+    const detail = [book.libraryBorrowType, book.libraryName].filter(Boolean).join(' - ');
+    return detail ? `${status}（${detail}）` : status;
+  }
+  if (status === LENT_OUT_RETENTION_STATUS && book.lentTo) {
+    return `${status}（借給 ${book.lentTo}）`;
+  }
+  return status;
 }
 
 export async function renderBookDetail(container, rawId) {

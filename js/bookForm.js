@@ -6,9 +6,10 @@ import { escapeHtml } from './utils.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 
 const FORMAT_OPTIONS = ['紙本', '電子書', '有聲書', '其他'];
-const RETENTION_STATUS_OPTIONS = ['保存', '待售', '借閱', '售出', '轉贈'];
+const RETENTION_STATUS_OPTIONS = ['保存', '待售', '借閱', '借出', '售出', '轉贈'];
 export const DEFAULT_RETENTION_STATUS = '保存';
 export const BORROWED_RETENTION_STATUS = '借閱';
+export const LENT_OUT_RETENTION_STATUS = '借出';
 const LIBRARY_BORROW_TYPE_OPTIONS = ['實體圖書館', '線上圖書館 / 電子書'];
 
 // 上傳的封面圖直接壓縮成 base64 存進 IndexedDB（純本機，不用連網、不用外部圖床）。
@@ -79,12 +80,15 @@ function wireCoverUpload(form) {
   });
 }
 
-// 存留狀態選「借閱」才展開圖書館借閱細節，其他狀態下藏起來，避免表單看起來欄位一堆用不到。
+// 存留狀態選「借閱」才展開圖書館借閱細節、選「借出」才展開借給誰，
+// 其他狀態下兩組都藏起來，避免表單看起來欄位一堆用不到。
 function wireRetentionStatusToggle(form) {
   const select = form.elements.retentionStatus;
-  const fields = form.querySelector('#library-borrow-fields');
+  const borrowFields = form.querySelector('#library-borrow-fields');
+  const lentOutFields = form.querySelector('#lent-out-fields');
   select.addEventListener('change', () => {
-    fields.hidden = select.value !== BORROWED_RETENTION_STATUS;
+    borrowFields.hidden = select.value !== BORROWED_RETENTION_STATUS;
+    lentOutFields.hidden = select.value !== LENT_OUT_RETENTION_STATUS;
   });
 }
 
@@ -148,6 +152,11 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
           </label>
           <label for="field-library-name">圖書館名稱
             <input id="field-library-name" name="libraryName" value="${escapeHtml(book.libraryName)}" placeholder="例如：市立圖書館、HyRead 電子書平台">
+          </label>
+        </div>
+        <div class="field-wide library-borrow-fields" id="lent-out-fields" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === LENT_OUT_RETENTION_STATUS ? '' : 'hidden'}>
+          <label class="field-wide" for="field-lent-to">借給誰 / 借出備註
+            <input id="field-lent-to" name="lentTo" value="${escapeHtml(book.lentTo)}" placeholder="例如：小明，或「小明（2026/08/27 借出）」">
           </label>
         </div>
       </fieldset>
@@ -230,6 +239,7 @@ export async function renderBookForm(container, rawId) {
       retentionStatus: data.retentionStatus || DEFAULT_RETENTION_STATUS,
       libraryBorrowType: data.libraryBorrowType || '',
       libraryName: (data.libraryName || '').trim(),
+      lentTo: (data.lentTo || '').trim(),
       category: data.category || '',
       coverImage: data.coverImage || '',
     };
