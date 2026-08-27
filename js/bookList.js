@@ -2,7 +2,8 @@ import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
-import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory } from './bookStats.js';
+import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus } from './bookStats.js';
+import { LENT_OUT_RETENTION_STATUS } from './bookForm.js';
 
 function formatDateSlash(dateStr) {
   return dateStr ? dateStr.replaceAll('-', '/') : '';
@@ -83,6 +84,32 @@ function bookTableHtml(list, favoriteAuthors, recordMap) {
   `;
 }
 
+// 封面網格檢視：跟表格模式吃同一份 list／favoriteAuthors／recordMap，只是換一種排版，
+// 沒有封面的書用書本 emoji 佔位，不留空白方塊。
+function bookGalleryCard(book, favoriteAuthors, recordMap) {
+  const record = recordMap.get(book.id);
+  const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
+  return `
+    <a class="book-gallery-card" href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">
+      <div class="book-gallery-cover">
+        ${book.coverImage ? `<img src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : '<span class="book-gallery-cover-placeholder">📖</span>'}
+      </div>
+      <div class="book-gallery-info">
+        <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
+        <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" title="喜愛的作者">♥</span> ' : ''}${escapeHtml(book.author)}</div>
+        <div class="book-gallery-meta">
+          <span>${escapeHtml(book.category)}</span>
+          ${completedDateCell(record)}
+        </div>
+      </div>
+    </a>
+  `;
+}
+
+function bookGalleryHtml(list, favoriteAuthors, recordMap) {
+  return `<div class="book-gallery">${list.map((book) => bookGalleryCard(book, favoriteAuthors, recordMap)).join('')}</div>`;
+}
+
 const SORT_OPTIONS = [
   { value: 'created-desc', label: '建立時間：新到舊' },
   { value: 'created-asc', label: '建立時間：舊到新' },
@@ -131,6 +158,7 @@ export async function renderBookList(container) {
         <div class="toolbar">
           <div class="toolbar-title-row">
             <h2 id="book-list-title">所有書籍</h2>
+            <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" title="切換為封面網格檢視">▦</button>
             <button type="button" class="btn year-filter-reset-btn" id="year-filter-reset-btn" hidden>${CLOSE_ICON}顯示全部書籍</button>
           </div>
           <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
@@ -149,17 +177,20 @@ export async function renderBookList(container) {
 
   const titleEl = container.querySelector('#book-list-title');
   const yearResetBtn = container.querySelector('#year-filter-reset-btn');
+  const viewModeBtn = container.querySelector('#view-mode-toggle-btn');
   const searchInput = container.querySelector('#book-search');
   const sortSelect = container.querySelector('#book-sort-select');
   const bodyEl = container.querySelector('#book-list-body');
   const countEl = container.querySelector('#book-list-count');
 
-  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量，跟右側書籍列表是同一份狀態，
-  // 三種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
-  // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書。
+  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量／借出中，跟右側書籍列表是同一份狀態，
+  // 四種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
+  // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書，借出中只留存留狀態為借出的書。
   let yearFilter = null;
   let statusFilter = null;
   let categoryFilter = null;
+  let retentionFilter = null;
+  let viewMode = 'table';
 
   function renderList() {
     const query = searchInput.value.trim().toLowerCase();
@@ -169,14 +200,17 @@ export async function renderBookList(container) {
     let base = filterBooksCompletedInYear(searched, recordMap, yearFilter);
     base = filterBooksByStatus(base, recordMap, statusFilter);
     base = filterBooksByCategory(base, categoryFilter);
+    base = filterBooksByRetentionStatus(base, retentionFilter);
     const sorted = sortBooks(base, recordMap, sortSelect.value);
 
     if (sorted.length === 0) {
       bodyEl.innerHTML = query
         ? `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`
-        : `<p class="empty">${(yearFilter || statusFilter || categoryFilter) ? '沒有符合目前篩選條件的書籍。' : '還沒有任何書籍，點擊上方新增第一本。'}</p>`;
+        : `<p class="empty">${(yearFilter || statusFilter || categoryFilter || retentionFilter) ? '沒有符合目前篩選條件的書籍。' : '還沒有任何書籍，點擊上方新增第一本。'}</p>`;
     } else {
-      bodyEl.innerHTML = bookTableHtml(sorted, favoriteAuthors, recordMap);
+      bodyEl.innerHTML = viewMode === 'gallery'
+        ? bookGalleryHtml(sorted, favoriteAuthors, recordMap)
+        : bookTableHtml(sorted, favoriteAuthors, recordMap);
     }
     countEl.textContent = sorted.length === books.length ? `共 ${books.length} 本` : `符合 ${sorted.length} 本（共 ${books.length} 本）`;
 
@@ -184,6 +218,7 @@ export async function renderBookList(container) {
     if (yearFilter) filterLabels.push(`${yearFilter} 年已讀完`);
     if (statusFilter) filterLabels.push(statusFilter);
     if (categoryFilter) filterLabels.push(categoryFilter);
+    if (retentionFilter) filterLabels.push(retentionFilter === LENT_OUT_RETENTION_STATUS ? '借出中' : retentionFilter);
 
     if (filterLabels.length > 0) {
       titleEl.textContent = `所有書籍（${filterLabels.join('、')}）`;
@@ -194,10 +229,18 @@ export async function renderBookList(container) {
     }
   }
 
+  viewModeBtn.addEventListener('click', () => {
+    viewMode = viewMode === 'table' ? 'gallery' : 'table';
+    viewModeBtn.textContent = viewMode === 'table' ? '▦' : '☰';
+    viewModeBtn.title = viewMode === 'table' ? '切換為封面網格檢視' : '切換為表格檢視';
+    renderList();
+  });
+
   yearResetBtn.addEventListener('click', () => {
     yearFilter = null;
     statusFilter = null;
     categoryFilter = null;
+    retentionFilter = null;
     const yearSelect = container.querySelector('#sidebar-stats-year-select');
     if (yearSelect.value) {
       yearSelect.value = '';
@@ -207,6 +250,8 @@ export async function renderBookList(container) {
     if (activeStatusCell) activeStatusCell.click();
     const activeCategoryItem = container.querySelector('.category-progress-item.is-active');
     if (activeCategoryItem) activeCategoryItem.click();
+    const activeLentOutBtn = container.querySelector('.lent-out-filter-btn.is-active');
+    if (activeLentOutBtn) activeLentOutBtn.click();
     renderList();
   });
 
@@ -223,9 +268,21 @@ export async function renderBookList(container) {
       categoryFilter = category;
       renderList();
     },
+    onRetentionFilterChange: (retention) => {
+      retentionFilter = retention;
+      renderList();
+    },
+    onTagClick: (tag) => {
+      searchInput.value = tag || '';
+      renderList();
+    },
   });
 
-  searchInput.addEventListener('input', renderList);
+  searchInput.addEventListener('input', () => {
+    const activeTagChip = container.querySelector('.popular-tag-chip.is-active');
+    if (activeTagChip) activeTagChip.classList.remove('is-active');
+    renderList();
+  });
   sortSelect.addEventListener('change', renderList);
   renderList();
 }

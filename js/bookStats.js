@@ -54,3 +54,9 @@ export function filterBooksByCategory(books, category) {
   if (!category) return books;
   return books.filter((book) => (book.category || '未分類') === category);
 }
+
+// 「借出中」快捷篩選：直接看書籍本身的存留狀態欄位，不用查閱讀紀錄。
+export function filterBooksByRetentionStatus(books, retentionStatus) {
+  if (!retentionStatus) return books;
+  return books.filter((book) => book.retentionStatus === retentionStatus);
+}

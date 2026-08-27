@@ -2464,3 +2464,164 @@ header h1 a {
   color: var(--danger);
   border-color: var(--danger);
 }
+
+/* 熱門 #標籤牆：跟 category-progress-item 同一套「可點擊篩選膠囊」語彙，
+   用 flex-wrap 排列，標籤數量、寬度都不固定。 */
+.popular-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.popular-tag-chip {
+  background: var(--surface-alt);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--primary-hover);
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.popular-tag-chip:hover {
+  background: var(--border-soft);
+  transform: translateY(-1px);
+}
+
+.popular-tag-chip.is-active {
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 2px var(--primary);
+  font-weight: 700;
+}
+
+/* 借出中快捷篩選：放在「各類型書籍數量」正上方，跟分類清單留一點距離區隔開來。
+   0 本時仍顯示（讓使用者知道有這個功能存在）但禁用，不能點出空清單。 */
+.lent-out-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-bottom: 0.9rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.lent-out-filter-btn:hover:not(:disabled) {
+  background: var(--border-soft);
+  transform: translateY(-1px);
+}
+
+.lent-out-filter-btn.is-active {
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 2px var(--primary);
+  color: var(--primary-hover);
+}
+
+.lent-out-filter-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 表格／網格檢視切換：跟「顯示全部書籍」重置鈕一樣是標題旁的次要小按鈕，
+   用同一顆圖示按鈕切換兩種狀態的字符跟 title，不額外佔用版面空間。 */
+.view-mode-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.view-mode-toggle-btn:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+/* 封面網格檢視：跟表格模式共用同一份資料，換一種以封面為主的排版方式。 */
+.book-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.book-gallery-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.book-gallery-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(35, 27, 20, 0.12);
+}
+
+.book-gallery-cover {
+  aspect-ratio: 2 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt);
+}
+
+.book-gallery-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-gallery-cover-placeholder {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.book-gallery-info {
+  padding: 0.6rem 0.7rem 0.75rem;
+}
+
+.book-gallery-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-gallery-author {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-gallery-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

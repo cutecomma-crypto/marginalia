@@ -1,6 +1,7 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 import { buildRecordByBookMap, isCompletedInYear } from './bookStats.js';
+import { LENT_OUT_RETENTION_STATUS } from './bookForm.js';
 
 // 對照 PROJECT_SPEC.md 第 3 節與 B 原則 6：全部自動計算，不可手動輸入。
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -180,11 +181,33 @@ function categoryEntriesForYear(books, recordByBook, year) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]);
 }
 
-function categorySectionHtml(categoryEntries, year, activeCategory) {
+// 「借出中」快捷篩選按鈕：放在「各類型書籍數量」正上方，不受年份選擇影響
+// （存留狀態是書籍當下的狀態，不是某一年才成立的事）。0 本時仍顯示，但不能點。
+function lentOutButtonHtml(lentOutCount, isActive) {
   return `
+    <button type="button" class="lent-out-filter-btn${isActive ? ' is-active' : ''}" id="lent-out-filter-btn" ${lentOutCount === 0 ? 'disabled' : ''}>
+      📤 借出中（${lentOutCount} 本）
+    </button>
+  `;
+}
+
+function categorySectionHtml(categoryEntries, year, activeCategory, lentOutCount, isRetentionActive) {
+  return `
+    ${lentOutButtonHtml(lentOutCount, isRetentionActive)}
     <h4>各類型書籍數量${year ? `<span class="sidebar-year-tag">${escapeHtml(year)} 年已讀完</span>` : ''}</h4>
     ${categoryProgressListHtml(categoryEntries, activeCategory)}
   `;
+}
+
+function wireLentOutButton(container, onRetentionFilterChange, setActiveRetention) {
+  const btn = container.querySelector('#lent-out-filter-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const nowActive = !btn.classList.contains('is-active');
+    btn.classList.toggle('is-active', nowActive);
+    setActiveRetention(nowActive);
+    onRetentionFilterChange(nowActive ? LENT_OUT_RETENTION_STATUS : null);
+  });
 }
 
 function wireCategoryToggle(container) {
@@ -223,6 +246,7 @@ export async function renderSidebarStats(container, options = {}) {
   const onYearChange = options.onYearChange || (() => {});
   const onStatusFilterChange = options.onStatusFilterChange || (() => {});
   const onCategoryFilterChange = options.onCategoryFilterChange || (() => {});
+  const onRetentionFilterChange = options.onRetentionFilterChange || (() => {});
   const [books, records] = await Promise.all([DB.getAll('books'), DB.getAll('reading_records')]);
   const stats = computeStats(books, records);
   const currentYear = String(new Date().getFullYear());
@@ -235,7 +259,9 @@ export async function renderSidebarStats(container, options = {}) {
   const completed = books.filter((b) => (recordByBook.get(b.id) || {}).status === '已讀完').length;
 
   const defaultYearStats = statsForYear(stats, completed, defaultYear);
+  const lentOutCount = books.filter((b) => b.retentionStatus === LENT_OUT_RETENTION_STATUS).length;
   let activeCategory = null;
+  let activeRetention = false;
 
   container.innerHTML = `
     <div class="sidebar-panel">
@@ -260,9 +286,10 @@ export async function renderSidebarStats(container, options = {}) {
 
   const categoryPanel = container.querySelector('#sidebar-category-panel');
   function renderCategoryPanel(year) {
-    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory);
+    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory, lentOutCount, activeRetention);
     wireCategoryToggle(categoryPanel);
     wireCategoryItemClicks(categoryPanel, onCategoryFilterChange, (cat) => { activeCategory = cat; });
+    wireLentOutButton(categoryPanel, onRetentionFilterChange, (isActive) => { activeRetention = isActive; });
   }
   renderCategoryPanel(null);
 
