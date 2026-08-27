@@ -883,16 +883,24 @@ header h1 a {
 }
 
 /* 頂部書籍資訊區：純資訊、不可編輯的名片，封面＋書名＋標籤＋6 個欄位資料
-   （作者／出版社／出版日期／形式／存留狀態／類型）排成 3 欄 x 2 排，填滿右側空間。 */
+   （作者／出版社／出版日期／形式／存留狀態／類型）排成 3 欄 x 2 排，填滿右側空間；
+   下方再接「閱讀進度設定」模組（見 .reading-progress-module），兩者同一張卡片，
+   進度模組自己的虛線邊框＋淡底色跟上半部區隔開來，不需要額外再包一層卡。 */
 .book-header-panel {
   display: flex;
-  gap: 1.25rem;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 1rem;
   background: var(--surface);
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   padding: 1rem 1.25rem;
   margin-bottom: 1.5rem;
+}
+
+.book-header-top {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
 }
 
 .book-header-info {
@@ -949,7 +957,6 @@ header h1 a {
   border: 1px dashed var(--border);
   border-radius: 8px;
   padding: 0.65rem 0.9rem;
-  margin-bottom: 1.5rem;
 }
 
 .progress-module-heading {

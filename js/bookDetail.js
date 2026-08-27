@@ -40,23 +40,26 @@ export async function renderBookDetail(container, rawId) {
       </div>
     </div>
     <div class="book-header-panel">
-      ${book.coverImage ? `<img class="book-cover-image book-cover-image-sm" src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : ''}
-      <div class="book-header-info">
-        <h2>${escapeHtml(book.title || '（未命名）')}</h2>
-        ${book.tags && book.tags.length ? `
-        <div class="detail-tags">
-          ${book.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}
-        </div>
-        ` : ''}
-        <div class="detail-grid-compact">
-          ${detailRow('作者', book.author ? `${isFavoriteAuthor ? '♥ ' : ''}${book.author}` : book.author)}
-          ${detailRow('出版社', book.publisher)}
-          ${detailRow('出版日期', book.publishDate)}
-          ${detailRow('書籍形式', book.format)}
-          ${detailRow('存留狀態', retentionStatusDisplay(book))}
-          ${detailRow('書籍類型', book.category)}
+      <div class="book-header-top">
+        ${book.coverImage ? `<img class="book-cover-image book-cover-image-sm" src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : ''}
+        <div class="book-header-info">
+          <h2>${escapeHtml(book.title || '（未命名）')}</h2>
+          ${book.tags && book.tags.length ? `
+          <div class="detail-tags">
+            ${book.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}
+          </div>
+          ` : ''}
+          <div class="detail-grid-compact">
+            ${detailRow('作者', book.author ? `${isFavoriteAuthor ? '♥ ' : ''}${book.author}` : book.author)}
+            ${detailRow('出版社', book.publisher)}
+            ${detailRow('出版日期', book.publishDate)}
+            ${detailRow('書籍形式', book.format)}
+            ${detailRow('存留狀態', retentionStatusDisplay(book))}
+            ${detailRow('書籍類型', book.category)}
+          </div>
         </div>
       </div>
+      <div id="reading-section"></div>
     </div>
 
     <div class="main-tabs">
@@ -70,7 +73,6 @@ export async function renderBookDetail(container, rawId) {
         <div id="motivation-container"></div>
       </div>
       <div class="main-tab-panel" data-tab-panel="reflection" hidden>
-        <div id="reading-section"></div>
         <div id="reflection-container"></div>
       </div>
       <div class="main-tab-panel" data-tab-panel="notes" hidden>
