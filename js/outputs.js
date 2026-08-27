@@ -41,12 +41,13 @@ function readTags(form, name) {
 // 選取的文字當場變粗變斜變大，不會再看到 **這種原始碼符號**。
 // 「螢光標記」execCommand 沒有對應的語意標籤指令，用 Selection/Range API 手動包一層 <mark>。
 const WYSIWYG_TOOLS = [
-  { key: 'bold', label: 'B', title: '粗體 (Ctrl+B)' },
-  { key: 'italic', label: 'I', title: '斜體 (Ctrl+I)' },
-  { key: 'heading', label: 'H', title: '標題 H2' },
-  { key: 'list', label: '•', title: '項目符號清單' },
-  { key: 'mark', label: '〰', title: '螢光標記（需先選取文字）' },
-  { key: 'clear', label: '⌦', title: '清除文字格式' },
+  { key: 'bold', label: 'B', title: '粗體 (Bold)' },
+  { key: 'italic', label: 'I', title: '斜體 (Italic)' },
+  { key: 'heading', label: 'H', title: '標題 (Heading)' },
+  { key: 'list', label: '•', title: '項目符號清單 (Bullet List)' },
+  { key: 'strike', label: 'S', title: '刪除線 (Strikethrough)' },
+  { key: 'mark', label: '〰', title: '螢光標記 (Highlight)' },
+  { key: 'clear', label: '⌦', title: '清除格式 (Clear Formatting)' },
 ];
 
 // 5 色文字顏色色票：都是實心圓點按鈕，點下去對「目前選取的文字」套用 foreColor。
@@ -141,6 +142,7 @@ function applyWysiwygCommand(editor, cmd) {
   if (cmd === 'bold') { document.execCommand('bold'); return; }
   if (cmd === 'italic') { document.execCommand('italic'); return; }
   if (cmd === 'list') { document.execCommand('insertUnorderedList'); return; }
+  if (cmd === 'strike') { document.execCommand('strikeThrough'); return; }
   if (cmd === 'heading') {
     const isHeading = document.queryCommandValue('formatBlock').toLowerCase() === 'h2';
     document.execCommand('formatBlock', false, isHeading ? 'p' : 'h2');
@@ -153,7 +155,7 @@ function applyWysiwygCommand(editor, cmd) {
 // 貼上內容、或瀏覽器產生的格式標籤五花八門（<b>/<i>/<span style>/<font>…），
 // 存進資料庫前一律過白名單：只留語意標籤本身（不留任何屬性，沒有 style／class 污染的空間），
 // 其餘標籤攤平成純文字內容（不整段丟掉），從根本避免樣式污染，也避免存進去任何可執行的 HTML。
-const ALLOWED_REFLECTION_TAGS = new Set(['STRONG', 'EM', 'H2', 'H3', 'UL', 'OL', 'LI', 'MARK', 'P']);
+const ALLOWED_REFLECTION_TAGS = new Set(['STRONG', 'EM', 'S', 'H2', 'H3', 'UL', 'OL', 'LI', 'MARK', 'P']);
 // 文字顏色是唯一允許保留的「屬性」，而且刻意收得極窄：只認得跟色票完全相同的 6 碼色碼字串，
 // 不是把使用者／瀏覽器貼過來的任意色碼原樣收下——顏色值永遠來自這個常數本身，不會有 CSS 注入的空間。
 const ALLOWED_TEXT_COLORS = new Set(TEXT_COLOR_PALETTE.map((c) => c.hex.toLowerCase()));
@@ -203,6 +205,7 @@ function appendSanitizedChildren(sourceParent, targetParent) {
     let tagName = child.tagName;
     if (tagName === 'B') tagName = 'STRONG';
     if (tagName === 'I') tagName = 'EM';
+    if (tagName === 'STRIKE' || tagName === 'DEL') tagName = 'S';
     if (tagName === 'DIV') tagName = 'P';
     if (!ALLOWED_REFLECTION_TAGS.has(tagName)) {
       appendSanitizedChildren(child, targetParent);
