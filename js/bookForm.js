@@ -91,41 +91,44 @@ function wireRetentionStatusToggle(form) {
 function formTemplate(book, isNew, isFavoriteAuthor) {
   return `
     <form id="book-form" class="book-form" novalidate>
-      <fieldset class="form-section">
+      <fieldset class="form-section book-basic-grid">
         <legend>📖 書籍基本資料</legend>
-        <label class="field-required field-wide" for="field-title">書名 *<input id="field-title" name="title" required value="${escapeHtml(book.title)}" placeholder="這本書叫什麼名字？"></label>
-        <label for="field-author">作者
-          <span class="author-input-row">
-            <input id="field-author" name="author" value="${escapeHtml(book.author)}">
-            <button type="button" id="author-favorite-btn" class="star-btn${isFavoriteAuthor ? ' filled' : ''}" title="標記為喜愛的作者">♥</button>
-          </span>
-        </label>
-        <label for="field-publisher">出版社<input id="field-publisher" name="publisher" value="${escapeHtml(book.publisher)}"></label>
-        <label for="field-publish-date">出版日期<input id="field-publish-date" type="date" name="publishDate" value="${escapeHtml(book.publishDate)}"></label>
-        <label for="field-category">分類
-          <select id="field-category" name="category">
-            <option value="">（先不分類）</option>
-            ${categoryOptionsHtml(book.category)}
-          </select>
-        </label>
-        <label class="field-span-2" for="cover-file-input">封面圖片（選填）
-          <div class="cover-upload" id="cover-upload">
-            <div class="cover-preview" id="cover-preview">
-              ${book.coverImage ? `<img src="${book.coverImage}" alt="封面預覽">` : '<span class="cover-preview-empty">尚未上傳封面</span>'}
-            </div>
-            <div class="cover-upload-actions">
-              <input type="file" accept="image/*" id="cover-file-input">
-              <button type="button" id="cover-remove-btn" class="btn" style="${book.coverImage ? '' : 'display:none;'}">移除封面</button>
-            </div>
+        <div class="basic-fields-col">
+          <label class="field-required" for="field-title">書名 *<input id="field-title" name="title" required value="${escapeHtml(book.title)}" placeholder="這本書叫什麼名字？"></label>
+          <div class="basic-fields-row">
+            <label for="field-author">作者
+              <span class="author-input-row">
+                <input id="field-author" name="author" value="${escapeHtml(book.author)}">
+                <button type="button" id="author-favorite-btn" class="star-btn${isFavoriteAuthor ? ' filled' : ''}" title="標記為喜愛的作者">♥</button>
+              </span>
+            </label>
+            <label for="field-publisher">出版社<input id="field-publisher" name="publisher" value="${escapeHtml(book.publisher)}"></label>
+          </div>
+          <div class="basic-fields-row">
+            <label for="field-publish-date">出版日期<input id="field-publish-date" type="date" name="publishDate" value="${escapeHtml(book.publishDate)}"></label>
+            <label for="field-category">分類
+              <select id="field-category" name="category">
+                <option value="">（先不分類）</option>
+                ${categoryOptionsHtml(book.category)}
+              </select>
+            </label>
+          </div>
+        </div>
+        <label class="cover-upload-col" for="cover-file-input">封面圖片（選填）
+          <div class="cover-preview" id="cover-preview">
+            ${book.coverImage ? `<img src="${book.coverImage}" alt="封面預覽">` : '<span class="cover-preview-empty">尚未上傳封面</span>'}
+          </div>
+          <div class="cover-upload-actions">
+            <input type="file" accept="image/*" id="cover-file-input">
+            <button type="button" id="cover-remove-btn" class="btn" style="${book.coverImage ? '' : 'display:none;'}">移除封面</button>
           </div>
           <input type="hidden" name="coverImage" id="cover-image-value" value="${escapeHtml(book.coverImage || '')}">
         </label>
       </fieldset>
 
-      <fieldset class="form-section form-section-quiet">
+      <fieldset class="form-section form-section-quiet book-purchase-grid">
         <legend>🛒 擁有／購買資料</legend>
         <label for="field-purchase-date">購買日期<input id="field-purchase-date" type="date" name="purchaseDate" value="${escapeHtml(book.purchaseDate)}"></label>
-        <label for="field-purchase-source">購買來源<input id="field-purchase-source" name="purchaseSource" value="${escapeHtml(book.purchaseSource)}"></label>
         <label for="field-purchase-price">購買價格<input id="field-purchase-price" type="number" name="purchasePrice" min="0" value="${escapeHtml(book.purchasePrice)}"></label>
         <label for="field-format">書籍形式
           <select id="field-format" name="format">
@@ -222,7 +225,6 @@ export async function renderBookForm(container, rawId) {
       publisher: (data.publisher || '').trim(),
       publishDate: data.publishDate || '',
       purchaseDate: data.purchaseDate || '',
-      purchaseSource: (data.purchaseSource || '').trim(),
       purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : null,
       format: data.format || '其他',
       retentionStatus: data.retentionStatus || DEFAULT_RETENTION_STATUS,
