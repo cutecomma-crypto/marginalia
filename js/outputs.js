@@ -48,8 +48,14 @@ const MD_TOOLS = [
 
 function mdToolbarHtml() {
   return `
-    <div class="md-toolbar">
-      ${MD_TOOLS.map((t) => `<button type="button" class="md-tool-btn" data-md="${t.key}" title="${escapeHtml(t.title)}">${escapeHtml(t.label)}</button>`).join('')}
+    <div class="md-toolbar-row">
+      <div class="md-toolbar">
+        ${MD_TOOLS.map((t) => `<button type="button" class="md-tool-btn" data-md="${t.key}" title="${escapeHtml(t.title)}">${escapeHtml(t.label)}</button>`).join('')}
+      </div>
+      <div class="md-view-toggle">
+        <button type="button" class="md-view-btn is-active" data-view="edit">編輯</button>
+        <button type="button" class="md-view-btn" data-view="preview">預覽</button>
+      </div>
     </div>
   `;
 }
@@ -82,8 +88,32 @@ function insertMarkdown(textarea, key) {
 
 function wireMdToolbar(form) {
   const textarea = form.elements.text;
+  const previewBox = form.querySelector('.reflection-preview-box');
   form.querySelectorAll('.md-tool-btn').forEach((btn) => {
+    // 按鈕預設的 mousedown 會把焦點從 textarea 搶走，連帶讓選取範圍在某些瀏覽器裡被清空——
+    // 先攔掉 mousedown 讓焦點留在 textarea 上，click 讀到的 selectionStart/End 才會是使用者真正選取的範圍。
+    btn.addEventListener('mousedown', (event) => event.preventDefault());
     btn.addEventListener('click', () => insertMarkdown(textarea, btn.dataset.md));
+  });
+
+  // 編輯／預覽切換：預覽直接重用心得列表用的同一份 renderReflectionMarkdown，
+  // 讓使用者不用先送出就能看到粗體／標題／條列／螢光標記排版後的樣子。
+  const viewButtons = form.querySelectorAll('.md-view-btn');
+  viewButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const isPreview = btn.dataset.view === 'preview';
+      viewButtons.forEach((b) => b.classList.toggle('is-active', b === btn));
+      form.querySelector('.md-toolbar').hidden = isPreview;
+      textarea.hidden = isPreview;
+      previewBox.hidden = !isPreview;
+      if (isPreview) {
+        previewBox.innerHTML = textarea.value.trim()
+          ? renderReflectionMarkdown(textarea.value)
+          : '<p class="empty">還沒有輸入任何內容。</p>';
+      } else {
+        textarea.focus();
+      }
+    });
   });
 }
 
@@ -184,6 +214,7 @@ export async function renderReflections(container, bookId) {
       <label>想寫點什麼都可以
         ${mdToolbarHtml()}
         <textarea name="text" rows="2" placeholder="寫下你的心得...（提示：輸入 #心理學 或 #榮格 可建立主題標籤）"></textarea>
+        <div class="reflection-preview-box" hidden></div>
       </label>
       <p class="hashtag-hint">💡 提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
       <div class="form-actions">

@@ -109,7 +109,7 @@ function bookGalleryCard(book, favoriteAuthors, recordMap) {
         <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
         <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" title="喜愛的作者">♥</span> ' : ''}${escapeHtml(book.author)}</div>
         <div class="book-gallery-meta">
-          <span>${escapeHtml(book.category)}</span>
+          ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
           ${completedDateCell(record)}
         </div>
       </div>

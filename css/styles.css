@@ -1593,11 +1593,25 @@ header h1 a {
 }
 
 /* 心得輸入框上方的極簡 Markdown 工具列：小小一排圓角按鈕，份量刻意做輕，
-   不搶輸入框本身的焦點，只是舉手之勞的排版輔助。 */
+   不搶輸入框本身的焦點，只是舉手之勞的排版輔助。跟右側「編輯／預覽」切換頁籤放同一列。 */
+.md-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
 .md-toolbar {
   display: flex;
   gap: 0.35rem;
-  margin-bottom: 0.35rem;
+}
+
+/* .md-toolbar 的 display:flex 一樣會蓋掉 [hidden]{display:none}（author 規則贏過 UA 規則），
+   切到預覽模式時工具列要用 hidden 屬性藏起來，沒有這條會維持可見。 */
+.md-toolbar[hidden] {
+  display: none;
 }
 
 .md-tool-btn {
@@ -1616,6 +1630,45 @@ header h1 a {
 .md-tool-btn:hover {
   background: var(--surface-alt);
   color: var(--text);
+}
+
+.md-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.md-view-btn {
+  border: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.md-view-btn.is-active {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  font-weight: 600;
+}
+
+/* 預覽框跟輸入框共用同一個位置（互斥顯示），套用跟已儲存心得一樣的 .reflection-body
+   排版樣式，讓「送出前」跟「送出後」看到的排版效果完全一致，不會有落差。 */
+.reflection-preview-box {
+  min-height: 3.2rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  font-size: 0.88rem;
+}
+
+.reflection-preview-box .empty {
+  padding: 0;
+  font-size: 0.85rem;
 }
 
 /* 心得列表顯示時，把工具列插入的語法轉回真的排版效果。 */
@@ -1639,7 +1692,8 @@ header h1 a {
   padding-left: 1.3rem;
 }
 
-.reflection-body mark {
+.reflection-body mark,
+.reflection-preview-box mark {
   background: var(--gold);
   color: var(--text);
   padding: 0 0.15rem;
@@ -1900,9 +1954,12 @@ header h1 a {
   font-size: 0.9rem;
 }
 
+/* 左側「新增佳句」跟右側「佳句列表」改成 5:7 的彈性比例（呼應 12 欄網格的
+   col-span-5／col-span-7），取代原本固定 320px 的左欄——長句子在輸入框裡
+   不會再被擠得頻繁斷行，寬螢幕下左欄也能跟著一起變寬，不會卡在同一個死寬度。 */
 .quotes-page-layout {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -2685,6 +2742,11 @@ header h1 a {
   border-radius: 8px;
   overflow: hidden;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  /* 讓下面的類型標籤可以用「這張卡片本身量到的寬度」決定要不要顯示，
+     而不是猜測整個 viewport 的斷點——同一列的卡片在不同螢幕寬度下欄數不同，
+     卡片本身的寬度才是真正決定裝不裝得下類型標籤的依據。 */
+  container-type: inline-size;
+  container-name: gallery-card;
 }
 
 .book-gallery-card:hover {
@@ -2733,29 +2795,37 @@ header h1 a {
   white-space: nowrap;
 }
 
-/* 書籍類型／完成日期並排在卡片最下面一行：類型字數不定（例如「驚悚小說」），
-   flex 子項預設 min-width:auto 會逼著容器硬把文字擠成兩行造成「驚悚小／說」這種斷字，
-   這裡強制不換行＋超出省略號，完成日期固定寬度不被擠壓。 */
+/* 書籍類型／完成日期改成上下兩行，不再跟日期擠同一行搶寬度——之前兩者並排、
+   類型用 ellipsis 截斷，字數一多（例如「驚悚小說」）在窄卡片上就會被切成「驚悚...」。
+   類型獨占一整行寬度後，柔和標籤樣式完整顯示；萬一卡片真的窄到連標籤都放不下
+   （見下面的 container query），寧可整個隱藏也不要出現「...」切字。 */
 .book-gallery-meta {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
   font-size: 0.7rem;
   color: var(--text-muted);
 }
 
-.book-gallery-meta span {
+.book-gallery-category {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.book-gallery-meta span:first-child {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.book-gallery-meta .book-completed-date {
-  flex: 0 0 auto;
+/* 卡片本身寬度低於這個門檻時（例如小螢幕上一列擠了 4、5 欄），類型標籤直接整個隱藏，
+   只留完成日期——寧可少顯示一項資訊，也不要讓文字被截斷成半個詞。 */
+@container gallery-card (max-width: 150px) {
+  .book-gallery-category {
+    display: none;
+  }
 }
