@@ -876,9 +876,8 @@ header h1 a {
   min-height: 120px;
 }
 
-/* 頂部書籍資訊區：現在是純資訊、不可編輯的小名片，高度刻意壓低——
-   只留封面、書名、標籤、少數幾個一眼就想看的欄位（作者／出版社／形式／類型），
-   其餘細節（購買資料、存留狀態等）已經有編輯頁可以看，這裡不重複塞。 */
+/* 頂部書籍資訊區：純資訊、不可編輯的名片，封面＋書名＋標籤＋6 個欄位資料
+   （作者／出版社／出版日期／形式／存留狀態／類型）排成 3 欄 x 2 排，填滿右側空間。 */
 .book-header-panel {
   display: flex;
   gap: 1.25rem;
@@ -896,7 +895,10 @@ header h1 a {
 }
 
 .book-header-info h2 {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.6rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .book-cover-image-sm {
@@ -906,8 +908,8 @@ header h1 a {
 
 .detail-grid-compact {
   display: grid;
-  grid-template-columns: repeat(4, auto);
-  gap: 0.5rem 1.5rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem 1.5rem;
 }
 
 @media (max-width: 700px) {
@@ -919,13 +921,19 @@ header h1 a {
 .detail-row {
   display: flex;
   flex-direction: column;
-  font-size: 0.85rem;
 }
 
 .detail-label {
   color: var(--text-muted);
   font-size: 0.72rem;
-  margin-bottom: 0.1rem;
+  font-weight: 500;
+  margin-bottom: 0.15rem;
+}
+
+.detail-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 /* 「閱讀進度」不再是獨立卡片，改成整合進「閱讀後輸出」頁籤裡的輕量模組——

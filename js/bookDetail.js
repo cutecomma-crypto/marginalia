@@ -5,10 +5,19 @@ import { renderNotesSection } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
+import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS } from './bookForm.js';
 
 function detailRow(label, value) {
   if (value === undefined || value === null || value === '') return '';
-  return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`;
+  return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-value">${escapeHtml(value)}</span></div>`;
+}
+
+// 借閱狀態才附上「（借閱管道 - 圖書館名稱）」補充說明，其他存留狀態單純顯示狀態本身。
+function retentionStatusDisplay(book) {
+  const status = book.retentionStatus || DEFAULT_RETENTION_STATUS;
+  if (status !== BORROWED_RETENTION_STATUS) return status;
+  const detail = [book.libraryBorrowType, book.libraryName].filter(Boolean).join(' - ');
+  return detail ? `${status}（${detail}）` : status;
 }
 
 export async function renderBookDetail(container, rawId) {
@@ -42,7 +51,9 @@ export async function renderBookDetail(container, rawId) {
         <div class="detail-grid-compact">
           ${detailRow('作者', book.author ? `${isFavoriteAuthor ? '♥ ' : ''}${book.author}` : book.author)}
           ${detailRow('出版社', book.publisher)}
+          ${detailRow('出版日期', book.publishDate)}
           ${detailRow('書籍形式', book.format)}
+          ${detailRow('存留狀態', retentionStatusDisplay(book))}
           ${detailRow('書籍類型', book.category)}
         </div>
       </div>
