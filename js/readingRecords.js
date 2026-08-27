@@ -25,32 +25,32 @@ export async function renderReadingSection(container, bookId, book) {
   const percentage = totalPages && currentPage ? Math.round((currentPage / totalPages) * 100) : null;
 
   container.innerHTML = `
-    <div class="reading-section">
-      <h4>閱讀進度</h4>
-      <form id="reading-form" class="book-form reading-form">
-        <label>狀態
-          <select name="status">
-            ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${record && record.status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
-          </select>
-        </label>
-        <div class="reading-form-row">
+    <div class="reading-progress-module">
+      <h4 class="progress-module-heading">📖 閱讀進度設定</h4>
+      <form id="reading-form" class="book-form reading-progress-form">
+        <div class="progress-form-grid">
+          <label>狀態
+            <select name="status">
+              ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${record && record.status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+            </select>
+          </label>
           <label>開始日期<input type="date" name="startDate" value="${escapeHtml(record && record.startDate)}"></label>
           <label>完成日期<input type="date" name="endDate" value="${escapeHtml(record && record.endDate)}"></label>
+          <label>閱讀進度
+            <span class="page-progress">
+              第 <input type="number" name="currentPage" min="0" value="${escapeHtml(currentPage)}" class="page-input"> /
+              ${totalPages ? `${escapeHtml(totalPages)} 頁` : ''}
+              <span id="progress-percentage">${percentage !== null ? `（${percentage}%）` : ''}</span>
+            </span>
+          </label>
+          <label>閱讀次數<input type="number" name="readCount" min="0" value="${escapeHtml(record ? record.readCount || 0 : 0)}"></label>
+          <label>評分
+            <span class="star-rating" id="star-rating">${starButtons(record && record.rating)}</span>
+            <input type="hidden" name="rating" value="${record && record.rating ? record.rating : 0}">
+          </label>
         </div>
-        <label>閱讀進度
-          <span class="page-progress">
-            第 <input type="number" name="currentPage" min="0" value="${escapeHtml(currentPage)}" class="page-input"> /
-            ${totalPages ? `${escapeHtml(totalPages)} 頁` : ''}
-            <span id="progress-percentage">${percentage !== null ? `（${percentage}%）` : ''}</span>
-          </span>
-        </label>
-        <label>閱讀次數<input type="number" name="readCount" min="0" value="${escapeHtml(record ? record.readCount || 0 : 0)}"></label>
-        <label>評分
-          <span class="star-rating" id="star-rating">${starButtons(record && record.rating)}</span>
-          <input type="hidden" name="rating" value="${record && record.rating ? record.rating : 0}">
-        </label>
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary">更新閱讀進度</button>
+          <button type="submit" class="btn btn-primary btn-sm">更新閱讀進度</button>
         </div>
       </form>
     </div>

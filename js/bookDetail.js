@@ -5,19 +5,10 @@ import { renderNotesSection } from './notes.js';
 import { renderQuoteSummaryCard } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
-import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS } from './bookForm.js';
 
 function detailRow(label, value) {
   if (value === undefined || value === null || value === '') return '';
   return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`;
-}
-
-// 借閱狀態才附上「（借閱管道 - 圖書館名稱）」補充說明，其他存留狀態單純顯示狀態本身。
-function retentionStatusDisplay(book) {
-  const status = book.retentionStatus || DEFAULT_RETENTION_STATUS;
-  if (status !== BORROWED_RETENTION_STATUS) return status;
-  const detail = [book.libraryBorrowType, book.libraryName].filter(Boolean).join(' - ');
-  return detail ? `${status}（${detail}）` : status;
 }
 
 export async function renderBookDetail(container, rawId) {
@@ -40,7 +31,7 @@ export async function renderBookDetail(container, rawId) {
       </div>
     </div>
     <div class="book-header-panel">
-      ${book.coverImage ? `<img class="book-cover-image" src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : ''}
+      ${book.coverImage ? `<img class="book-cover-image book-cover-image-sm" src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : ''}
       <div class="book-header-info">
         <h2>${escapeHtml(book.title || '（未命名）')}</h2>
         ${book.tags && book.tags.length ? `
@@ -48,20 +39,13 @@ export async function renderBookDetail(container, rawId) {
           ${book.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}
         </div>
         ` : ''}
-        <h4 class="book-header-subheading">書籍資料</h4>
         <div class="detail-grid-compact">
           ${detailRow('作者', book.author ? `${isFavoriteAuthor ? '♥ ' : ''}${book.author}` : book.author)}
           ${detailRow('出版社', book.publisher)}
-          ${detailRow('出版日期', book.publishDate)}
-          ${detailRow('購買日期', book.purchaseDate)}
-          ${detailRow('購買來源', book.purchaseSource)}
-          ${detailRow('購買價格', book.purchasePrice)}
           ${detailRow('書籍形式', book.format)}
-          ${detailRow('存留狀態', retentionStatusDisplay(book))}
           ${detailRow('書籍類型', book.category)}
         </div>
       </div>
-      <div class="book-header-reading" id="reading-section"></div>
     </div>
 
     <div class="main-tabs">
@@ -74,6 +58,7 @@ export async function renderBookDetail(container, rawId) {
         <div id="motivation-container"></div>
       </div>
       <div class="main-tab-panel" data-tab-panel="reflection" hidden>
+        <div id="reading-section"></div>
         <div id="reflection-container"></div>
       </div>
       <div class="main-tab-panel" data-tab-panel="notes" hidden>

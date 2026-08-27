@@ -88,7 +88,6 @@ function reflectionItem(item) {
 export async function renderReflections(container, bookId) {
   const items = await getOutputsByKind(bookId, 'reflection');
   items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  const defaultDate = await getDefaultReflectionDate(bookId);
 
   container.innerHTML = `
     <h4 class="section-heading">✍️ 閱讀後輸出</h4>
@@ -115,8 +114,11 @@ export async function renderReflections(container, bookId) {
     const tags = readTags(form, 'reflectionTags');
     const text = form.elements.text.value.trim();
     if (tags.length === 0 && !text) return;
-    // 不再讓使用者每次都挑日期，統一沿用頁面頂部「閱讀進度」設定的完成日期（沒完成就是今天）。
-    await DB.add('outputs', { bookId, kind: 'reflection', tags, text, date: defaultDate });
+    // 不再讓使用者每次都挑日期，統一沿用「閱讀進度」設定的完成日期（沒完成就是今天）。
+    // 這裡要在送出當下重新查一次，不能用渲染當下就算好的 defaultDate——
+    // 現在進度模組跟這個表單同一個頁籤，使用者很可能剛改完日期就馬上寫心得。
+    const date = await getDefaultReflectionDate(bookId);
+    await DB.add('outputs', { bookId, kind: 'reflection', tags, text, date });
     await renderReflections(container, bookId);
   });
 
