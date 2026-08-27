@@ -1606,6 +1606,8 @@ header h1 a {
 /* 心得輸入框上方的極簡工具列：小小一排圓角按鈕，份量刻意做輕，不搶輸入框本身的焦點。 */
 .md-toolbar {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 0.35rem;
 }
@@ -1621,11 +1623,43 @@ header h1 a {
   font-weight: 700;
   cursor: pointer;
   line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .md-tool-btn:hover {
   background: var(--surface-alt);
   color: var(--text);
+}
+
+.md-toolbar-divider {
+  width: 1px;
+  height: 1.3rem;
+  background: var(--border-soft);
+  margin: 0 0.15rem;
+}
+
+.md-color-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* 5 色文字顏色色票：18px 實心圓點，直接用 inline style 帶顏色（見 outputs.js），
+   hover 用縮放＋外圈提示可點擊，不像 .md-tool-btn 那樣改背景色——改背景會蓋住色點本身的顏色。 */
+.md-color-btn {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--border-soft);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.md-color-btn:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 1px var(--text-muted);
 }
 
 /* 所見即所得輸入區：真正的 contenteditable，粗體/斜體/標題/條列/螢光標記點下去

@@ -41,20 +41,58 @@ function readTags(form, name) {
 // 選取的文字當場變粗變斜變大，不會再看到 **這種原始碼符號**。
 // 「螢光標記」execCommand 沒有對應的語意標籤指令，用 Selection/Range API 手動包一層 <mark>。
 const WYSIWYG_TOOLS = [
-  { key: 'bold', label: 'B', title: '粗體' },
-  { key: 'italic', label: 'I', title: '斜體' },
-  { key: 'heading', label: 'H', title: '標題' },
-  { key: 'list', label: '•', title: '條列點' },
+  { key: 'bold', label: 'B', title: '粗體 (Ctrl+B)' },
+  { key: 'italic', label: 'I', title: '斜體 (Ctrl+I)' },
+  { key: 'heading', label: 'H', title: '標題 H2' },
+  { key: 'list', label: '•', title: '項目符號清單' },
   { key: 'mark', label: '〰', title: '螢光標記（需先選取文字）' },
-  { key: 'clear', label: '⌫', title: '清除格式，還原為預設黑字' },
+  { key: 'clear', label: '⌦', title: '清除文字格式' },
+];
+
+// 5 色文字顏色色票：都是實心圓點按鈕，點下去對「目前選取的文字」套用 foreColor。
+const TEXT_COLOR_PALETTE = [
+  { name: '預設黑', hex: '#2C2C2C' },
+  { name: '莫蘭迪紅', hex: '#C85A54' },
+  { name: '經典藍', hex: '#3B6998' },
+  { name: '橄欖綠', hex: '#5A8262' },
+  { name: '溫暖棕', hex: '#9E6B43' },
 ];
 
 function mdToolbarHtml() {
   return `
     <div class="md-toolbar">
       ${WYSIWYG_TOOLS.map((t) => `<button type="button" class="md-tool-btn" data-cmd="${t.key}" title="${escapeHtml(t.title)}">${escapeHtml(t.label)}</button>`).join('')}
+      <span class="md-toolbar-divider" aria-hidden="true"></span>
+      <div class="md-color-group" role="group" aria-label="文字顏色">
+        ${TEXT_COLOR_PALETTE.map((c) => `<button type="button" class="md-color-btn" data-color="${c.hex}" style="background:${c.hex};" title="文字顏色：${escapeHtml(c.name)}" aria-label="文字顏色：${escapeHtml(c.name)}"></button>`).join('')}
+      </div>
     </div>
   `;
+}
+
+// --- 選取範圍的保存／還原 ---
+// 根本問題：工具列按鈕是 <button>，點下去中間會經過 mousedown → mouseup → click 好幾個事件，
+// 瀏覽器原生行為是「點到可聚焦元素以外的地方就把目前的選取範圍砍掉」。光是 mousedown 時
+// preventDefault 讓焦點留在編輯區「通常」夠用，但沒辦法涵蓋所有瀏覽器/時機的差異，
+// 保險做法是在 mousedown 當下就把使用者選好的 Range 明確存起來，click 真的要套用格式的
+// 那一刻再強制還原成同一個 Range，這樣執行的 execCommand 保證作用在「使用者原本選的那段字」，
+// 不會因為中間任何一個事件把選取範圍改掉、擴大甚至清空而套用到不該套用的範圍。
+let savedRange = null;
+
+function saveSelectionIfInsideEditor(editor) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  const range = selection.getRangeAt(0);
+  if (editor.contains(range.commonAncestorContainer)) {
+    savedRange = range.cloneRange();
+  }
+}
+
+function restoreSelection(editor) {
+  if (!savedRange || !editor.contains(savedRange.commonAncestorContainer)) return;
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(savedRange);
 }
 
 // 螢光標記一定要選到文字才有意義——execCommand 沒有這個語意標籤，
@@ -78,26 +116,28 @@ function wrapSelectionWithMark(editor) {
   selection.addRange(newRange);
 }
 
-// 「清除格式」刻意清整個編輯區塊而不是只清選取範圍：這是單人筆記工具，使用者按這顆按鈕
-// 的意圖通常是「這段亂了，整個重來」，比起實作精確到選取範圍邊界的巢狀標籤拆解（容易漏邊界），
-// 全區塊重置的行為更好預期、也更不會留下清一半的中間狀態。
-// execCommand('removeFormat') 處理得掉 bold/italic/heading，但處理不掉手動插入的 <mark>，
-// 也可能因為使用者從別處貼上內容而殘留 style/class，所以還要手動掃一次全部攤平掉。
+// 「清除格式」嚴格限定在使用者目前選取的範圍內：execCommand('removeFormat') 本來就只
+// 作用在選取範圍，天生符合這個需求；它唯一處理不到的是手動插入的 <mark>（不是 execCommand
+// 產生的標籤，removeFormat 不認得），所以另外只掃「跟這次選取範圍有交集」的 <mark> 元素攤平，
+// 選取範圍以外的 <mark> 完全不會被動到。
 function clearFormatting(editor) {
-  editor.focus();
-  document.execCommand('selectAll');
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  const range = selection.getRangeAt(0);
+  if (!editor.contains(range.commonAncestorContainer)) return;
   document.execCommand('removeFormat');
-  document.execCommand('formatBlock', false, 'p');
-  editor.querySelectorAll('mark').forEach((el) => el.replaceWith(document.createTextNode(el.textContent)));
-  editor.querySelectorAll('[style], [class]').forEach((el) => {
-    el.removeAttribute('style');
-    el.removeAttribute('class');
-  });
+  const scopeRoot = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+    ? range.commonAncestorContainer
+    : range.commonAncestorContainer.parentElement;
+  if (scopeRoot && scopeRoot.querySelectorAll) {
+    scopeRoot.querySelectorAll('mark').forEach((el) => {
+      if (range.intersectsNode(el)) el.replaceWith(document.createTextNode(el.textContent));
+    });
+  }
   editor.normalize();
 }
 
 function applyWysiwygCommand(editor, cmd) {
-  editor.focus();
   if (cmd === 'bold') { document.execCommand('bold'); return; }
   if (cmd === 'italic') { document.execCommand('italic'); return; }
   if (cmd === 'list') { document.execCommand('insertUnorderedList'); return; }
@@ -114,6 +154,28 @@ function applyWysiwygCommand(editor, cmd) {
 // 存進資料庫前一律過白名單：只留語意標籤本身（不留任何屬性，沒有 style／class 污染的空間），
 // 其餘標籤攤平成純文字內容（不整段丟掉），從根本避免樣式污染，也避免存進去任何可執行的 HTML。
 const ALLOWED_REFLECTION_TAGS = new Set(['STRONG', 'EM', 'H2', 'H3', 'UL', 'OL', 'LI', 'MARK', 'P']);
+// 文字顏色是唯一允許保留的「屬性」，而且刻意收得極窄：只認得跟色票完全相同的 6 碼色碼字串，
+// 不是把使用者／瀏覽器貼過來的任意色碼原樣收下——顏色值永遠來自這個常數本身，不會有 CSS 注入的空間。
+const ALLOWED_TEXT_COLORS = new Set(TEXT_COLOR_PALETTE.map((c) => c.hex.toLowerCase()));
+
+function rgbStringToHex(rgbStr) {
+  const m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/i.exec(rgbStr || '');
+  if (!m) return null;
+  return `#${[1, 2, 3].map((i) => Number(m[i]).toString(16).padStart(2, '0')).join('')}`;
+}
+
+// execCommand('foreColor') 預設（styleWithCSS 關閉）在多數瀏覽器會插入 <font color="#hex">，
+// 但保險起見 <span style="color:..."> 這個常見的替代形式也一併認得（值可能是 rgb(...) 格式）。
+function extractElementColor(el) {
+  if (el.tagName === 'FONT') {
+    const raw = (el.getAttribute('color') || '').toLowerCase();
+    return raw.startsWith('#') ? raw : null;
+  }
+  if (el.style && el.style.color) {
+    return rgbStringToHex(el.style.color);
+  }
+  return null;
+}
 
 function appendSanitizedChildren(sourceParent, targetParent) {
   sourceParent.childNodes.forEach((child) => {
@@ -123,6 +185,21 @@ function appendSanitizedChildren(sourceParent, targetParent) {
     }
     if (child.nodeType !== Node.ELEMENT_NODE) return;
     if (child.tagName === 'BR') { targetParent.appendChild(document.createElement('br')); return; }
+
+    if (child.tagName === 'FONT' || child.tagName === 'SPAN') {
+      const color = extractElementColor(child);
+      if (color && ALLOWED_TEXT_COLORS.has(color)) {
+        const span = document.createElement('span');
+        span.style.color = color;
+        appendSanitizedChildren(child, span);
+        targetParent.appendChild(span);
+      } else {
+        // 顏色不在白名單內（例如貼上內容夾帶的任意色碼），攤平成純文字，不留下顏色也不留任何屬性。
+        appendSanitizedChildren(child, targetParent);
+      }
+      return;
+    }
+
     let tagName = child.tagName;
     if (tagName === 'B') tagName = 'STRONG';
     if (tagName === 'I') tagName = 'EM';
@@ -142,6 +219,13 @@ function sanitizeReflectionHtml(rawHtml) {
   source.innerHTML = rawHtml;
   const output = document.createElement('div');
   appendSanitizedChildren(source, output);
+  // 把段落轉成清單時，瀏覽器原本產生的是不合法巢狀 <p><ul>…</ul></p>；重新解析成字串
+  // 再讀回 DOM 那一步，瀏覽器的 HTML parser 會依規範自動把 <p> 提前關閉，多切出幾個完全
+  // 空白（連 <br> 都沒有）的 <p></p>，變成畫面上莫名其妙的空行。這裡只清掉「真的完全沒有
+  // 任何子節點」的段落——使用者自己按 Enter 留的空行一定會帶著 <br> 撐高度，不會被誤刪。
+  output.querySelectorAll('p').forEach((p) => {
+    if (p.childNodes.length === 0) p.remove();
+  });
   return output.innerHTML;
 }
 
@@ -280,7 +364,7 @@ export async function renderReflections(container, bookId) {
       </label>
       <label>想寫點什麼都可以
         ${mdToolbarHtml()}
-        <div class="reflection-editor is-empty" id="reflection-editor" contenteditable="true" data-placeholder="寫下你的心得...（提示：輸入 #心理學 或 #榮格 可建立主題標籤）"></div>
+        <div class="reflection-editor is-empty" id="reflection-editor" contenteditable="true" data-placeholder="寫下你的心得...（提示：輸入 #心理學 或 #榮格 可建立主題標籤）"><p><br></p></div>
       </label>
       <p class="hashtag-hint">💡 提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
       <div class="form-actions">
@@ -295,14 +379,38 @@ export async function renderReflections(container, bookId) {
   const form = container.querySelector('#reflection-form');
   const editor = container.querySelector('#reflection-editor');
 
+  // Enter 換行統一用 <p>（不是 Chrome 預設的 <div>），讓每一行文字都活在一個明確的區塊裡——
+  // 這是修掉「點條列／標題會整個輸入框都套用」的關鍵：execCommand 的 formatBlock／
+  // insertUnorderedList 是靠「離選取範圍最近的區塊元素」決定作用範圍，如果編輯區裡的文字
+  // 一開始就沒有任何區塊包住（直接是 contenteditable 根節點底下的純文字節點），
+  // 瀏覽器找不到更小的區塊邊界，「最近的區塊」就會是整個編輯區本身，於是格式套用到全部內容。
+  // 上面模板已經把初始內容包成 <p><br></p>，這裡再確保之後每次按 Enter 建立的新行也是 <p>。
+  document.execCommand('defaultParagraphSeparator', false, 'p');
+
   // contenteditable 不是表單控制項，不會出現在 FormData／form.elements 裡，
   // 工具列按鈕跟送出邏輯都要直接操作這個 DOM 節點本身。
+  function wireToolbarButton(btn, run) {
+    // 按鈕預設的 mousedown 會把焦點從編輯區搶走、連帶清掉選取範圍——先攔掉 mousedown，
+    // 並在那個當下就把使用者選好的 Range 存起來；click 真正執行指令前再強制還原同一個 Range，
+    // 保證兩次事件之間不管發生什麼，套用格式的對象永遠是使用者實際選取的那段文字，不多不少。
+    btn.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      saveSelectionIfInsideEditor(editor);
+    });
+    btn.addEventListener('click', () => {
+      editor.focus();
+      restoreSelection(editor);
+      run();
+    });
+  }
+
   form.querySelectorAll('.md-tool-btn').forEach((btn) => {
-    // 按鈕預設的 mousedown 會把焦點從編輯區搶走，連帶清掉目前的選取範圍——
-    // 先攔掉 mousedown 讓焦點留在編輯區上，執行的指令才會真的套用到使用者選取的文字。
-    btn.addEventListener('mousedown', (event) => event.preventDefault());
-    btn.addEventListener('click', () => applyWysiwygCommand(editor, btn.dataset.cmd));
+    wireToolbarButton(btn, () => applyWysiwygCommand(editor, btn.dataset.cmd));
   });
+  form.querySelectorAll('.md-color-btn').forEach((btn) => {
+    wireToolbarButton(btn, () => document.execCommand('foreColor', false, btn.dataset.color));
+  });
+
   editor.addEventListener('input', () => {
     editor.classList.toggle('is-empty', editor.textContent.trim() === '');
   });
