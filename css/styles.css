@@ -1945,21 +1945,57 @@ header h1 a {
   width: 95%;
 }
 
-.graph-canvas-area {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+/* 主工具列改成三欄 grid（左：回書籍／中：標題／右：主要按鈕），比 flex justify-between
+   更能保證標題真正置中——三個區塊寬度本來就不對稱，justify-between 只會平均分配間距，
+   標題並不會落在正中央。這條要放在 .toolbar 之後（同樣是單一 class 選擇器，
+   放前面會被 .toolbar 自己的 display:flex 蓋掉），靠 grid-template-columns: 1fr auto 1fr
+   讓中間欄永遠置中、左右兩欄各自靠邊對齊。 */
+.graph-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
 }
 
+.graph-toolbar-left {
+  justify-self: start;
+  min-width: 0;
+}
+
+.graph-toolbar-title {
+  justify-self: center;
+  white-space: nowrap;
+}
+
+.graph-toolbar-right {
+  justify-self: end;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* 畫布區塊：改成浮動控制列的定位容器（position:relative），讓縮放列可以絕對定位在
+   右上角，不再佔用一整列版面高度、也不會跟著畫布內容一起橫向捲動。 */
+.graph-canvas-area {
+  position: relative;
+}
+
+/* 縮放控制列從主工具列移出來後，改成畫布右上角的浮動膠囊卡片：
+   半透明背景＋毛玻璃模糊＋陰影，不管畫布上疊了多少群組卡片都能一眼看到、隨時點得到，
+   z-index 確保永遠蓋在畫布內容之上。 */
 .canvas-zoom-toolbar {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  align-self: flex-end;
-  background: var(--surface);
+  background: rgba(255, 252, 246, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-soft);
   border-radius: 999px;
-  padding: 0.3rem 0.5rem;
+  padding: 0.4rem 0.75rem;
+  box-shadow: 0 2px 10px rgba(35, 27, 20, 0.14);
 }
 
 .canvas-tool-btn {

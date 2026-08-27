@@ -456,10 +456,12 @@ export async function renderGraphPage(container, rawBookId) {
 
   container.classList.add('graph-page-wide');
   container.innerHTML = `
-    <div class="toolbar">
-      <a href="#/books/${bookId}">← 回《${escapeHtml(book.title || '未命名')}》</a>
-      <h2>本書關係圖</h2>
-      <div class="toolbar-actions">
+    <div class="toolbar graph-toolbar">
+      <div class="graph-toolbar-left">
+        <a href="#/books/${bookId}">← 回《${escapeHtml(book.title || '未命名')}》</a>
+      </div>
+      <h2 class="graph-toolbar-title">本書關係圖</h2>
+      <div class="toolbar-actions graph-toolbar-right">
         <button type="button" class="btn btn-primary" id="add-group-btn">＋ 新增群組</button>
         <button type="button" class="btn drawer-toggle-btn" id="drawer-toggle-btn">🔗 關係／編輯面板</button>
         <button type="button" class="btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
