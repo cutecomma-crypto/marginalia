@@ -178,9 +178,8 @@ header h1 a {
   background: var(--danger-soft);
 }
 
-/* 這條要放在 .btn 之後：兩者是同層級（單一 class）的選擇器優先度，
-   放前面的話會被 .btn 自己的 border／color 蓋掉（之前就是這樣才會一直看起來像方框）。 */
-.year-filter-reset-btn {
+/* 「清除篩選」按鈕：跟動態篩選標籤同一列，一次清空所有篩選條件（含搜尋框／熱門標籤）。 */
+.clear-filters-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -190,10 +189,13 @@ header h1 a {
   background: var(--surface-alt);
   border: none;
   color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.year-filter-reset-btn:hover {
+.clear-filters-btn:hover {
   background: var(--border-soft);
   color: var(--text);
 }
@@ -202,6 +204,65 @@ header h1 a {
   width: 0.7rem;
   height: 0.7rem;
   flex-shrink: 0;
+}
+
+/* 動態篩選標籤列：每種目前套用中的篩選各自一顆膠囊（分類／熱門標籤／閱讀狀態／借出借入／年份），
+   跟右上角「清除篩選」放同一列，沒有任何篩選時整列隱藏，不佔版面。 */
+.active-filters-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+
+/* .active-filters-row 的 display:flex 一樣會蓋掉瀏覽器內建的 [hidden]{display:none}
+   （author 規則贏過 UA 規則，跟 .btn[hidden]／.library-borrow-fields[hidden] 同一個成因）。 */
+.active-filters-row[hidden] {
+  display: none;
+}
+
+.active-filter-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.filter-badge-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.filter-badge-remove:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.filter-badge-remove .reset-close-icon {
+  width: 0.6rem;
+  height: 0.6rem;
 }
 
 .empty {

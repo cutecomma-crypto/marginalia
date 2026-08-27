@@ -170,9 +170,12 @@ export async function renderBookList(container) {
           <div class="toolbar-title-row">
             <h2 id="book-list-title">所有書籍</h2>
             <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" title="切換為封面網格檢視">${GRID_ICON}</button>
-            <button type="button" class="btn year-filter-reset-btn" id="year-filter-reset-btn" hidden>${CLOSE_ICON}顯示全部書籍</button>
           </div>
           <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
+        </div>
+        <div class="active-filters-row" id="active-filters-row" hidden>
+          <div class="active-filter-badges" id="active-filter-badges"></div>
+          <button type="button" class="clear-filters-btn" id="clear-filters-btn">${CLOSE_ICON}清除篩選</button>
         </div>
         <div class="search-row">
           <input type="search" id="book-search" class="search-input" placeholder="搜尋書名、作者、#標籤，或筆記／佳句內容…">
@@ -187,21 +190,63 @@ export async function renderBookList(container) {
   `;
 
   const titleEl = container.querySelector('#book-list-title');
-  const yearResetBtn = container.querySelector('#year-filter-reset-btn');
+  const activeFiltersRow = container.querySelector('#active-filters-row');
+  const activeFilterBadgesEl = container.querySelector('#active-filter-badges');
+  const clearFiltersBtn = container.querySelector('#clear-filters-btn');
   const viewModeBtn = container.querySelector('#view-mode-toggle-btn');
   const searchInput = container.querySelector('#book-search');
   const sortSelect = container.querySelector('#book-sort-select');
   const bodyEl = container.querySelector('#book-list-body');
   const countEl = container.querySelector('#book-list-count');
 
-  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量／借出中，跟右側書籍列表是同一份狀態，
-  // 四種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
-  // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書，借出中只留存留狀態為借出的書。
+  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量／借出中／熱門標籤，跟右側書籍列表是同一份狀態，
+  // 五種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
+  // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書，借出中／借入中只留符合的存留狀態，
+  // activeTag 是熱門標籤點擊帶出來的搜尋字串（跟使用者自己打字搜尋分開追蹤，才能只有前者顯示成篩選膠囊）。
   let yearFilter = null;
   let statusFilter = null;
   let categoryFilter = null;
   let retentionFilter = null;
+  let activeTag = null;
   let viewMode = 'table';
+
+  // 右側「動態篩選標籤」膠囊：每種篩選各自一顆，膠囊上的 ✕ 只取消該項篩選，
+  // 沿用各自原本「再點一次左側原標籤即可取消」的邏輯（模擬點擊該 UI 元素），不用另外重寫一份取消規則。
+  function activeFilterEntries() {
+    const entries = [];
+    if (yearFilter) {
+      entries.push({ key: 'year', label: `${yearFilter} 年已讀完`, remove: () => {
+        const yearSelect = container.querySelector('#sidebar-stats-year-select');
+        yearSelect.value = '';
+        yearSelect.dispatchEvent(new Event('change'));
+      } });
+    }
+    if (statusFilter) {
+      entries.push({ key: 'status', label: statusFilter, remove: () => {
+        const cell = container.querySelector('.sidebar-stat-cell.is-active');
+        if (cell) cell.click();
+      } });
+    }
+    if (categoryFilter) {
+      entries.push({ key: 'category', label: categoryFilter, remove: () => {
+        const item = container.querySelector('.category-progress-item.is-active');
+        if (item) item.click();
+      } });
+    }
+    if (retentionFilter) {
+      entries.push({ key: 'retention', label: retentionFilterLabel(retentionFilter), remove: () => {
+        const btn = container.querySelector('.retention-filter-btn.is-active');
+        if (btn) btn.click();
+      } });
+    }
+    if (activeTag) {
+      entries.push({ key: 'tag', label: `#${activeTag}`, remove: () => {
+        const chip = container.querySelector('.popular-tag-chip.is-active');
+        if (chip) chip.click();
+      } });
+    }
+    return entries;
+  }
 
   function renderList() {
     const query = searchInput.value.trim().toLowerCase();
@@ -224,19 +269,26 @@ export async function renderBookList(container) {
         : bookTableHtml(sorted, favoriteAuthors, recordMap);
     }
     countEl.textContent = sorted.length === books.length ? `共 ${books.length} 本` : `符合 ${sorted.length} 本（共 ${books.length} 本）`;
+    titleEl.textContent = '所有書籍';
 
-    const filterLabels = [];
-    if (yearFilter) filterLabels.push(`${yearFilter} 年已讀完`);
-    if (statusFilter) filterLabels.push(statusFilter);
-    if (categoryFilter) filterLabels.push(categoryFilter);
-    if (retentionFilter) filterLabels.push(retentionFilterLabel(retentionFilter));
-
-    if (filterLabels.length > 0) {
-      titleEl.textContent = `所有書籍（${filterLabels.join('、')}）`;
-      yearResetBtn.hidden = false;
+    const filters = activeFilterEntries();
+    if (filters.length > 0) {
+      activeFiltersRow.hidden = false;
+      activeFilterBadgesEl.innerHTML = filters.map((f) => `
+        <span class="filter-badge" data-key="${f.key}">
+          篩選條件：${escapeHtml(f.label)}
+          <button type="button" class="filter-badge-remove" data-key="${f.key}" aria-label="移除篩選：${escapeHtml(f.label)}">${CLOSE_ICON}</button>
+        </span>
+      `).join('');
+      activeFilterBadgesEl.querySelectorAll('.filter-badge-remove').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const entry = filters.find((f) => f.key === btn.dataset.key);
+          if (entry) entry.remove();
+        });
+      });
     } else {
-      titleEl.textContent = '所有書籍';
-      yearResetBtn.hidden = true;
+      activeFiltersRow.hidden = true;
+      activeFilterBadgesEl.innerHTML = '';
     }
   }
 
@@ -248,11 +300,13 @@ export async function renderBookList(container) {
     renderList();
   });
 
-  yearResetBtn.addEventListener('click', () => {
+  clearFiltersBtn.addEventListener('click', () => {
     yearFilter = null;
     statusFilter = null;
     categoryFilter = null;
     retentionFilter = null;
+    activeTag = null;
+    searchInput.value = '';
     const yearSelect = container.querySelector('#sidebar-stats-year-select');
     if (yearSelect.value) {
       yearSelect.value = '';
@@ -264,6 +318,8 @@ export async function renderBookList(container) {
     if (activeCategoryItem) activeCategoryItem.click();
     const activeRetentionBtn = container.querySelector('.retention-filter-btn.is-active');
     if (activeRetentionBtn) activeRetentionBtn.click();
+    const activeTagChip = container.querySelector('.popular-tag-chip.is-active');
+    if (activeTagChip) activeTagChip.classList.remove('is-active');
     renderList();
   });
 
@@ -285,12 +341,14 @@ export async function renderBookList(container) {
       renderList();
     },
     onTagClick: (tag) => {
+      activeTag = tag;
       searchInput.value = tag || '';
       renderList();
     },
   });
 
   searchInput.addEventListener('input', () => {
+    activeTag = null;
     const activeTagChip = container.querySelector('.popular-tag-chip.is-active');
     if (activeTagChip) activeTagChip.classList.remove('is-active');
     renderList();
