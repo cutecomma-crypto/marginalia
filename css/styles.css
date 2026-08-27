@@ -129,6 +129,35 @@ header h1 a {
   display: none;
 }
 
+/* 觸控裝置的最小點擊高度：平板／手機（<=768px）把主要互動元件（按鈕、輸入框、
+   下拉選單、頁籤）的最小高度拉到 44px（Apple HIG／Material 建議的觸控下限），
+   避免手指點不準；桌面版滑鼠精準度夠，維持原本比較精緻緊湊的尺寸不受影響。
+   色塊、星星評分這類小型裝飾性控制項刻意不列進來，放大反而會破壞版面。 */
+@media (max-width: 768px) {
+  .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .book-form input,
+  .book-form select,
+  .book-form textarea,
+  .search-input,
+  .sort-select,
+  .quote-sort-select,
+  .sidebar-year-select {
+    min-height: 44px;
+  }
+
+  .main-tab-btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
 .btn-primary {
   background: var(--primary);
   border-color: var(--primary);
@@ -716,6 +745,8 @@ header h1 a {
   font-size: 0.85rem;
 }
 
+/* 全站 RWD 統一用 768px 當「電腦 vs. 平板/手機」的分界（對齊常見的 Tailwind md），
+   書籍表單／詳情頁的每一組響應式網格都共用這個門檻，行為才會一致好預期。 */
 .book-form fieldset {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -728,25 +759,27 @@ header h1 a {
   align-items: start;
 }
 
-@media (min-width: 560px) {
+/* 「我的閱讀」是唯一還在用這個通用版面的 fieldset（其他都已經有自己的 .book-basic-grid／
+   .book-purchase-grid 覆蓋），電腦版給它 2 欄，讓單獨一個「閱讀狀態」下拉不會被拉成滿版寬。 */
+@media (min-width: 768px) {
   .book-form fieldset {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (min-width: 860px) {
-  .book-form fieldset {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
 .library-borrow-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0 1.25rem;
   border-top: 1px dashed var(--border-soft);
   padding-top: 0.9rem;
   margin-top: 0.1rem;
+}
+
+@media (min-width: 768px) {
+  .library-borrow-fields {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 /* 這裡的 display:grid 規則本身也會蓋掉瀏覽器內建的 [hidden]{display:none}
@@ -755,24 +788,19 @@ header h1 a {
   display: none;
 }
 
-@media (max-width: 560px) {
-  .library-borrow-fields {
-    grid-template-columns: 1fr;
-  }
-}
-
 .book-form fieldset .field-wide {
   grid-column: 1 / -1;
 }
 
-/* 「書籍基本資料」是左右兩塊式的版面（文字欄位 2/3＋封面上傳 1/3），
+/* 「書籍基本資料」是左右兩塊式的版面（文字欄位 2/3＋封面上傳 1/3，電腦版才並排；
+   平板／手機 < 768px 全部退回單欄，封面區順著 DOM 順序自然落到文字欄位下方），
    跟其他 fieldset 統一用欄位逐格排列的邏輯不一樣，所以整個 grid-template-columns
    都用更高優先度的規則覆蓋掉，不受 .book-form fieldset 那組響應式欄數影響。 */
 .book-form fieldset.book-basic-grid {
   grid-template-columns: 1fr;
 }
 
-@media (min-width: 480px) {
+@media (min-width: 768px) {
   .book-form fieldset.book-basic-grid {
     grid-template-columns: 2fr 1fr;
   }
@@ -787,21 +815,22 @@ header h1 a {
 
 .basic-fields-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0 1rem;
   min-width: 0;
 }
 
-/* grid/flex 子項目預設 min-width:auto，會被裡面 <input> 的內建最小寬度撐開，
-   造成整排硬是比容器還寬而溢出——這裡逐層補上 min-width:0 讓它們真的能縮。 */
-.basic-fields-row > label {
-  min-width: 0;
+@media (min-width: 768px) {
+  .basic-fields-row {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
-@media (max-width: 420px) {
-  .basic-fields-row {
-    grid-template-columns: 1fr;
-  }
+/* grid/flex 子項目預設 min-width:auto，會被裡面 <input> 的內建最小寬度撐開，
+   造成整排硬是比容器還寬而溢出——這裡逐層補上 min-width:0 讓它們真的能縮
+   （即使現在雙欄只在 >=768px 才出現，這條當防呆留著成本很低）。 */
+.basic-fields-row > label {
+  min-width: 0;
 }
 
 .cover-upload-col {
@@ -809,13 +838,13 @@ header h1 a {
   text-align: center;
 }
 
-/* 「擁有／購買資料」拿掉「購買來源」後剩 4 個欄位，固定排成 2x2，
-   不再套用其他 fieldset 那套依螢幕寬度變欄數的規則。 */
+/* 「擁有／購買資料」拿掉「購買來源」後剩 4 個欄位：平板／手機單欄，
+   電腦版（>=768px）固定排成 2x2，不再套用其他 fieldset 那套依螢幕寬度變欄數的規則。 */
 .book-form fieldset.book-purchase-grid {
   grid-template-columns: 1fr;
 }
 
-@media (min-width: 420px) {
+@media (min-width: 768px) {
   .book-form fieldset.book-purchase-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -887,6 +916,16 @@ header h1 a {
   gap: 0.5rem;
   margin-bottom: 1.25rem;
   border-bottom: 1px solid var(--border-soft);
+  /* 手機寬度四個頁籤標題擠不下時，改成橫向滑動而不是硬換行擠壓變形；
+     捲軸本身視覺上藏起來（保留功能），滑動手感更像原生 App 的分頁列。 */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.main-tab-buttons::-webkit-scrollbar {
+  display: none;
 }
 
 .main-tab-btn {
@@ -900,6 +939,8 @@ header h1 a {
   font-weight: 600;
   cursor: pointer;
   margin-bottom: -1px;
+  flex-shrink: 0;
+  white-space: nowrap;
   transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -978,13 +1019,13 @@ header h1 a {
 
 .detail-grid-compact {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 0.75rem 1.5rem;
 }
 
-@media (max-width: 700px) {
+@media (min-width: 768px) {
   .detail-grid-compact {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
