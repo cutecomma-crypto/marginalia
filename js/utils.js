@@ -27,3 +27,22 @@ export function applyHashtagLinks(escapedText) {
 export function renderTextWithHashtags(text) {
   return applyHashtagLinks(escapeHtml(text));
 }
+
+// 全站共用的一次性提示：目前只有「作者已無書籍，自動更新列表」這類防禦性訊息會用到，
+// 用單一個固定在畫面底部的元素重複利用，不用每個呼叫端各自組一份 DOM。
+export function showToast(message, duration = 2600) {
+  let toastEl = document.querySelector('#app-toast');
+  if (!toastEl) {
+    toastEl = document.createElement('div');
+    toastEl.id = 'app-toast';
+    toastEl.className = 'app-toast';
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = message;
+  toastEl.classList.remove('is-visible');
+  // 強制 reflow：同一句話連續觸發兩次時，沒有這行動畫不會重新播放一次淡入效果。
+  void toastEl.offsetWidth;
+  toastEl.classList.add('is-visible');
+  clearTimeout(toastEl._hideTimer);
+  toastEl._hideTimer = setTimeout(() => toastEl.classList.remove('is-visible'), duration);
+}

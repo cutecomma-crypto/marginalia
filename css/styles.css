@@ -2840,3 +2840,29 @@ header h1 a {
     display: none;
   }
 }
+
+/* 全站共用的一次性 Toast 提示：固定在畫面底部置中，預設不擋任何點擊（pointer-events:none），
+   .is-visible 時才淡入浮現，一段時間後自動淡出。 */
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 2rem;
+  transform: translate(-50%, 12px);
+  background: var(--text);
+  color: var(--surface);
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  box-shadow: 0 6px 18px rgba(35, 27, 20, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 200;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.app-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
