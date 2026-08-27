@@ -145,12 +145,13 @@ const CATEGORY_LIST_LIMIT = 5;
 
 // 側邊欄「各類型書籍數量」改成垂直清單：名稱靠左、本數靠右，底下一條依比例填色的細線當進度感。
 // 預設只顯示前 5 個熱門分類，避免分類一多整張卡片被撐得太長，其餘的收在「展開更多」裡。
-function categoryProgressListHtml(categoryEntries) {
+// 每一項現在也是可點擊的篩選按鈕，activeCategory 用來重繪時知道要幫哪一項補回 is-active。
+function categoryProgressListHtml(categoryEntries, activeCategory) {
   if (categoryEntries.length === 0) return '<p class="empty">還沒有書籍資料。</p>';
 
   const maxCount = Math.max(...categoryEntries.map(([, count]) => count));
   const rowHtml = ([cat, count]) => `
-    <div class="category-progress-item" style="--bar-width: ${Math.round((count / maxCount) * 100)}%">
+    <div class="category-progress-item${cat === activeCategory ? ' is-active' : ''}" data-category="${escapeHtml(cat)}" style="--bar-width: ${Math.round((count / maxCount) * 100)}%">
       <span class="category-progress-name">${escapeHtml(cat)}</span>
       <span class="category-progress-count">${count} 本</span>
     </div>
@@ -179,10 +180,10 @@ function categoryEntriesForYear(books, recordByBook, year) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]);
 }
 
-function categorySectionHtml(categoryEntries, year) {
+function categorySectionHtml(categoryEntries, year, activeCategory) {
   return `
     <h4>各類型書籍數量${year ? `<span class="sidebar-year-tag">${escapeHtml(year)} 年已讀完</span>` : ''}</h4>
-    ${categoryProgressListHtml(categoryEntries)}
+    ${categoryProgressListHtml(categoryEntries, activeCategory)}
   `;
 }
 
@@ -198,12 +199,30 @@ function wireCategoryToggle(container) {
   toggleBtn.dataset.collapsedLabel = toggleBtn.textContent;
 }
 
+// 點分類項目本身直接切換 class（不重繪 innerHTML），這樣「展開更多」的開合狀態不會被打斷。
+// 再點一次已經選中的項目＝取消篩選，跟閱讀狀態方塊、年份選單同一套「再點一次就清除」邏輯。
+function wireCategoryItemClicks(container, onCategoryFilterChange, setActiveCategory) {
+  container.querySelectorAll('.category-progress-item').forEach((item) => {
+    item.addEventListener('click', () => {
+      const cat = item.dataset.category;
+      const nowActive = !item.classList.contains('is-active');
+      container.querySelectorAll('.category-progress-item').forEach((i) => i.classList.remove('is-active'));
+      if (nowActive) item.classList.add('is-active');
+      setActiveCategory(nowActive ? cat : null);
+      onCategoryFilterChange(nowActive ? cat : null);
+    });
+  });
+}
+
 // 首頁側邊欄用的精簡版：拿掉月份分佈，只留數字概覽，讓「所有書籍」有空間當主角。
 // 年份仍可切換（下拉選單），因為使用者的完成日期常常橫跨好幾年，不能只鎖死顯示今年。
-// options.onYearChange(year)：year 是選到的年份字串，選「全部年份」時是 null——
-// 讓外層（書籍列表、喜愛的作者）可以拿這個狀態去同步篩選，全部維持同一份「目前選的年份」。
+// options.onYearChange(year) / onStatusFilterChange(status) / onCategoryFilterChange(category)：
+// 三個都是「選到的值字串，取消篩選時是 null」，讓外層（書籍列表、喜愛的作者）可以同步篩選，
+// 三種篩選各自獨立、可以同時套用（AND 組合），不會互相搶狀態。
 export async function renderSidebarStats(container, options = {}) {
   const onYearChange = options.onYearChange || (() => {});
+  const onStatusFilterChange = options.onStatusFilterChange || (() => {});
+  const onCategoryFilterChange = options.onCategoryFilterChange || (() => {});
   const [books, records] = await Promise.all([DB.getAll('books'), DB.getAll('reading_records')]);
   const stats = computeStats(books, records);
   const currentYear = String(new Date().getFullYear());
@@ -216,6 +235,7 @@ export async function renderSidebarStats(container, options = {}) {
   const completed = books.filter((b) => (recordByBook.get(b.id) || {}).status === '已讀完').length;
 
   const defaultYearStats = statsForYear(stats, completed, defaultYear);
+  let activeCategory = null;
 
   container.innerHTML = `
     <div class="sidebar-panel">
@@ -228,9 +248,9 @@ export async function renderSidebarStats(container, options = {}) {
       </div>
       <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYearStats.highlight)}</div>
       <div class="sidebar-stat-grid">
-        <div class="sidebar-stat-cell"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
-        <div class="sidebar-stat-cell"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
-        <div class="sidebar-stat-cell"><span class="v">${completed}</span><span class="l">已讀完</span></div>
+        <div class="sidebar-stat-cell" data-status="閱讀中" title="點擊只看閱讀中的書"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
+        <div class="sidebar-stat-cell" data-status="尚未閱讀" title="點擊只看尚未閱讀的書"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
+        <div class="sidebar-stat-cell" data-status="已讀完" title="點擊只看已讀完的書"><span class="v">${completed}</span><span class="l">已讀完</span></div>
       </div>
       <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
       <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
@@ -239,8 +259,22 @@ export async function renderSidebarStats(container, options = {}) {
   `;
 
   const categoryPanel = container.querySelector('#sidebar-category-panel');
-  categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, null), null);
-  wireCategoryToggle(categoryPanel);
+  function renderCategoryPanel(year) {
+    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory);
+    wireCategoryToggle(categoryPanel);
+    wireCategoryItemClicks(categoryPanel, onCategoryFilterChange, (cat) => { activeCategory = cat; });
+  }
+  renderCategoryPanel(null);
+
+  container.querySelectorAll('.sidebar-stat-cell').forEach((cell) => {
+    cell.addEventListener('click', () => {
+      const status = cell.dataset.status;
+      const nowActive = !cell.classList.contains('is-active');
+      container.querySelectorAll('.sidebar-stat-cell').forEach((c) => c.classList.remove('is-active'));
+      if (nowActive) cell.classList.add('is-active');
+      onStatusFilterChange(nowActive ? status : null);
+    });
+  });
 
   container.querySelector('#sidebar-stats-year-select').addEventListener('change', (event) => {
     const year = event.target.value || null;
@@ -249,8 +283,7 @@ export async function renderSidebarStats(container, options = {}) {
     container.querySelector('#sidebar-stats-rating').textContent = yearStats.averageRating !== null ? yearStats.averageRating.toFixed(1) : '—';
     container.querySelector('#sidebar-stats-category').textContent = yearStats.mostReadCategory || '—';
 
-    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year);
-    wireCategoryToggle(categoryPanel);
+    renderCategoryPanel(year);
 
     onYearChange(year);
   });

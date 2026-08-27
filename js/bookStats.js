@@ -35,3 +35,22 @@ export function filterBooksCompletedInYear(books, recordByBook, year) {
   if (!year) return books;
   return books.filter((book) => isCompletedInYear(recordByBook.get(book.id), year));
 }
+
+// 左側「閱讀中／尚未閱讀／已讀完」統計方塊的篩選邏輯：沒有紀錄的書籍一律視為「尚未閱讀」，
+// 跟 stats.js 算 wantToRead 數字時用的判斷一致，不會出現方塊上的數字跟篩選結果對不上的情況。
+export function matchesStatusFilter(record, status) {
+  if (!status) return true;
+  const actual = (record && record.status) || '尚未閱讀';
+  return actual === status;
+}
+
+export function filterBooksByStatus(books, recordByBook, status) {
+  if (!status) return books;
+  return books.filter((book) => matchesStatusFilter(recordByBook.get(book.id), status));
+}
+
+// 「各類型書籍數量」點擊篩選：沒分類的書籍歸在「未分類」，跟分類清單本身算數量的邏輯一致。
+export function filterBooksByCategory(books, category) {
+  if (!category) return books;
+  return books.filter((book) => (book.category || '未分類') === category);
+}

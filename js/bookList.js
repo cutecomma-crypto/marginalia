@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
-import { loadRecordByBookMap, filterBooksCompletedInYear } from './bookStats.js';
+import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory } from './bookStats.js';
 
 function formatDateSlash(dateStr) {
   return dateStr ? dateStr.replaceAll('-', '/') : '';
@@ -154,29 +154,39 @@ export async function renderBookList(container) {
   const bodyEl = container.querySelector('#book-list-body');
   const countEl = container.querySelector('#book-list-count');
 
-  // 左側「閱讀統計」的年份選單跟右側書籍列表是同一份狀態：選了年份，這裡的清單只留
-  // 「該年完成日期在該年份、且狀態已讀完」的書；選回「全部年份」就整個清空篩選。
+  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量，跟右側書籍列表是同一份狀態，
+  // 三種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
+  // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書。
   let yearFilter = null;
+  let statusFilter = null;
+  let categoryFilter = null;
 
   function renderList() {
     const query = searchInput.value.trim().toLowerCase();
     const searched = query
       ? index.filter((entry) => entry.searchText.includes(query)).map((entry) => entry.book)
       : books;
-    const base = filterBooksCompletedInYear(searched, recordMap, yearFilter);
+    let base = filterBooksCompletedInYear(searched, recordMap, yearFilter);
+    base = filterBooksByStatus(base, recordMap, statusFilter);
+    base = filterBooksByCategory(base, categoryFilter);
     const sorted = sortBooks(base, recordMap, sortSelect.value);
 
     if (sorted.length === 0) {
       bodyEl.innerHTML = query
         ? `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`
-        : `<p class="empty">${yearFilter ? `${escapeHtml(yearFilter)} 年沒有已讀完的書籍。` : '還沒有任何書籍，點擊上方新增第一本。'}</p>`;
+        : `<p class="empty">${(yearFilter || statusFilter || categoryFilter) ? '沒有符合目前篩選條件的書籍。' : '還沒有任何書籍，點擊上方新增第一本。'}</p>`;
     } else {
       bodyEl.innerHTML = bookTableHtml(sorted, favoriteAuthors, recordMap);
     }
     countEl.textContent = sorted.length === books.length ? `共 ${books.length} 本` : `符合 ${sorted.length} 本（共 ${books.length} 本）`;
 
-    if (yearFilter) {
-      titleEl.textContent = `${yearFilter} 年已讀完書籍（共 ${sorted.length} 本）`;
+    const filterLabels = [];
+    if (yearFilter) filterLabels.push(`${yearFilter} 年已讀完`);
+    if (statusFilter) filterLabels.push(statusFilter);
+    if (categoryFilter) filterLabels.push(categoryFilter);
+
+    if (filterLabels.length > 0) {
+      titleEl.textContent = `所有書籍（${filterLabels.join('、')}）`;
       yearResetBtn.hidden = false;
     } else {
       titleEl.textContent = '所有書籍';
@@ -186,13 +196,31 @@ export async function renderBookList(container) {
 
   yearResetBtn.addEventListener('click', () => {
     yearFilter = null;
-    container.querySelector('#sidebar-stats-year-select').value = '';
-    container.querySelector('#sidebar-stats-year-select').dispatchEvent(new Event('change'));
+    statusFilter = null;
+    categoryFilter = null;
+    const yearSelect = container.querySelector('#sidebar-stats-year-select');
+    if (yearSelect.value) {
+      yearSelect.value = '';
+      yearSelect.dispatchEvent(new Event('change'));
+    }
+    const activeStatusCell = container.querySelector('.sidebar-stat-cell.is-active');
+    if (activeStatusCell) activeStatusCell.click();
+    const activeCategoryItem = container.querySelector('.category-progress-item.is-active');
+    if (activeCategoryItem) activeCategoryItem.click();
+    renderList();
   });
 
   await renderDashboardSidebar(container.querySelector('#dashboard-sidebar'), {
     onYearChange: (year) => {
       yearFilter = year;
+      renderList();
+    },
+    onStatusFilterChange: (status) => {
+      statusFilter = status;
+      renderList();
+    },
+    onCategoryFilterChange: (category) => {
+      categoryFilter = category;
       renderList();
     },
   });

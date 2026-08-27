@@ -323,15 +323,34 @@ header h1 a {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.5rem 0;
+  padding: 0.5rem 0.4rem;
+  margin: 0 -0.4rem;
   font-size: 0.85rem;
   border-bottom: 1px solid var(--border-soft);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.category-progress-item:hover {
+  background: var(--surface-alt);
+  transform: translateY(-1px);
+}
+
+/* 點下去當篩選條件套用中：底色加深＋外圈 ring，跟 hover 的淺色區隔開來，一眼看出「這個正選著」。 */
+.category-progress-item.is-active {
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.category-progress-item.is-active .category-progress-name {
+  font-weight: 700;
 }
 
 .category-progress-item::before {
   content: '';
   position: absolute;
-  left: 0;
+  left: 0.4rem;
   bottom: -1px;
   height: 2px;
   width: var(--bar-width, 0%);
@@ -593,6 +612,23 @@ header h1 a {
   background: var(--surface-alt);
   border-radius: 6px;
   padding: 0.35rem 0.2rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.sidebar-stat-cell:hover {
+  transform: translateY(-2px);
+  background: var(--border-soft);
+}
+
+/* 點下去當篩選條件套用中：底色加深＋外圈 ring＋數字加粗，跟 hover 的懸停感明確分開。 */
+.sidebar-stat-cell.is-active {
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.sidebar-stat-cell.is-active .v {
+  color: var(--primary-hover);
 }
 
 .sidebar-stat-cell .v {
