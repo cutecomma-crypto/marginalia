@@ -2183,6 +2183,14 @@ header h1 a {
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: nowrap;
+  /* .graph-drawer-backdrop 是 position:fixed 鋪滿整個畫面、z-index:90 的點擊遮罩，
+     只要它一打開，跟工具列右側視覺上重疊的區域就會把工具列的按鈕整個蓋住、點不到——
+     一般模式（工具列在文件流裡）跟全螢幕模式（工具列變成 fixed 浮動列）都會發生，
+     不是只有全螢幕才有這個問題。給工具列自己的疊層 context＋比背景遮罩更高的 z-index，
+     兩種模式下工具列都保證蓋在遮罩之上、按鈕永遠按得到（見下面 :fullscreen 那組規則，
+     全螢幕時只需要再疊加 position:fixed 把它浮起來，z-index 這裡先定調）。 */
+  position: relative;
+  z-index: 95;
 }
 
 /* Header 視覺主從關係：回書籍連結是輔助動作，改成疊在標題正上方的小字；
@@ -2263,7 +2271,7 @@ header h1 a {
 }
 
 /* 現在畫布區塊底下只剩 .canvas-wrap 一個子元素，但全螢幕模式那條規則
-   （.graph-canvas-area:fullscreen .canvas-wrap { flex: 1 }）需要父層是 flex
+   （#graph-app-container:fullscreen .canvas-wrap { flex: 1 }）需要父層是 flex
    容器，flex:1 才會真的生效，撐滿全螢幕高度，所以還是要保留這個 display:flex。 */
 .graph-canvas-area {
   display: flex;
@@ -2327,20 +2335,64 @@ header h1 a {
   padding: 2rem;
 }
 
-/* 全螢幕展繪：整個「縮放工具列＋畫布」一起吃滿螢幕，畫布本身跟著撐開高度，
-   不再受平常那個 640px 上限限制，複雜關係圖才有真正夠用的繪製空間。 */
-.graph-canvas-area:fullscreen,
-.graph-canvas-area:-webkit-full-screen {
+/* 全螢幕展繪：作用對象是 #graph-app-container（工具列＋畫布＋側邊抽屜整個外層 wrapper），
+   不是只有畫布本身——這樣工具列、抽屜才會是 fullscreen 元素的子孫，全螢幕時才畫得出來。
+   容器本身撐滿視窗高度，畫布區塊也跟著撐開，不再受平常那個 640px 上限限制。 */
+#graph-app-container:fullscreen,
+#graph-app-container:-webkit-full-screen {
   background: var(--bg);
-  padding: 1rem;
   height: 100vh;
+  overflow: hidden;
 }
 
-.graph-canvas-area:fullscreen .canvas-wrap,
-.graph-canvas-area:-webkit-full-screen .canvas-wrap {
+#graph-app-container:fullscreen .graph-canvas-area,
+#graph-app-container:-webkit-full-screen .graph-canvas-area {
+  height: 100vh;
+  padding: 1rem;
+  background: var(--bg);
+}
+
+#graph-app-container:fullscreen .canvas-wrap,
+#graph-app-container:-webkit-full-screen .canvas-wrap {
   flex: 1;
   max-height: none;
   height: 100%;
+}
+
+/* 全螢幕時工具列脫離文件流，變成常駐浮在畫布正上方的懸浮列（半透明＋毛玻璃），
+   z-index 蓋過畫布跟卡片，縮放組／關係編輯面板／退出全螢幕在畫布怎麼捲動下都隨時按得到；
+   退出全螢幕後這幾條規則自然失效，工具列跳回原本文件流裡的位置，不需要另外還原。 */
+#graph-app-container:fullscreen .graph-toolbar,
+#graph-app-container:-webkit-full-screen .graph-toolbar {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  /* z-index 已經在 .graph-toolbar 基本規則定調成 95（同時蓋過 z-index:90 的抽屜遮罩、
+     又低於 z-index:100 的抽屜本身），這裡只需要疊加 position:fixed 把它浮起來。 */
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  background: rgba(255, 252, 246, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(35, 27, 20, 0.2);
+}
+
+/* 側邊抽屜本身 z-index:100，比工具列的 95 還高（工具列只需要贏過 backdrop 的 90，
+   drawer 本體還是要能正常滑出來蓋在上面）——問題是抽屜是 position:fixed 鋪滿右側
+   360px、高 100vh，只要工具列的按鈕剛好落在這個橫向範圍內，不管 z-index 怎麼排，
+   抽屜都會整個蓋住那塊區域，點不到「全螢幕展繪／退出」。真正的解法是讓工具列在抽屜
+   打開時自動讓出這塊寬度（跟 .graph-drawer 自己的 width:360px／max-width:90vw 對齊），
+   不要有任何區域跟抽屜重疊——一般模式、全螢幕模式都要套用，不是只有全螢幕才會發生。 */
+#graph-app-container:has(.graph-drawer.is-open) .graph-toolbar {
+  margin-right: min(360px, 90vw);
+}
+
+#graph-app-container:fullscreen:has(.graph-drawer.is-open) .graph-toolbar,
+#graph-app-container:-webkit-full-screen:has(.graph-drawer.is-open) .graph-toolbar {
+  margin-right: 0;
+  right: calc(min(360px, 90vw) + 1rem);
 }
 
 .canvas-board {

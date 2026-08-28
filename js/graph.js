@@ -456,59 +456,61 @@ export async function renderGraphPage(container, rawBookId) {
 
   container.classList.add('graph-page-wide');
   container.innerHTML = `
-    <div class="toolbar graph-toolbar">
-      <div class="graph-toolbar-left">
-        <a class="graph-toolbar-back" href="#/books/${bookId}">← 回《${escapeHtml(book.title || '未命名')}》</a>
-        <h2 class="graph-toolbar-title">本書關係圖</h2>
-      </div>
-      <div class="toolbar-actions graph-toolbar-right">
-        <div class="canvas-zoom-toolbar" id="canvas-zoom-toolbar">
-          <button type="button" class="canvas-tool-btn" id="zoom-out-btn" title="縮小">－</button>
-          <span class="canvas-zoom-level" id="zoom-level">100%</span>
-          <button type="button" class="canvas-tool-btn" id="zoom-in-btn" title="放大">＋</button>
-          <button type="button" class="canvas-tool-btn" id="zoom-reset-btn" title="重設縮放">重設</button>
+    <div id="graph-app-container">
+      <div class="toolbar graph-toolbar">
+        <div class="graph-toolbar-left">
+          <a class="graph-toolbar-back" href="#/books/${bookId}">← 回《${escapeHtml(book.title || '未命名')}》</a>
+          <h2 class="graph-toolbar-title">本書關係圖</h2>
         </div>
-        <button type="button" class="btn graph-toolbar-secondary-btn drawer-toggle-btn" id="drawer-toggle-btn">🔗 關係／編輯面板</button>
-        <button type="button" class="btn graph-toolbar-secondary-btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
-        <button type="button" class="btn btn-primary" id="add-group-btn">＋ 新增群組</button>
+        <div class="toolbar-actions graph-toolbar-right">
+          <div class="canvas-zoom-toolbar" id="canvas-zoom-toolbar">
+            <button type="button" class="canvas-tool-btn" id="zoom-out-btn" title="縮小">－</button>
+            <span class="canvas-zoom-level" id="zoom-level">100%</span>
+            <button type="button" class="canvas-tool-btn" id="zoom-in-btn" title="放大">＋</button>
+            <button type="button" class="canvas-tool-btn" id="zoom-reset-btn" title="重設縮放">重設</button>
+          </div>
+          <button type="button" class="btn graph-toolbar-secondary-btn drawer-toggle-btn" id="drawer-toggle-btn">🔗 關係／編輯面板</button>
+          <button type="button" class="btn graph-toolbar-secondary-btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
+          <button type="button" class="btn btn-primary" id="add-group-btn">＋ 新增群組</button>
+        </div>
       </div>
-    </div>
-    <div class="graph-layout">
-      <div class="graph-canvas-area" id="graph-canvas-area">
-        <div class="canvas-wrap" id="canvas-wrap">
-          <div class="canvas-board" id="canvas-board">
-            <svg class="connections-overlay" id="connections-svg"></svg>
-            <div class="group-track" id="group-track"></div>
+      <div class="graph-layout">
+        <div class="graph-canvas-area" id="graph-canvas-area">
+          <div class="canvas-wrap" id="canvas-wrap">
+            <div class="canvas-board" id="canvas-board">
+              <svg class="connections-overlay" id="connections-svg"></svg>
+              <div class="group-track" id="group-track"></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="graph-drawer-backdrop" id="graph-drawer-backdrop"></div>
-    <aside class="graph-drawer" id="graph-drawer">
-      <button type="button" class="graph-drawer-close" id="graph-drawer-close" title="關閉面板">✕ 關閉</button>
-      <div class="graph-tabs">
-        <button type="button" class="graph-tab-btn is-active" data-tab="add">新增關係</button>
-        <button type="button" class="graph-tab-btn" data-tab="detail">編輯詳情</button>
-      </div>
-      <div class="graph-tab-panel" data-tab-panel="add">
-        <p class="graph-hint">拖曳人物卡片可以換群組；點一下人物或連線可以編輯／刪除。</p>
-        <p class="empty" id="edge-form-hint">至少要有兩個人物才能建立關係。</p>
-        <form id="edge-form" class="book-form compact-form" style="display:none;">
-          <label>從<select name="fromNodeId" id="edge-from"></select></label>
-          <label>到<select name="toNodeId" id="edge-to"></select></label>
-          <label>關係
-            <input name="label" type="text" placeholder="輸入任何關係名稱，例如：懷疑、引申出、反駁、主管">
-          </label>
-          ${edgeStyleFieldsHtml(null)}
-          <div class="form-actions"><button type="submit" class="btn btn-primary">新增關係</button></div>
-        </form>
-      </div>
-      <div class="graph-tab-panel" data-tab-panel="detail" hidden>
-        <div id="selection-panel">
-          <p class="empty">點一下左邊的人物或關係連線，可以在這裡編輯／刪除。</p>
+      <div class="graph-drawer-backdrop" id="graph-drawer-backdrop"></div>
+      <aside class="graph-drawer" id="graph-drawer">
+        <button type="button" class="graph-drawer-close" id="graph-drawer-close" title="關閉面板">✕ 關閉</button>
+        <div class="graph-tabs">
+          <button type="button" class="graph-tab-btn is-active" data-tab="add">新增關係</button>
+          <button type="button" class="graph-tab-btn" data-tab="detail">編輯詳情</button>
         </div>
-      </div>
-    </aside>
+        <div class="graph-tab-panel" data-tab-panel="add">
+          <p class="graph-hint">拖曳人物卡片可以換群組；點一下人物或連線可以編輯／刪除。</p>
+          <p class="empty" id="edge-form-hint">至少要有兩個人物才能建立關係。</p>
+          <form id="edge-form" class="book-form compact-form" style="display:none;">
+            <label>從<select name="fromNodeId" id="edge-from"></select></label>
+            <label>到<select name="toNodeId" id="edge-to"></select></label>
+            <label>關係
+              <input name="label" type="text" placeholder="輸入任何關係名稱，例如：懷疑、引申出、反駁、主管">
+            </label>
+            ${edgeStyleFieldsHtml(null)}
+            <div class="form-actions"><button type="submit" class="btn btn-primary">新增關係</button></div>
+          </form>
+        </div>
+        <div class="graph-tab-panel" data-tab-panel="detail" hidden>
+          <div id="selection-panel">
+            <p class="empty">點一下左邊的人物或關係連線，可以在這裡編輯／刪除。</p>
+          </div>
+        </div>
+      </aside>
+    </div>
   `;
 
   const boardEl = container.querySelector('#canvas-board');
@@ -934,19 +936,26 @@ export async function renderGraphPage(container, rawBookId) {
     });
   }
 
-  // 全螢幕展繪：整個「縮放工具列＋畫布」一起進全螢幕，不是只有畫布本身，
-  // 不然全螢幕模式下縮放按鈕會因為不在同一個 fullscreen 元素裡而消失、按不到。
-  const canvasArea = container.querySelector('#graph-canvas-area');
+  // 全螢幕展繪：作用對象是最外層的 #graph-app-container（工具列＋畫布＋側邊抽屜全部包在裡面），
+  // 不是只有畫布本身——之前只把畫布元素送進全螢幕，工具列跟側邊抽屜是它的兄弟節點、
+  // 不在 fullscreen 的那顆元素底下，瀏覽器只會畫出 fullscreen 元素本身跟它的子孫，
+  // 結果就是全螢幕時工具列被裁切消失、開抽屜也完全看不到（抽屜根本沒被畫出來）。
+  const appContainer = container.querySelector('#graph-app-container');
   const fullscreenBtn = container.querySelector('#fullscreen-btn');
   fullscreenBtn.addEventListener('click', () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
-      (canvasArea.requestFullscreen || canvasArea.webkitRequestFullscreen)?.call(canvasArea);
+      (appContainer.requestFullscreen || appContainer.webkitRequestFullscreen)?.call(appContainer);
     }
   });
   document.addEventListener('fullscreenchange', () => {
-    fullscreenBtn.textContent = document.fullscreenElement ? '⛶ 退出全螢幕' : '⛶ 全螢幕展繪';
+    fullscreenBtn.textContent = document.fullscreenElement ? '✕ 退出全螢幕' : '⛶ 全螢幕展繪';
+    // 側邊抽屜是 position:fixed 鋪滿右側 360px、z-index 又比一般文件流的工具列高，
+    // 進入或離開全螢幕的當下如果抽屜還開著，會擋住（甚至在一般模式下也會擋住）
+    // 工具列右側那幾顆按鈕，包含使用者剛按下去的「退出全螢幕」本身。
+    // 切換全螢幕狀態時順手把抽屜收起來，兩種模式下工具列都保證按得到。
+    closeDrawer();
   });
 
   // 縮放：直接對 .canvas-board 套 CSS transform:scale，連線用的 SVG 跟人物/群組卡片
