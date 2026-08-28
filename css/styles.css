@@ -2185,24 +2185,32 @@ header h1 a {
   flex-wrap: nowrap;
 }
 
+/* Header 視覺主從關係：回書籍連結是輔助動作，改成疊在標題正上方的小字；
+   「本書關係圖」才是這個畫面絕對的視覺焦點，字級大幅拉高、加粗。 */
 .graph-toolbar-left {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
   flex-shrink: 0;
 }
 
 .graph-toolbar-back {
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
-  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.graph-toolbar-back:hover {
+  color: var(--text);
 }
 
 .graph-toolbar-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.75rem;
   font-weight: 700;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2399,6 +2407,12 @@ header h1 a {
   gap: 0.15rem;
   border-radius: 8px 8px 0 0;
   cursor: grab;
+  /* 平板單指按住拖曳整條標題列時，touch-action:none 讓瀏覽器把這個手勢完全交給
+     我們自己的 pointer 事件處理，不會被瀏覽器原生手勢搶去當成頁面捲動；
+     user-select:none 則是防止長按拖曳途中跳出文字選取藍框跟複製選單。 */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .group-card.is-dragging .group-card-header {
@@ -2409,6 +2423,19 @@ header h1 a {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+}
+
+/* .group-card-header 整條都設了 touch-action:none／user-select:none 讓拖曳手勢
+   優先，但名稱／副標輸入框、顏色選擇器、刪除按鈕本來就被排除在拖曳判斷之外
+   （見 graph.js 的 GROUP_DRAG_EXCLUDE_SELECTOR），這裡也要把繼承來的限制解除，
+   不然平板上會點不到、選不到、打不了字。 */
+.group-name-input,
+.group-subtitle-input,
+.group-color-picker,
+.group-delete-btn {
+  touch-action: auto;
+  user-select: auto;
+  -webkit-user-select: auto;
 }
 
 .group-name-input {
@@ -2579,6 +2606,9 @@ header h1 a {
   gap: 0.25rem;
   width: 100%;
   border: 1px solid transparent;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .person-item:active {

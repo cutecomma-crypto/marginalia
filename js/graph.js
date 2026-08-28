@@ -642,12 +642,17 @@ export async function renderGraphPage(container, rawBookId) {
   }
 
   function wireGroupCardEvents() {
-    // 人物卡片改用滑鼠事件手動判斷拖曳，不用瀏覽器原生 HTML5 drag-and-drop——
+    // 人物卡片改用 Pointer Events 手動判斷拖曳，不用瀏覽器原生 HTML5 drag-and-drop——
     // 原生拖曳在觸控板上常常判斷不到「這是一個拖曳」，導致卡片完全拖不動，
     // 跟群組卡片自由拖曳用同一套邏輯比較穩定，兩者行為也一致。
+    // 用 Pointer Events（不是分開的 mouse/touch 事件）是因為它天生就同時涵蓋滑鼠、觸控、
+    // 觸控筆同一份程式碼，不用另外寫一套 touchstart/touchmove 邏輯：平板上單指按住拖曳
+    // 卡片，跟滑鼠按住拖曳，走的是完全一樣的判斷。搭配 CSS 的 touch-action:none／
+    // user-select:none（見 styles.css），平板才不會把拖曳誤判成頁面捲動或選取文字。
     trackEl.querySelectorAll('.person-item').forEach((el) => {
-      el.addEventListener('mousedown', (event) => {
+      el.addEventListener('pointerdown', (event) => {
         if (event.button !== 0) return;
+        event.preventDefault();
         const startX = event.clientX;
         const startY = event.clientY;
         const nodeId = Number(el.dataset.nodeId);
@@ -674,8 +679,8 @@ export async function renderGraphPage(container, rawBookId) {
         }
 
         async function onUp(upEvent) {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
           el.classList.remove('is-dragging');
           clearDropHighlights();
           if (!dragging) {
@@ -711,19 +716,19 @@ export async function renderGraphPage(container, rawBookId) {
           }
         }
 
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
       });
     });
 
     // 群組卡片自由拖曳：整個標題區（名稱、副標旁的空白處，含原本的 ⠿ 把手）都能按住拖曳，
     // 不用再精準點在那顆小把手上。點到名稱／副標輸入框、顏色選擇器、刪除按鈕則排除，
     // 讓這些控制項維持原本可以正常點擊、輸入的行為，不會被誤判成拖曳。
-    // 用滑鼠事件直接搬動卡片（不是 HTML5 drag），放開時把座標存進 group.x / group.y，
-    // 跟人物卡片的拖放邏輯完全分開、互不影響。
+    // 用 Pointer Events 直接搬動卡片（不是 HTML5 drag），放開時把座標存進 group.x / group.y，
+    // 跟人物卡片的拖放邏輯完全分開、互不影響；同一套事件同時涵蓋滑鼠跟平板單指拖曳。
     const GROUP_DRAG_EXCLUDE_SELECTOR = '.group-name-input, .group-subtitle-input, .group-color-picker, .group-delete-btn';
     trackEl.querySelectorAll('.group-card-header').forEach((header) => {
-      header.addEventListener('mousedown', (event) => {
+      header.addEventListener('pointerdown', (event) => {
         if (event.target.closest(GROUP_DRAG_EXCLUDE_SELECTOR)) return;
         event.preventDefault();
         const card = header.closest('.group-card[data-group-id]');
@@ -742,14 +747,14 @@ export async function renderGraphPage(container, rawBookId) {
           card.style.top = `${nextTop}px`;
         }
         async function onUp() {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
           card.classList.remove('is-dragging');
           await saveGroupPosition(groupId, card.offsetLeft, card.offsetTop);
           await reload();
         }
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
       });
     });
 
@@ -971,13 +976,9 @@ export async function renderGraphPage(container, rawBookId) {
     zoomLevel = 1;
     applyZoom();
   });
-  // 滾輪縮放：這個畫布本來就寬到需要橫向捲動，把滾輪徵用成縮放後改用拖曳／捲軸捲動，
-  // 是常見圖表編輯器（Figma、Miro）的操作習慣，複雜關係圖用滾輪快速拉近拉遠比較實用。
-  container.querySelector('#canvas-wrap').addEventListener('wheel', (event) => {
-    event.preventDefault();
-    zoomLevel = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round((zoomLevel + (event.deltaY > 0 ? -0.1 : 0.1)) * 10) / 10));
-    applyZoom();
-  }, { passive: false });
+  // 滾輪／觸控板縮放刻意不做：畫布縮放完全交給頂部工具列的 −／＋／重設三顆按鈕，
+  // 使用者在瀏覽或用滾輪捲動畫布找位置時，不會不小心把畫面滾到暴增暴縮。
+  // 拿掉這個監聽器後，滾輪在 .canvas-wrap 上就是它原生 overflow:auto 的捲動行為。
 
   addGroupBtn.addEventListener('click', async () => {
     await DB.add('groups', { bookId, name: '新群組', color: nextGroupColor(groups.length) });
