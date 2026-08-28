@@ -7,9 +7,12 @@ import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
 import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS } from './bookForm.js';
 
-function detailRow(label, value) {
+// rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
+// 的欄位可以傳這個代替純文字 value，呼叫端要自己先 escapeHtml() 過使用者輸入的部分。
+function detailRow(label, value, { rawValue } = {}) {
   if (value === undefined || value === null || value === '') return '';
-  return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-value">${escapeHtml(value)}</span></div>`;
+  const valueHtml = rawValue !== undefined ? rawValue : escapeHtml(value);
+  return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-value">${valueHtml}</span></div>`;
 }
 
 // 借閱狀態附上「（借閱管道 - 圖書館名稱）」、借出狀態附上「（借給 XX）」，
@@ -56,7 +59,11 @@ export async function renderBookDetail(container, rawId) {
           </div>
           ` : ''}
           <div class="detail-grid-compact">
-            ${detailRow('作者', book.author ? `${isFavoriteAuthor ? '♥ ' : ''}${book.author}` : book.author)}
+            ${detailRow('作者', book.author, {
+              rawValue: book.author
+                ? `${isFavoriteAuthor ? '<span class="favorite-heart">♥</span> ' : ''}${escapeHtml(book.author)}`
+                : undefined,
+            })}
             ${detailRow('出版社', book.publisher)}
             ${detailRow('書籍類型', book.category)}
             ${detailRow('出版日期', book.publishDate)}

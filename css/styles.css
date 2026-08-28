@@ -1,31 +1,35 @@
-/* 全站配色主題（PANTONE 系）：
-   - Base 奶油米色系（#F6EEDF／#FAF6EE）：--bg 當整頁底色，--surface 當卡片／
-     輸入框這類「疊在底色上面」的紙張質感表面，沿用原本 surface 比 bg 更淺一階
-     的關係；--surface-alt／--border／--border-soft 是同一色相往下微調的三階
-     深淺，維持原本彼此的深淺級距不變，只是整體色相從偏黃的米白改成更粉暖的奶油色。
-   - Accent 柔粉杏色（#E38B97）：專門給「標籤／膠囊按鈕／重點強調」用，不是拿來
-     當本文顏色——所以另外開一組 --accent／--accent-hover／--accent-soft，
-     不去動 --primary，避免大面積內文或按鈕變成粉色系。
-   - Primary/Text 深紅棕色（#7B382B）：取代原本偏黑的內文顏色跟偏橘的按鈕色，
-     兩者故意設成同一個顏色——原本設計裡「主要按鈕」跟「標題／內文」本來就是
-     同一套語意（品牌主色），只是這次品牌主色本身換成深紅棕，不是新增邏輯。 */
+/* 全站 Design Tokens，嚴格依 60-30-10 黃金比例分三層：
+   - 60% 背景層：--bg 全頁底（極柔和暖奶白），--surface 卡片/容器底（純白，
+     跟 --bg 拉出一階層次，卡片才會「浮」在頁面上，不是整片同色糊在一起）。
+     --surface-alt 是卡片內部次要區塊／hover 底色，沿用膠囊標籤未選中的暖米色，
+     跟 --surface 的純白區分開，同一色相不同層次。
+   - 30% 文字與架構層：--text 是主要文字/標題/作者名的溫柔深棕，--text-muted
+     是次要文字/日期用的柔和中性灰棕。--border／--border-soft 沒有直接用
+     --text-muted 的實色（一條 1px 分隔線用文字等級的飽和度畫出來，在純白卡片
+     上會顯得厚重、不夠「乾淨」），改用同一色相的低透明度版本，維持「同一個
+     次要色家族」但份量收在分隔線該有的輕重上——這是專業排版判斷，不是隨意偏離
+     指定色票。
+   - 10% 靈魂點綴層：--accent（Flamingo Plume 柔粉）只用在標籤／星星／愛心／
+     頁籤這類「需要被注意到」的少數焦點元素，--accent-hover 是互動時的深玫瑰粉，
+     --accent-soft 是頁籤選中底、標籤選中暈染這類大面積但要收斂彩度的輕柔粉底。
+     --primary 沿用 --text 同一個深棕（主按鈕底色跟主要文字本來就是同一套品牌色），
+     --primary-hover／--primary-soft 是它的深淺兩階衍生色。
+   --accent-green／--danger／--gold 是既有的語意色（借閱狀態／危險操作／螢光筆），
+   跟這次的 60-30-10 主題色階層無關，維持不動，避免功能性顏色被牽連著改到。 */
 :root {
-  --bg: #f6eedf;
-  --surface: #faf6ee;
-  --surface-alt: #efe2c9;
-  --border: #e1d0b3;
-  --border-soft: #e9dac0;
-  --text: #7b382b;
-  /* 原本 #9c7a6e 對照奶油米底色的對比度只有約 3.6:1，一般文字大小低於 WCAG AA
-     建議的 4.5:1，讀起來偏灰霧；調深到 #86675c（約 4.75:1）維持「比主文字淡」
-     的次要文字層級，但不會淡到看不清楚。 */
-  --text-muted: #86675c;
-  --primary: #7b382b;
-  --primary-hover: #6b2e21;
-  --primary-soft: #e1d0c7;
+  --bg: #faf6f0;
+  --surface: #ffffff;
+  --surface-alt: #f0ece1;
+  --border: rgba(140, 122, 112, 0.35);
+  --border-soft: rgba(140, 122, 112, 0.2);
+  --text: #4a2e2b;
+  --text-muted: #8c7a70;
+  --primary: #4a2e2b;
+  --primary-hover: #3f2725;
+  --primary-soft: #e4e0df;
   --accent: #e38b97;
-  --accent-hover: #c17680;
-  --accent-soft: #f5e1dd;
+  --accent-hover: #d97787;
+  --accent-soft: #f8e5e8;
   --accent-green: #7c9473;
   --accent-green-soft: #e7ede1;
   --danger: #b3492f;
@@ -147,8 +151,14 @@ header h1 a {
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
+/* 一般次要按鈕平常維持素雅的白底/暖米 hover，滑過或聚焦時才「亮」成粉紅底，
+   用互動狀態帶出 Accent 點綴，而不是讓每顆按鈕平常就佔掉一塊 10% 點綴色的預算。
+   .btn-primary／.btn-danger 各自的 hover 規則寫在後面、選擇器權重相同，
+   靠原始碼順序覆蓋回自己的顏色，不會被這條蓋過去。 */
 .btn:hover {
-  background: var(--surface-alt);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 /* .btn 的 display:inline-block 一樣會蓋掉瀏覽器內建的 [hidden]{display:none}（author 規則贏過 UA 規則），
@@ -202,8 +212,13 @@ header h1 a {
   color: var(--danger);
 }
 
+/* 明確重申三個屬性（不只 background）：.btn:hover 現在會把 hover 狀態的
+   background/border-color/color 都改成粉紅+白字，這裡要整組蓋回危險色，
+   不然刪除按鈕 hover 時文字會被 .btn:hover 的白字蓋過去、變成看不出是危險操作。 */
 .btn-danger:hover {
   background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 /* 「清除篩選」按鈕：跟動態篩選標籤同一列，一次清空所有篩選條件（含搜尋框／熱門標籤）。 */
@@ -1100,35 +1115,13 @@ header h1 a {
   transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
+/* 四個主題頁籤原本各自一組莫蘭迪色做區分，這次統一改成單一的柔粉 Accent 語彙
+   （輕柔粉底 + 粉紅底線），讓「選中」這件事本身的視覺語言全站一致，不再讓每個
+   頁籤自己帶一種顏色身份。 */
 .main-tab-btn.is-active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-}
-
-/* 四個主題頁籤各自的莫蘭迪／大地色系，選取時用「淡底色＋底線＋文字上色」做出個性區分，
-   未選取一律維持低調的 --text-muted，不搶焦點。 */
-.main-tab-btn[data-tab="motivation"].is-active {
-  color: #8a6a1f;
-  background: rgba(200, 155, 60, 0.16);
-  border-bottom-color: #c89b3c;
-}
-
-.main-tab-btn[data-tab="reflection"].is-active {
-  color: #8b4a32;
-  background: rgba(178, 91, 66, 0.16);
-  border-bottom-color: #b25b42;
-}
-
-.main-tab-btn[data-tab="notes"].is-active {
-  color: #4f6350;
-  background: rgba(114, 140, 116, 0.16);
-  border-bottom-color: #728c74;
-}
-
-.main-tab-btn[data-tab="quotes"].is-active {
-  color: #7a4f68;
-  background: rgba(166, 107, 140, 0.16);
-  border-bottom-color: #a66b8c;
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-bottom-color: var(--accent);
 }
 
 .main-tab-panel {
@@ -1262,8 +1255,10 @@ header h1 a {
   line-height: 1;
 }
 
+/* .star-btn 同時是「評分星星 ★」跟書籍表單裡「標記喜愛作者 ♥」共用的類別，
+   兩者點亮狀態都用 Accent 柔粉點綴。 */
 .star-btn.filled {
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .author-input-row {
@@ -1286,7 +1281,7 @@ header h1 a {
 }
 
 .author-star {
-  color: var(--gold);
+  color: var(--accent);
   display: inline-block;
   width: 1.1em;
   flex-shrink: 0;
@@ -1294,6 +1289,12 @@ header h1 a {
 
 .author-star.is-hidden {
   visibility: hidden;
+}
+
+/* 「喜愛的作者」側邊欄跟書籍詳情頁作者列的 ♥ 圖示是跟作者名稱同一段文字裡的
+   一個 <span>，單獨上色，作者名稱本身維持 --text 主要文字色不受影響。 */
+.favorite-heart {
+  color: var(--accent);
 }
 
 .page-progress {
@@ -1365,6 +1366,9 @@ header h1 a {
   }
 }
 
+/* 未選中膠囊：暖米底（--surface-alt）+ 主要文字色，不是次要文字色——
+   膠囊裡的文字本身就是選項名稱（「好奇」「解決問題」…），需要跟卡片本文
+   同一個閱讀清晰度，不該被當成次要/輔助資訊調淡。 */
 .tag-checkboxes label {
   position: relative;
   flex-direction: row;
@@ -1375,7 +1379,7 @@ header h1 a {
   border-radius: 999px;
   padding: 0.28rem 0.75rem;
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--text);
   cursor: pointer;
   margin-bottom: 0;
   transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;

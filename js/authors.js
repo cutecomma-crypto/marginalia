@@ -64,7 +64,7 @@ export async function renderFavoriteAuthorsPanel(container, year = null) {
         : `<ul class="favorite-author-list">
             ${names.map((name) => `
               <li>
-                <button type="button" class="favorite-author-link" data-name="${escapeHtml(name)}">♥ ${escapeHtml(name)}</button>
+                <button type="button" class="favorite-author-link" data-name="${escapeHtml(name)}"><span class="favorite-heart">♥</span> ${escapeHtml(name)}</button>
                 <span class="favorite-author-count">${countByAuthor[name] || 0} 本</span>
               </li>
             `).join('')}
