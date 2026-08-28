@@ -1,6 +1,7 @@
 import { DB } from './db.js';
 import { escapeHtml, renderTextWithHashtags } from './utils.js';
 import { renderMarkdownExportButton } from './services/exportService.js';
+import { previewAndShareCard } from './services/cardGeneratorService.js';
 
 // 頁碼欄位是自由文字（例如「45-47」），排序時只抓第一串數字當排序依據。
 function parsePageNumber(page) {
@@ -71,6 +72,7 @@ function quoteCardHtml(quote) {
       </div>
       <div class="quote-actions">
         <button type="button" class="quote-copy-btn" data-id="${quote.id}">複製內文</button>
+        <button type="button" class="quote-card-btn" data-id="${quote.id}">🎴 生成卡片</button>
         <button type="button" class="quote-edit-btn" data-id="${quote.id}">編輯</button>
         <button type="button" class="quote-delete-btn" data-id="${quote.id}">刪除</button>
       </div>
@@ -170,6 +172,19 @@ export async function renderQuotesWorkspace(container, bookId, book, options = {
           btn.textContent = '已複製';
           setTimeout(() => { btn.textContent = original; }, 1200);
         }
+      });
+    });
+
+    listEl.querySelectorAll('.quote-card-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const quote = await DB.getById('quotes', Number(btn.dataset.id));
+        if (!quote) return;
+        previewAndShareCard({
+          bookTitle: book.title || '未命名書籍',
+          author: book.author || '',
+          content: quote.content,
+          date: quote.page ? `P. ${quote.page}` : (quote.createdAt || '').slice(0, 10),
+        });
       });
     });
 

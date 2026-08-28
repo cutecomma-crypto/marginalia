@@ -112,3 +112,103 @@
   color: var(--text-muted);
   min-width: 2.4rem;
 }
+
+/* 6. 每日閱讀打卡小卡片 */
+.streak-widget {
+  text-align: center;
+}
+
+.streak-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.streak-flame {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.streak-count {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.streak-unit {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.streak-sub {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* 7. 分享卡片產生器：預覽 Modal */
+.card-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 27, 20, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 400;
+  padding: 1.5rem;
+}
+
+.card-preview-modal {
+  position: relative;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.card-preview-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: var(--surface-alt);
+  border: none;
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.card-preview-close:hover {
+  color: var(--text);
+}
+
+.card-preview-canvas-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.card-preview-canvas {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card-preview-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.card-preview-status {
+  text-align: center;
+  margin-top: 0.6rem;
+}
