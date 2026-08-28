@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
+import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 
 // 對照 PROJECT_SPEC.md 第 5 節（階層式群組卡片版）：群組容器裝人物卡片，
 // 人物跨群組連線標註關係。範圍限單一書籍。
@@ -548,6 +549,14 @@ export async function renderGraphPage(container, rawBookId) {
   container.querySelector('#drawer-toggle-btn').addEventListener('click', toggleDrawer);
   container.querySelector('#graph-drawer-close').addEventListener('click', closeDrawer);
   drawerBackdrop.addEventListener('click', closeDrawer);
+  // 這個抽屜原本完全沒有 Esc 可以關（分類彈窗、Notion 匯入彈窗都各自處理了 Esc，
+  // 只有這裡漏掉）。只在抽屜真的開著的時候關閉並回傳 true；抽屜關著時回傳 false，
+  // 讓 Esc 正常往下（例如瀏覽器自己的退出全螢幕）傳遞，不會搶走跟這個抽屜無關的行為。
+  pushEscapeHandler(() => {
+    if (!drawerEl.classList.contains('is-open')) return false;
+    closeDrawer();
+    return true;
+  });
   // 點畫布空白處（不是卡片、不是人物）順手把面板收起來，保持畫面清爽。
   boardEl.addEventListener('click', (event) => {
     if (event.target === boardEl || event.target === trackEl) closeDrawer();

@@ -59,8 +59,11 @@ export function installGlobalShortcuts({ searchInputSelector, onPrevPage, onNext
     if (event.key === 'Escape') {
       const handler = escapeHandlerStack[escapeHandlerStack.length - 1];
       if (handler) {
-        handler();
-        event.preventDefault();
+        // handler 回傳 false 代表「這次 Esc 我其實沒有東西可關」（例如抽屜早就是關的），
+        // 這種情況故意不 preventDefault，讓瀏覽器原生的 Esc 行為（例如退出全螢幕）
+        // 不會被一個「registered 但這次沒做事」的 handler 意外攔下來。
+        const consumed = handler();
+        if (consumed !== false) event.preventDefault();
       }
       return;
     }
