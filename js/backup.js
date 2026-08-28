@@ -1,6 +1,8 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 import { wireNotionImportButton } from './notionImport.js';
+import { renderPersistenceStatusWidget } from './services/storagePersistenceService.js';
+import { WebDavSyncService, renderWebDavSettingsPanel } from './services/webdavSyncService.js';
 
 // 對照 PROJECT_SPEC.md 第 9 節：本地儲存為主，必須支援匯出／匯入／備份，避免資料遺失。
 const STORE_LABELS = {
@@ -80,6 +82,18 @@ export async function renderBackupPage(container) {
     </div>
 
     <div class="graph-panel">
+      <h4>持久化儲存</h4>
+      <p class="graph-hint">請求瀏覽器不要在裝置儲存空間吃緊時清掉這個網站的資料，降低跨裝置／長期使用下資料被瀏覽器自動清除的風險。</p>
+      <div id="persistence-widget-container"></div>
+    </div>
+
+    <div class="graph-panel">
+      <h4>WebDAV 雲端同步</h4>
+      <p class="graph-hint">填入你自己的 WebDAV 伺服器資訊（例如 Nextcloud），把整份資料同步到雲端，多台裝置間互相比對時間戳記、新的一份會覆蓋舊的一份。同步內容不會經過任何第三方伺服器，只在你的裝置與你自己的 WebDAV 之間傳輸。</p>
+      <div id="webdav-settings-container"></div>
+    </div>
+
+    <div class="graph-panel">
       <h4>匯出資料</h4>
       <p class="graph-hint">把目前所有資料打包成一個 JSON 檔案，下載到你的電腦。建議定期備份。</p>
       <button type="button" class="btn btn-primary" id="export-btn">匯出成 JSON 檔案</button>
@@ -156,5 +170,12 @@ export async function renderBackupPage(container) {
       await renderBackupPage(container);
       container.querySelector('#notion-import-status').textContent = message;
     },
+  );
+
+  await renderPersistenceStatusWidget(container.querySelector('#persistence-widget-container'));
+  renderWebDavSettingsPanel(
+    container.querySelector('#webdav-settings-container'),
+    new WebDavSyncService(),
+    { gatherLocalData: gatherAllData, applyRemoteData: importAllData },
   );
 }

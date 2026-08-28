@@ -67,3 +67,6 @@ export function initLocalBackup() {
 
 // ---- 目前實際啟用的模組（逐一測試通過才加進這裡）----
 initKeyboardShortcuts();
+initStoragePersistence();
+initWebDavAutoSync();
+// initLocalBackup() 還沒被要求啟用，先留著沒呼叫。
