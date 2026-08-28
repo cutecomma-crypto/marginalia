@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml, renderTextWithHashtags } from './utils.js';
+import { renderMarkdownExportButton } from './services/exportService.js';
 
 // 頁碼欄位是自由文字（例如「45-47」），排序時只抓第一串數字當排序依據。
 function parsePageNumber(page) {
@@ -123,6 +124,7 @@ export async function renderQuotesWorkspace(container, bookId, book, options = {
           </select>
           <button type="button" class="btn" id="copy-all-btn">複製全部</button>
           <button type="button" class="btn" id="export-quotes-btn">匯出文字檔</button>
+          <span id="export-md-container"></span>
         </div>
         <p class="graph-hint" id="quote-count-hint"></p>
         <div class="quote-list" id="quote-list"></div>
@@ -262,6 +264,17 @@ export async function renderQuotesWorkspace(container, bookId, book, options = {
     }
     const text = `${book.title || '未命名'}｜佳句摘錄\n\n${quotes.map(formatQuoteForExport).join('\n\n')}`;
     downloadText(text, `${book.title || '佳句摘錄'}-quotes.txt`);
+  });
+
+  // 新增：匯出成標準 Markdown（含 YAML frontmatter、劃線用 Obsidian Callout 語法），
+  // 跟上面兩顆既有的按鈕並排，不影響「複製全部」「匯出文字檔」原本的行為。
+  renderMarkdownExportButton(container.querySelector('#export-md-container'), {
+    fetchExportData: async () => ({
+      book,
+      quotes: await getQuotesByBook(bookId),
+      notes: await DB.getByIndex('notes', 'bookId', bookId),
+      reflections: (await DB.getByIndex('outputs', 'bookId', bookId)).filter((o) => o.kind === 'reflection'),
+    }),
   });
 
   await redrawList();

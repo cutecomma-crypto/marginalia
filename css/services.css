@@ -1,0 +1,114 @@
+/* 新增 5 大模組的樣式，獨立成一個檔案：刪掉這個檔案（跟 <link> 那一行）
+   就能完全移除這些模組的視覺呈現，不會動到 styles.css 裡任何既有規則。
+   沿用專案既有的 CSS 變數（--surface / --border / --primary 等），
+   在 index.html 裡 css/styles.css 之後再引入即可正確取用同一套色票。 */
+
+/* 1. 持久化儲存狀態小工具 */
+.persistence-widget {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+
+.persistence-status.is-persisted { color: var(--accent-green, #4a7c59); }
+.persistence-status.is-not-persisted { color: var(--danger); }
+
+.persistence-usage {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* 1b. WebDAV 設定面板／本機快照面板：沿用 .book-form 的欄位排版 */
+.webdav-settings label,
+.local-backup-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.webdav-settings input {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* 4. 選取文字懸浮工具列 */
+.selection-toolbar {
+  position: absolute;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--text);
+  color: var(--surface);
+  border-radius: 8px;
+  padding: 0.35rem 0.4rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  font-size: 0.78rem;
+}
+
+.selection-toolbar button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0.3rem 0.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.selection-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.selection-toolbar-result {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.4rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.82rem;
+  max-width: 260px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* 4b. 語音朗讀速度控制列 */
+.speech-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.speech-controls button {
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  border-radius: 6px;
+  width: 1.9rem;
+  height: 1.9rem;
+  cursor: pointer;
+}
+
+.speech-controls button:hover {
+  background: var(--surface-alt);
+}
+
+.speech-controls input[type="range"] {
+  width: 100px;
+}
+
+#speech-rate-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  min-width: 2.4rem;
+}
