@@ -603,7 +603,10 @@ header h1 a {
   min-width: 0;
 }
 
-@media (max-width: 860px) {
+/* 860px 這個門檻比平板直立寬度（iPad 768px 上下）還寬，導致平板直立、甚至部分平板
+   橫向都被算進「窄螢幕」，硬是被推成單欄、側邊欄掉到最下面。改成 640px，只有真正的
+   手機寬度才會收成單欄，平板不管直立橫向都維持左右雙欄。 */
+@media (max-width: 640px) {
   .dashboard-layout {
     grid-template-columns: 1fr;
   }
@@ -1312,7 +1315,9 @@ header h1 a {
   gap: 0.35rem;
 }
 
-/* 閱讀動機選項偏多，硬要保持單行捲動比折成兩行更整齊，其他 tag-checkboxes 用途維持原本自動換行。 */
+/* 閱讀動機選項偏多，桌面版硬要保持單行捲動比折成兩行更整齊，其他 tag-checkboxes
+   用途維持原本自動換行；手機窄螢幕另外在 max-width:768px 那個共用斷點裡覆蓋回自動換行
+   （橫向捲動在手指操作下不好滑，也容易讓人以為選項只有畫面上看到的那幾個）。 */
 .tag-checkboxes.motivation-tags {
   flex-wrap: nowrap;
   overflow-x: auto;
@@ -1323,6 +1328,22 @@ header h1 a {
   flex-shrink: 0;
   padding: 0.24rem 0.6rem;
   font-size: 0.76rem;
+}
+
+/* 這兩條手機斷點覆蓋規則刻意放在上面桌面版規則「之後」：兩者選擇器權重相同，
+   CSS 層疊在權重相同時看的是原始碼順序，放在共用的 max-width:768px 區塊裡（原本
+   在檔案前段）反而會被下面桌面版規則蓋掉，因為桌面版沒有媒體查詢限制、隨時生效，
+   源碼順序又比較後面。搬到這裡、緊接在桌面版規則後面，才能真的在窄螢幕蓋過去。 */
+@media (max-width: 768px) {
+  .tag-checkboxes.motivation-tags {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    gap: 8px;
+  }
+
+  .tag-checkboxes.motivation-tags label {
+    flex-shrink: 1;
+  }
 }
 
 .tag-checkboxes label {
