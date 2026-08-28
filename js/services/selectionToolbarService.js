@@ -22,15 +22,35 @@ function ensureToolbarEl() {
     el.className = 'selection-toolbar';
     el.hidden = true;
     document.body.appendChild(el);
+
+    // 觸控裝置上，手指按在工具列的按鈕上（touchstart／mousedown）這個動作本身
+    // 就會被瀏覽器當成「點到選取範圍以外的地方」，直接把文字選取清空——選取一清空，
+    // 下面的 selectionchange 監聽就會把工具列 hide() 掉，button 上的 click 事件
+    // 根本沒機會觸發，這是 iPad 上工具列「點了沒反應」最主要的原因。標準解法是在
+    // touchstart／mousedown 這一步就 preventDefault，讓瀏覽器不要清掉選取範圍，
+    // click 事件不受影響、還是會照常在放開手指後觸發。這個 el 是跨頁共用的單例，
+    // 監聽器只在第一次建立時掛一次，避免每次 attachSelectionToolbar() 都重複疊加。
+    el.addEventListener('mousedown', (event) => event.preventDefault());
+    el.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
   }
   return el;
 }
 
+// iOS／iPadOS 選取文字時，系統原生會在選取範圍「正上方」蓋一層自己的
+// 選單（複製／查詢／分享…），畫在瀏覽器 DOM 之上、任何 CSS z-index 都蓋不過去。
+// 唯一有效的辦法是「不要疊在同一個位置」：優先畫在選取範圍下方，下方空間不夠
+// （例如選在螢幕最下緣）才退回畫在上方。左右也夾在視窗範圍內，避免在窄螢幕上被裁掉。
 function positionToolbar(el, rect) {
-  const top = window.scrollY + rect.top - el.offsetHeight - 8;
-  const left = window.scrollX + rect.left + rect.width / 2 - el.offsetWidth / 2;
-  el.style.top = `${Math.max(8, top)}px`;
-  el.style.left = `${Math.max(8, left)}px`;
+  const margin = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const placeBelow = spaceBelow >= el.offsetHeight + margin * 2;
+  const top = placeBelow
+    ? window.scrollY + rect.bottom + margin
+    : window.scrollY + rect.top - el.offsetHeight - margin;
+  let left = window.scrollX + rect.left + rect.width / 2 - el.offsetWidth / 2;
+  left = Math.max(margin, Math.min(left, window.scrollX + document.documentElement.clientWidth - el.offsetWidth - margin));
+  el.style.top = `${Math.max(margin, top)}px`;
+  el.style.left = `${left}px`;
 }
 
 // root：只有選取範圍落在這個容器「裡面」才會跳出工具列（例如某本書的筆記／
@@ -76,6 +96,9 @@ export function attachSelectionToolbar(rootEl, options = {}) {
       }
     });
 
+    // iOS Safari 的限制：speechSynthesis.speak() 必須在使用者手勢的 handler 裡
+    // 同步呼叫，中間不能經過任何 await／Promise 排隊，不然會被視為「不是使用者
+    // 主動觸發」而靜音失敗。speak() 本身內部也是同步呼叫，這裡故意不包 async。
     toolbarEl.querySelector('[data-action="read"]')?.addEventListener('click', () => {
       speak(selectedText);
     });
@@ -112,9 +135,23 @@ export function attachSelectionToolbar(rootEl, options = {}) {
   // 常常跟瀏覽器觸發 selectionchange 的時間點不同步，兩種事件都掛比較保險。
   const onMouseUp = () => handleSelectionChange();
   const onTouchEnd = () => handleSelectionChange();
+
+  // iPad／iPhone 用手指拖曳選取範圍兩端的「小圓點」把手來調整選取範圍時，
+  // 那個把手是系統原生元件，拖曳過程中的觸控事件不一定會在 rootEl 上冒泡出
+  // touchend（不像一般手指滑過文字選字），單靠上面的 touchend 監聽會抓不到——
+  // 這裡另外用 selectionchange 當保底：拖曳把手的整個過程會一直觸發
+  // selectionchange，用 debounce 等選取範圍「安定下來」（放開手指）那一刻才真正
+  // 重新渲染工具列，避免拖曳中途畫面一直閃爍、重新定位。
+  let selectionSettleTimer = null;
   const onSelectionChange = () => {
     const selection = window.getSelection();
-    if (selection && selection.isCollapsed) hide();
+    if (!selection || selection.isCollapsed) {
+      clearTimeout(selectionSettleTimer);
+      hide();
+      return;
+    }
+    clearTimeout(selectionSettleTimer);
+    selectionSettleTimer = setTimeout(handleSelectionChange, 150);
   };
   const onDocMouseDown = (event) => {
     if (!toolbarEl.contains(event.target) && !rootEl.contains(event.target)) hide();
@@ -128,6 +165,7 @@ export function attachSelectionToolbar(rootEl, options = {}) {
   return {
     hide,
     destroy() {
+      clearTimeout(selectionSettleTimer);
       rootEl.removeEventListener('mouseup', onMouseUp);
       rootEl.removeEventListener('touchend', onTouchEnd);
       document.removeEventListener('selectionchange', onSelectionChange);

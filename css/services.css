@@ -42,7 +42,10 @@
 /* 4. 選取文字懸浮工具列 */
 .selection-toolbar {
   position: absolute;
-  z-index: 300;
+  /* iOS 原生選取選單是系統合成層，不管這裡的 z-index 設多高都蓋不過去——
+     真正避免被蓋住靠的是 selectionToolbarService.js 裡改成優先畫在選取範圍
+     「下方」。這裡拉高只是確保不會被本站其他浮動元件（Modal、Drawer 等）蓋住。 */
+  z-index: 1000;
   display: flex;
   align-items: center;
   gap: 0.3rem;
