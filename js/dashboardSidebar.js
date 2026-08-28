@@ -2,7 +2,6 @@ import { renderSidebarStats } from './stats.js';
 import { renderFavoriteAuthorsPanel } from './authors.js';
 import { renderRecentActivity } from './home.js';
 import { renderPopularTagsPanel } from './tagCloud.js';
-import { renderStreakWidget } from './services/habitStreakService.js';
 
 // 左側側邊欄：閱讀統計／熱門標籤／喜愛的作者／最近輸出／最近關聯。
 // 年份／閱讀狀態／分類／借出中／標籤五種篩選都是由各自面板發起（見 stats.js 的
@@ -17,7 +16,6 @@ export async function renderDashboardSidebar(container, options = {}) {
   const onTagClick = options.onTagClick || (() => {});
 
   container.innerHTML = `
-    <div id="streak-widget-container"></div>
     <div id="stats-panel-container"></div>
     <div id="popular-tags-container"></div>
     <div id="favorite-authors-container"></div>
@@ -26,7 +24,6 @@ export async function renderDashboardSidebar(container, options = {}) {
 
   const favoriteAuthorsContainer = container.querySelector('#favorite-authors-container');
 
-  renderStreakWidget(container.querySelector('#streak-widget-container'));
   await renderSidebarStats(container.querySelector('#stats-panel-container'), {
     onYearChange: (year) => {
       renderFavoriteAuthorsPanel(favoriteAuthorsContainer, year);

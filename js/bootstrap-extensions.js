@@ -15,7 +15,6 @@ import { requestPersistentStorage, isStoragePersisted } from './services/storage
 import { installGlobalShortcuts } from './services/keyboardShortcutsService.js';
 import { WebDavSyncService, trackLocalChanges } from './services/webdavSyncService.js';
 import { startAutoLocalBackup } from './services/localBackupService.js';
-import { trackReadingActivity } from './services/habitStreakService.js';
 
 export async function gatherAllData() {
   const data = {};
@@ -66,15 +65,8 @@ export function initLocalBackup() {
   startAutoLocalBackup(gatherAllData);
 }
 
-// §6：每日閱讀打卡。非侵入式包一層 DB.add／DB.update，新增佳句／筆記／閱讀後輸出、
-// 或更新閱讀進度都算今天有打卡，不用在各頁面個別呼叫。
-export function initHabitStreak() {
-  trackReadingActivity(DB);
-}
-
 // ---- 目前實際啟用的模組（逐一測試通過才加進這裡）----
 initKeyboardShortcuts();
 initStoragePersistence();
 initWebDavAutoSync();
-initHabitStreak();
 // initLocalBackup() 還沒被要求啟用，先留著沒呼叫。

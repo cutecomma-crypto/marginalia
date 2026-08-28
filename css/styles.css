@@ -16,7 +16,10 @@
   --border: #e1d0b3;
   --border-soft: #e9dac0;
   --text: #7b382b;
-  --text-muted: #9c7a6e;
+  /* 原本 #9c7a6e 對照奶油米底色的對比度只有約 3.6:1，一般文字大小低於 WCAG AA
+     建議的 4.5:1，讀起來偏灰霧；調深到 #86675c（約 4.75:1）維持「比主文字淡」
+     的次要文字層級，但不會淡到看不清楚。 */
+  --text-muted: #86675c;
   --primary: #7b382b;
   --primary-hover: #6b2e21;
   --primary-soft: #e1d0c7;
@@ -68,7 +71,7 @@ header h1 {
 
 header nav a {
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--text);
   text-decoration: none;
 }
 
@@ -765,11 +768,13 @@ header h1 a {
   padding-top: 0;
 }
 
+/* 「喜愛的作者」名稱＋♥ 圖示是同一個按鈕裡的純文字（不是分開的 icon 元素），
+   原本用 --gold 是舊配色殘留，統一改用 --text 深紅棕跟其他作者名稱一致。 */
 .favorite-author-link {
   background: none;
   border: none;
   padding: 0;
-  color: var(--gold);
+  color: var(--text);
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
@@ -782,7 +787,7 @@ header h1 a {
 
 .favorite-author-count {
   font-size: 0.76rem;
-  color: var(--text-muted);
+  color: var(--text);
   white-space: nowrap;
 }
 
@@ -3130,7 +3135,7 @@ header h1 a {
 
 .book-gallery-author {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: var(--text);
   margin-bottom: 0.4rem;
   overflow: hidden;
   text-overflow: ellipsis;
