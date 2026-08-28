@@ -46,11 +46,15 @@ function wireCoverUpload(form) {
   const fileInput = form.querySelector('#cover-file-input');
   const preview = form.querySelector('#cover-preview');
   const valueInput = form.querySelector('#cover-image-value');
+  const uploadBtn = form.querySelector('#cover-upload-btn');
+  const changeBtn = form.querySelector('#cover-change-btn');
   const removeBtn = form.querySelector('#cover-remove-btn');
 
   // 部分手機瀏覽器在關閉「分類」這種選項很多的原生下拉選單時，偶爾會把關閉當下的觸控事件
   // 誤判成點在下面緊鄰的檔案輸入框上，憑空跳出選擇檔案視窗。這裡不管實際成因是什麼，
   // 只要是「分類」欄位剛互動完的一小段時間內，一律擋掉檔案輸入框的點擊，從根本阻止誤觸。
+  // 現在檔案輸入框本身也已經用 CSS 完全隱藏＋pointer-events:none，使用者的手指／滑鼠
+  // 根本點不到它本尊，這條時間窗防呆留著當多一層保險，不衝突。
   fileInput.addEventListener('click', (event) => {
     const suppressUntil = Number(fileInput.dataset.suppressClickUntil || 0);
     if (Date.now() < suppressUntil) {
@@ -59,6 +63,13 @@ function wireCoverUpload(form) {
     }
   }, true);
 
+  // 「上傳」／「更換」都是同一個動作（打開檔案選擇器），只是沒封面/有封面時顯示的按鈕文字不同。
+  function openFilePicker() {
+    fileInput.click();
+  }
+  uploadBtn.addEventListener('click', openFilePicker);
+  changeBtn.addEventListener('click', openFilePicker);
+
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
     if (!file) return;
@@ -66,7 +77,9 @@ function wireCoverUpload(form) {
       const dataUrl = await resizeImageToDataUrl(file, 500, 0.82);
       valueInput.value = dataUrl;
       preview.innerHTML = `<img src="${dataUrl}" alt="封面預覽">`;
-      removeBtn.style.display = '';
+      uploadBtn.hidden = true;
+      changeBtn.hidden = false;
+      removeBtn.hidden = false;
     } catch {
       window.alert('封面圖片讀取失敗，換一張試試看。');
     }
@@ -76,7 +89,9 @@ function wireCoverUpload(form) {
     valueInput.value = '';
     fileInput.value = '';
     preview.innerHTML = '<span class="cover-preview-empty">尚未上傳封面</span>';
-    removeBtn.style.display = 'none';
+    uploadBtn.hidden = false;
+    changeBtn.hidden = true;
+    removeBtn.hidden = true;
   });
 }
 
@@ -118,16 +133,19 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
             </label>
           </div>
         </div>
-        <label class="cover-upload-col" for="cover-file-input">封面圖片（選填）
+        <div class="cover-upload-col">
+          <span class="cover-upload-label">封面圖片（選填）</span>
           <div class="cover-preview" id="cover-preview">
             ${book.coverImage ? `<img src="${book.coverImage}" alt="封面預覽">` : '<span class="cover-preview-empty">尚未上傳封面</span>'}
           </div>
           <div class="cover-upload-actions">
-            <input type="file" accept="image/*" id="cover-file-input">
-            <button type="button" id="cover-remove-btn" class="btn" style="${book.coverImage ? '' : 'display:none;'}">移除封面</button>
+            <button type="button" id="cover-upload-btn" class="cover-action-btn cover-upload-btn" ${book.coverImage ? 'hidden' : ''}>＋ 上傳封面</button>
+            <button type="button" id="cover-change-btn" class="cover-action-btn cover-change-btn" ${book.coverImage ? '' : 'hidden'}>📷 更換</button>
+            <button type="button" id="cover-remove-btn" class="cover-action-btn cover-remove-btn" ${book.coverImage ? '' : 'hidden'}>🗑️ 移除</button>
           </div>
+          <input type="file" accept="image/*" id="cover-file-input" class="cover-file-input-hidden">
           <input type="hidden" name="coverImage" id="cover-image-value" value="${escapeHtml(book.coverImage || '')}">
-        </label>
+        </div>
       </fieldset>
 
       <fieldset class="form-section form-section-quiet book-purchase-grid">

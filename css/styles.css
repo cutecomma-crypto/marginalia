@@ -906,6 +906,7 @@ header h1 a {
    都用更高優先度的規則覆蓋掉，不受 .book-form fieldset 那組響應式欄數影響。 */
 .book-form fieldset.book-basic-grid {
   grid-template-columns: 1fr;
+  align-items: start;
 }
 
 @media (min-width: 768px) {
@@ -941,9 +942,24 @@ header h1 a {
   min-width: 0;
 }
 
+/* 封面上傳區獨立成一個精緻的小卡片，跟左側純文字欄位視覺上明確區隔開來，
+   items-start（見 .book-basic-grid）讓它照自己內容高度顯示，不會被拉伸去配合
+   左邊比較高的欄位區塊。 */
 .cover-upload-col {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   text-align: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+
+.cover-upload-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 /* 「擁有／購買資料」拿掉「購買來源」後剩 4 個欄位：平板／手機單欄，
@@ -1366,12 +1382,15 @@ header h1 a {
   flex-shrink: 0;
 }
 
+/* 放大到 140x196（維持原本 5:7 的書封比例），加上立體陰影，讓右側卡片裡的封面
+   預覽本身就是視覺重點，不會在較寬的 col-span-4 欄位裡顯得空蕩蕩。 */
 .cover-preview {
-  width: 100px;
-  height: 140px;
-  border-radius: 6px;
+  width: 140px;
+  height: 196px;
+  border-radius: 8px;
   border: 1px dashed var(--border);
-  background: var(--surface-alt);
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgba(61, 51, 42, 0.14);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1386,22 +1405,66 @@ header h1 a {
 }
 
 .cover-preview-empty {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   text-align: center;
-  padding: 0 0.4rem;
+  padding: 0 0.5rem;
 }
 
+/* 原生 <input type="file"> 完全隱藏，改用下面客製化的按鈕觸發（fileInput.click()）；
+   pointer-events:none 讓它連被意外點到的可能性都沒有（不只是視覺上不可見）。 */
+.cover-file-input-hidden {
+  display: none;
+  pointer-events: none;
+}
+
+/* 「上傳／更換」跟「移除」水平排在同一列，取代原本上下堆疊的排法。 */
 .cover-upload-actions {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  margin-top: 0.2rem;
 }
 
-.cover-upload-actions input[type="file"] {
-  font-size: 0.78rem;
-  max-width: 220px;
+.cover-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+/* .cover-action-btn 的 display:inline-flex 一樣會蓋掉原生 [hidden]{display:none}
+   （同一個 author 規則贏過 UA 規則的成因，這個 session 已經踩過好幾次同款地雷）。 */
+.cover-action-btn[hidden] {
+  display: none;
+}
+
+.cover-upload-btn,
+.cover-change-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.cover-upload-btn:hover,
+.cover-change-btn:hover {
+  background: var(--surface-alt);
+}
+
+.cover-remove-btn {
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.cover-remove-btn:hover {
+  background: var(--danger);
+  color: #fff;
 }
 
 .modal-backdrop {
