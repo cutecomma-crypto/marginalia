@@ -462,6 +462,12 @@ export async function renderGraphPage(container, rawBookId) {
       </div>
       <h2 class="graph-toolbar-title">本書關係圖</h2>
       <div class="toolbar-actions graph-toolbar-right">
+        <div class="canvas-zoom-toolbar" id="canvas-zoom-toolbar">
+          <button type="button" class="canvas-tool-btn" id="zoom-out-btn" title="縮小">－</button>
+          <span class="canvas-zoom-level" id="zoom-level">100%</span>
+          <button type="button" class="canvas-tool-btn" id="zoom-in-btn" title="放大">＋</button>
+          <button type="button" class="canvas-tool-btn" id="zoom-reset-btn" title="重設縮放">重設</button>
+        </div>
         <button type="button" class="btn btn-primary" id="add-group-btn">＋ 新增群組</button>
         <button type="button" class="btn drawer-toggle-btn" id="drawer-toggle-btn">🔗 關係／編輯面板</button>
         <button type="button" class="btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
@@ -469,12 +475,6 @@ export async function renderGraphPage(container, rawBookId) {
     </div>
     <div class="graph-layout">
       <div class="graph-canvas-area" id="graph-canvas-area">
-        <div class="canvas-zoom-toolbar" id="canvas-zoom-toolbar">
-          <button type="button" class="canvas-tool-btn" id="zoom-out-btn" title="縮小">－</button>
-          <span class="canvas-zoom-level" id="zoom-level">100%</span>
-          <button type="button" class="canvas-tool-btn" id="zoom-in-btn" title="放大">＋</button>
-          <button type="button" class="canvas-tool-btn" id="zoom-reset-btn" title="重設縮放">重設</button>
-        </div>
         <div class="canvas-wrap" id="canvas-wrap">
           <div class="canvas-board" id="canvas-board">
             <svg class="connections-overlay" id="connections-svg"></svg>

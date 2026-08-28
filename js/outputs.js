@@ -59,13 +59,16 @@ const TEXT_COLOR_PALETTE = [
   { name: '溫暖棕', hex: '#9E6B43' },
 ];
 
+// 原生 title 屬性靠瀏覽器/作業系統控制顯示時機，Chrome 大概要 hover 快 1 秒才跳出來，
+// 感覺明顯延遲。改用 data-tooltip + CSS ::after（見 styles.css 的 .md-tool-btn::after），
+// :hover 觸發是瀏覽器渲染的一部分、沒有額外等待邏輯，滑鼠移上去幾乎當下就顯示。
 function mdToolbarHtml() {
   return `
     <div class="md-toolbar">
-      ${WYSIWYG_TOOLS.map((t) => `<button type="button" class="md-tool-btn" data-cmd="${t.key}" title="${escapeHtml(t.title)}">${escapeHtml(t.label)}</button>`).join('')}
+      ${WYSIWYG_TOOLS.map((t) => `<button type="button" class="md-tool-btn" data-cmd="${t.key}" data-tooltip="${escapeHtml(t.title)}" aria-label="${escapeHtml(t.title)}">${escapeHtml(t.label)}</button>`).join('')}
       <span class="md-toolbar-divider" aria-hidden="true"></span>
       <div class="md-color-group" role="group" aria-label="文字顏色">
-        ${TEXT_COLOR_PALETTE.map((c) => `<button type="button" class="md-color-btn" data-color="${c.hex}" style="background:${c.hex};" title="文字顏色：${escapeHtml(c.name)}" aria-label="文字顏色：${escapeHtml(c.name)}"></button>`).join('')}
+        ${TEXT_COLOR_PALETTE.map((c) => `<button type="button" class="md-color-btn" data-color="${c.hex}" style="background:${c.hex};" data-tooltip="文字顏色：${escapeHtml(c.name)}" aria-label="文字顏色：${escapeHtml(c.name)}"></button>`).join('')}
       </div>
     </div>
   `;
@@ -96,25 +99,16 @@ function restoreSelection(editor) {
   selection.addRange(savedRange);
 }
 
-// 螢光標記一定要選到文字才有意義——execCommand 沒有這個語意標籤，
-// 用 Range.surroundContents 手動包一層 <mark>；選取範圍剛好切在元素邊界中間時
-// surroundContents 會丟例外，退而求其次用 extractContents 重新包裝。
-function wrapSelectionWithMark(editor) {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
-  const range = selection.getRangeAt(0);
-  if (range.collapsed || !editor.contains(range.commonAncestorContainer)) return;
-  const mark = document.createElement('mark');
-  try {
-    range.surroundContents(mark);
-  } catch {
-    mark.appendChild(range.extractContents());
-    range.insertNode(mark);
-  }
-  selection.removeAllRanges();
-  const newRange = document.createRange();
-  newRange.selectNodeContents(mark);
-  selection.addRange(newRange);
+// 螢光標記改用原生 execCommand（跟粗體/斜體同一套機制，行為更可靠、不用自己處理
+// Range.surroundContents 在選取範圍切到元素邊界中間時會丟例外的邊界情況）。
+// hiliteColor 才是語意正確的指令，但 Safari 一路以來都不支援，backColor 是所有主流
+// 瀏覽器都認得的備援指令。存進資料庫前，sanitizeReflectionHtml 會把這個顏色收斂回
+// 語意化的 <mark> 標籤（不留 inline style），畫面上的顯示樣式跟舊資料共用同一套規則。
+const HIGHLIGHT_COLOR = '#FFF200';
+
+function applyHighlight() {
+  const supportsHiliteColor = document.queryCommandSupported && document.queryCommandSupported('hiliteColor');
+  document.execCommand(supportsHiliteColor ? 'hiliteColor' : 'backColor', false, HIGHLIGHT_COLOR);
 }
 
 // 「清除格式」嚴格限定在使用者目前選取的範圍內：execCommand('removeFormat') 本來就只
@@ -148,7 +142,7 @@ function applyWysiwygCommand(editor, cmd) {
     document.execCommand('formatBlock', false, isHeading ? 'p' : 'h2');
     return;
   }
-  if (cmd === 'mark') { wrapSelectionWithMark(editor); return; }
+  if (cmd === 'mark') { applyHighlight(); return; }
   if (cmd === 'clear') { clearFormatting(editor); return; }
 }
 
@@ -189,6 +183,15 @@ function appendSanitizedChildren(sourceParent, targetParent) {
     if (child.tagName === 'BR') { targetParent.appendChild(document.createElement('br')); return; }
 
     if (child.tagName === 'FONT' || child.tagName === 'SPAN') {
+      const bgColor = child.style && child.style.backgroundColor ? rgbStringToHex(child.style.backgroundColor) : null;
+      if (bgColor === HIGHLIGHT_COLOR.toLowerCase()) {
+        // execCommand('hiliteColor'/'backColor') 產生的螢光標記背景色，收斂回語意化的
+        // <mark>（不留 inline style），跟既有的顯示樣式與舊資料共用同一套渲染規則。
+        const mark = document.createElement('mark');
+        appendSanitizedChildren(child, mark);
+        targetParent.appendChild(mark);
+        return;
+      }
       const color = extractElementColor(child);
       if (color && ALLOWED_TEXT_COLORS.has(color)) {
         const span = document.createElement('span');
@@ -365,10 +368,10 @@ export async function renderReflections(container, bookId) {
       <label>可以自由選擇（可複選，不用填完）
         <span class="tag-checkboxes">${tagCheckboxes('reflectionTags', REFLECTION_TAGS)}</span>
       </label>
-      <label>想寫點什麼都可以
+      <div class="reflection-input-group">
         ${mdToolbarHtml()}
-        <div class="reflection-editor is-empty" id="reflection-editor" contenteditable="true" data-placeholder="寫下你的心得...（提示：輸入 #心理學 或 #榮格 可建立主題標籤）"><p><br></p></div>
-      </label>
+        <div class="reflection-editor is-empty" id="reflection-editor" contenteditable="true" data-placeholder="寫下你的心得..."><p><br></p></div>
+      </div>
       <p class="hashtag-hint">💡 提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">新增</button>

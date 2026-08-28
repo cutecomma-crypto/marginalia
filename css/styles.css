@@ -986,6 +986,16 @@ header h1 a {
   color: var(--text-muted);
 }
 
+/* 心得輸入框原本包在 <label>「想寫點什麼都可以」裡，拿掉那行冗餘提示文字後
+   <label> 沒有可標示的文字內容、語意上不再適合，改用 .book-form label 同一份
+   排版間距的 <div>，視覺上維持跟其他欄位一致的垂直間距。 */
+.reflection-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.6rem;
+}
+
 .book-form label.field-required {
   color: var(--text);
   font-weight: 600;
@@ -1616,6 +1626,7 @@ header h1 a {
 }
 
 .md-tool-btn {
+  position: relative;
   border: 1px solid var(--border-soft);
   background: var(--surface);
   color: var(--text-muted);
@@ -1628,6 +1639,36 @@ header h1 a {
   pointer-events: auto;
   line-height: 1;
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* 自訂輕量 Tooltip，取代原生 title：:hover 是瀏覽器樣式渲染的一部分，沒有原生 title
+   那種 OS 層級的顯示延遲，滑鼠移上去幾乎當下就浮現。opacity 用極短的 transition
+   只是避免生硬地瞬間跳出（幾乎感覺不到），不是刻意做出等待時間。 */
+.md-tool-btn::after,
+.md-color-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s ease;
+  z-index: 30;
+}
+
+.md-tool-btn:hover::after,
+.md-tool-btn:focus-visible::after,
+.md-color-btn:hover::after,
+.md-color-btn:focus-visible::after {
+  opacity: 1;
 }
 
 .md-tool-btn:hover {
@@ -1656,6 +1697,7 @@ header h1 a {
 /* 5 色文字顏色色票：18px 實心圓點，直接用 inline style 帶顏色（見 outputs.js），
    hover 用縮放＋外圈提示可點擊，不像 .md-tool-btn 那樣改背景色——改背景會蓋住色點本身的顏色。 */
 .md-color-btn {
+  position: relative;
   width: 18px;
   height: 18px;
   padding: 0;
@@ -2095,30 +2137,24 @@ header h1 a {
   justify-content: flex-end;
 }
 
-/* 畫布區塊：改成浮動控制列的定位容器（position:relative），讓縮放列可以絕對定位在
-   右上角，不再佔用一整列版面高度、也不會跟著畫布內容一起橫向捲動。 */
+/* 現在畫布區塊底下只剩 .canvas-wrap 一個子元素，但全螢幕模式那條規則
+   （.graph-canvas-area:fullscreen .canvas-wrap { flex: 1 }）需要父層是 flex
+   容器，flex:1 才會真的生效，撐滿全螢幕高度，所以還是要保留這個 display:flex。 */
 .graph-canvas-area {
-  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
-/* 縮放控制列從主工具列移出來後，改成畫布右上角的浮動膠囊卡片：
-   半透明背景＋毛玻璃模糊＋陰影，不管畫布上疊了多少群組卡片都能一眼看到、隨時點得到，
-   z-index 確保永遠蓋在畫布內容之上。 */
+/* 縮放控制列拉回頂部工具列，跟其他按鈕排在同一水平線上（不再浮動於畫布右上角），
+   膠囊造型維持不變，單純當作工具列裡的一個視覺分組。 */
 .canvas-zoom-toolbar {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  z-index: 10;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 252, 246, 0.9);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--surface-alt);
   border: 1px solid var(--border-soft);
   border-radius: 999px;
-  padding: 0.4rem 0.75rem;
-  box-shadow: 0 2px 10px rgba(35, 27, 20, 0.14);
+  padding: 0.3rem 0.5rem;
 }
 
 .canvas-tool-btn {
