@@ -38,22 +38,24 @@ export function generateQuoteCard(cardData, options = {}) {
   canvas.height = height;
   const ctx = canvas.getContext('2d');
 
-  // 背景＋裝飾外框，沿用專案本身的暖色調色票（跟 css/styles.css 的 --surface/--primary
-  // 這組色系一致），不是隨便選的顏色。
-  ctx.fillStyle = options.backgroundColor || '#faf6ef';
+  // 背景＋裝飾外框，沿用專案本身的暖色調色票（跟 css/styles.css 的 --surface/--accent/
+  // --text 這組色系一致，PANTONE 奶油米╱柔粉杏╱深紅棕主題），不是隨便選的顏色。
+  // 外框跟大引號用 --accent 柔粉杏色，跟佳句頁碼標籤／#Hashtag 膠囊同一套「標籤／
+  // 重點強調」語意；內文、書名用 --text 深紅棕，取代原本偏黑灰的內文色。
+  ctx.fillStyle = options.backgroundColor || '#faf6ee';
   ctx.fillRect(0, 0, width, height);
-  ctx.strokeStyle = options.accentColor || '#c1683a';
+  ctx.strokeStyle = options.accentColor || '#e38b97';
   ctx.lineWidth = 6;
   ctx.strokeRect(24, 24, width - 48, height - 48);
 
   // 大引號裝飾
-  ctx.fillStyle = options.accentColor || '#c1683a';
+  ctx.fillStyle = options.accentColor || '#e38b97';
   ctx.font = '140px Georgia, "Noto Serif TC", serif';
   ctx.fillText('“', 60, 220);
 
   // 內文（自動換行，置中偏上）
   const contentFontSize = options.contentFontSize || 34;
-  ctx.fillStyle = '#2c2c2c';
+  ctx.fillStyle = '#7b382b';
   ctx.font = `${contentFontSize}px "Noto Sans TC", "PingFang TC", sans-serif`;
   const maxTextWidth = width - 160;
   const lines = wrapText(ctx, cardData.content || '', maxTextWidth);
@@ -71,7 +73,7 @@ export function generateQuoteCard(cardData, options = {}) {
 
   // 分隔線
   const metaTop = height - 170;
-  ctx.strokeStyle = '#e5d8c3';
+  ctx.strokeStyle = '#e1d0b3';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(80, metaTop);
@@ -79,11 +81,11 @@ export function generateQuoteCard(cardData, options = {}) {
   ctx.stroke();
 
   // 書名／作者／日期
-  ctx.fillStyle = '#4a3f35';
+  ctx.fillStyle = '#7b382b';
   ctx.font = 'bold 30px "Noto Sans TC", "PingFang TC", sans-serif';
   ctx.fillText(`《${cardData.bookTitle || '未命名書籍'}》`, 80, height - 120);
 
-  ctx.fillStyle = '#7a6f63';
+  ctx.fillStyle = '#9c7a6e';
   ctx.font = '22px "Noto Sans TC", "PingFang TC", sans-serif';
   const metaLine = [cardData.author, cardData.date].filter(Boolean).join('　·　');
   ctx.fillText(metaLine, 80, height - 84);

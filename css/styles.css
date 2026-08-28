@@ -1,14 +1,28 @@
+/* 全站配色主題（PANTONE 系）：
+   - Base 奶油米色系（#F6EEDF／#FAF6EE）：--bg 當整頁底色，--surface 當卡片／
+     輸入框這類「疊在底色上面」的紙張質感表面，沿用原本 surface 比 bg 更淺一階
+     的關係；--surface-alt／--border／--border-soft 是同一色相往下微調的三階
+     深淺，維持原本彼此的深淺級距不變，只是整體色相從偏黃的米白改成更粉暖的奶油色。
+   - Accent 柔粉杏色（#E38B97）：專門給「標籤／膠囊按鈕／重點強調」用，不是拿來
+     當本文顏色——所以另外開一組 --accent／--accent-hover／--accent-soft，
+     不去動 --primary，避免大面積內文或按鈕變成粉色系。
+   - Primary/Text 深紅棕色（#7B382B）：取代原本偏黑的內文顏色跟偏橘的按鈕色，
+     兩者故意設成同一個顏色——原本設計裡「主要按鈕」跟「標題／內文」本來就是
+     同一套語意（品牌主色），只是這次品牌主色本身換成深紅棕，不是新增邏輯。 */
 :root {
-  --bg: #faf6ef;
-  --surface: #fffcf6;
-  --surface-alt: #f3ead9;
-  --border: #e5d8c3;
-  --border-soft: #ede2d0;
-  --text: #3d332a;
-  --text-muted: #8c7c68;
-  --primary: #c1683a;
-  --primary-hover: #a8552c;
-  --primary-soft: #f3e0cd;
+  --bg: #f6eedf;
+  --surface: #faf6ee;
+  --surface-alt: #efe2c9;
+  --border: #e1d0b3;
+  --border-soft: #e9dac0;
+  --text: #7b382b;
+  --text-muted: #9c7a6e;
+  --primary: #7b382b;
+  --primary-hover: #6b2e21;
+  --primary-soft: #e1d0c7;
+  --accent: #e38b97;
+  --accent-hover: #c17680;
+  --accent-soft: #f5e1dd;
   --accent-green: #7c9473;
   --accent-green-soft: #e7ede1;
   --danger: #b3492f;
@@ -1363,12 +1377,14 @@ header h1 a {
 }
 
 .tag-checkboxes label:hover {
-  border-color: var(--primary-soft);
+  border-color: var(--accent-soft);
 }
 
+/* 選取後的膠囊按鈕是「標籤」語意，用 Accent 粉杏色而不是 Primary 深紅棕，
+   跟 .btn-primary 這類真正的主要按鈕做出區隔。 */
 .tag-checkboxes label:has(input:checked) {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
   font-weight: 600;
 }
@@ -1966,12 +1982,14 @@ header h1 a {
   font-weight: 700;
 }
 
+/* 頁碼小標籤是「標籤」語意，用 Accent 粉杏色而不是 Primary 深紅棕，
+   跟本文／按鈕的主色區分開來。 */
 .quote-page-badge {
   flex-shrink: 0;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--primary);
-  background: var(--primary-soft);
+  color: var(--accent-hover);
+  background: var(--accent-soft);
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
   white-space: nowrap;
@@ -2078,11 +2096,12 @@ header h1 a {
   width: 100%;
 }
 
-/* #Hashtag 膠囊：出現在佳句／輸出／筆記的內文裡，點了直接跳去該標籤的跨書籍總覽頁。 */
+/* #Hashtag 膠囊：出現在佳句／輸出／筆記的內文裡，點了直接跳去該標籤的跨書籍總覽頁。
+   跟頁碼標籤同理，用 Accent 粉杏色而不是 Primary 深紅棕。 */
 .hashtag-chip {
   display: inline-block;
-  background: var(--primary-soft);
-  color: var(--primary-hover);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
   border-radius: 999px;
   padding: 0.05rem 0.5rem;
   font-weight: 600;
@@ -2090,7 +2109,7 @@ header h1 a {
 }
 
 .hashtag-chip:hover {
-  background: var(--primary);
+  background: var(--accent);
   color: #fff;
 }
 

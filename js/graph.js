@@ -7,7 +7,7 @@ import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 // 關係名稱、人物狀態標籤都是純自由輸入，不提供預設清單——這張圖不是只給推理小說用，
 // 也可能拿來畫工具書的概念關係（引申出、反駁…），硬塞一份固定詞彙表反而綁死用途。
 const DEFAULT_EDGE_COLOR = '#c2b299';
-const DEFAULT_GROUP_COLOR = '#c1683a';
+const DEFAULT_GROUP_COLOR = '#7b382b';
 // 新增群組時依序輪流套用的 15 色調色盤，深淺都控制在跟白色標題文字有足夠對比的範圍。
 const GROUP_COLOR_PALETTE = [
   { name: '莫蘭迪棕', hex: '#8C6D58' },
@@ -374,7 +374,7 @@ function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
       rect.setAttribute('y', bbox.y - padY);
       rect.setAttribute('width', bbox.width + padX * 2);
       rect.setAttribute('height', bbox.height + padY * 2);
-      rect.setAttribute('fill', '#fffcf6');
+      rect.setAttribute('fill', '#faf6ee');
       rect.setAttribute('fill-opacity', '0.94');
       rect.setAttribute('stroke', labelColor);
       rect.setAttribute('stroke-width', '1');
