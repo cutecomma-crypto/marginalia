@@ -1,5 +1,6 @@
 import { DB } from './db.js';
-import { escapeHtml, applyHashtagLinks } from './utils.js';
+import { escapeHtml, applyHashtagLinks, showToast } from './utils.js';
+import { attachSelectionToolbar } from './services/selectionToolbarService.js';
 
 // 對照 PROJECT_SPEC.md 第 4 節：低壓力、選填，不要求填完。
 // 閱讀動機一本書只有一筆（存在就更新）；閱讀後輸出可以隨閱讀過程累積多筆。
@@ -449,5 +450,18 @@ export async function renderReflections(container, bookId) {
       if (!item) return;
       await DB.update('outputs', { ...item, date: input.value });
     });
+  });
+
+  // 選取已儲存的心得文字時跳出懸浮工具列（高亮／朗讀／複製）。範圍刻意只框在
+  // .output-list（已儲存的列表）——不能包含上面的 #reflection-editor 撰寫區，
+  // 那裡選取文字時應該跳出的是既有的 WYSIWYG 粗體／斜體工具列，兩套懸浮選單同時
+  // 出現在同一個輸入框上會互相打架。「高亮」在這裡的意思是把選到的句子存成一句
+  // 新的佳句摘錄，沿用 quotes.js 既有的資料結構，不是畫面上疊一層存不下來的顏色。
+  const outputListEl = container.querySelector('.output-list');
+  attachSelectionToolbar(outputListEl, {
+    onHighlight: async (selectedText) => {
+      await DB.add('quotes', { bookId, content: selectedText });
+      showToast('已加入佳句摘錄');
+    },
   });
 }
