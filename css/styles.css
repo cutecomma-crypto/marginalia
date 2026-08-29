@@ -112,14 +112,18 @@ header h1 a {
 }
 
 /* Logo 本來就是 <a>，原生游標已經是 pointer，這裡明確寫出來只是不想依賴預設行為；
-   hover 加一點顏色變化，提示「點下去可以回到預設首頁」。 */
+   品牌名稱固定用 Accent 柔粉點綴色，跟主要文字／內文的深棕分開——全站唯一
+   一處刻意用點綴色當「本文」而不是背景暈染，讓 Logo 成為視覺焦點。
+   （class 選擇器權重比 header h1 a 的 3 個元素高，蓋得過 color: inherit。）
+   hover 加深到 --accent-hover，維持同一個粉色家族，不是換回深棕。 */
 .brand-logo {
+  color: var(--accent);
   cursor: pointer;
   transition: color 0.15s ease;
 }
 
 .brand-logo:hover {
-  color: var(--primary);
+  color: var(--accent-hover);
 }
 
 .toolbar {

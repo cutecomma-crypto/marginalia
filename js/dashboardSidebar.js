@@ -3,7 +3,7 @@ import { renderFavoriteAuthorsPanel } from './authors.js';
 import { renderRecentActivity } from './home.js';
 import { renderPopularTagsPanel } from './tagCloud.js';
 
-// 左側側邊欄：閱讀統計／熱門標籤／喜愛的作者／最近輸出／最近關聯。
+// 左側側邊欄：閱讀統計／熱門標籤／喜愛的作者／最近輸出。
 // 年份／閱讀狀態／分類／借出中／標籤五種篩選都是由各自面板發起（見 stats.js 的
 // onYearChange／onStatusFilterChange／onCategoryFilterChange／onRetentionFilterChange，
 // 以及 tagCloud.js 的 onTagClick），年份變化時順手把「喜愛的作者」也用同一個年份重新渲染，
