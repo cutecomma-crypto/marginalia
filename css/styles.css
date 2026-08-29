@@ -622,11 +622,14 @@ header h1 a {
 .dashboard-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  /* 拿掉「最近關聯」面板後側邊欄少了一塊，面板數變少、每塊份量感相對變重，
+     把面板間距從 1rem 拉開到 1.5rem，維持跟書籍卡片留白比例接近的呼吸感，
+     不會因為少了一塊內容就顯得上下擠在一起。 */
+  gap: 1.5rem;
   position: sticky;
   top: 1rem;
   /* 吸頂固定之後，側邊欄自己要有獨立高度上限＋可捲動，右側書籍清單再長，
-     使用者也只要滑側邊欄本身就能看到最下面的「最近關聯」，不用滑整頁。 */
+     使用者也只要滑側邊欄本身就能看到最下面的「最近輸出」，不用滑整頁。 */
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
   overscroll-behavior: contain;

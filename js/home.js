@@ -2,7 +2,10 @@ import { DB } from './db.js';
 import { escapeHtml, renderTagChip } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 10 節首頁建議區塊。「我的閱讀」數字概覽併進 stats.js 的側邊欄精簡統計，
-// 這裡只負責「最近輸出」「最近關聯」，放在首頁側邊欄下半部。
+// 這裡只負責「最近輸出」，放在首頁側邊欄下半部。
+// 原本這裡還有一個讀取 edges／nodes 的「最近關聯」預覽區塊，已依需求移除——
+// 純粹是這個檔案不再「讀」這兩個 store 來組首頁預覽，關係圖本身的資料邏輯
+// （新增／編輯／刪除人物與關係）完全在 graph.js，不受影響。
 async function buildRecentOutputs(limit) {
   const [outputs, books] = await Promise.all([DB.getAll('outputs'), DB.getAll('books')]);
   const bookById = new Map(books.map((b) => [b.id, b]));
@@ -11,22 +14,6 @@ async function buildRecentOutputs(limit) {
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, limit)
     .map((o) => ({ ...o, book: bookById.get(o.bookId) }));
-}
-
-async function buildRecentEdges(limit) {
-  const [edges, nodes, books] = await Promise.all([DB.getAll('edges'), DB.getAll('nodes'), DB.getAll('books')]);
-  const nodeById = new Map(nodes.map((n) => [n.id, n]));
-  const bookById = new Map(books.map((b) => [b.id, b]));
-  return edges
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-    .slice(0, limit)
-    .map((e) => ({
-      ...e,
-      book: bookById.get(e.bookId),
-      fromNode: nodeById.get(e.fromNodeId),
-      toNode: nodeById.get(e.toNodeId),
-    }))
-    .filter((e) => e.fromNode && e.toNode);
 }
 
 // 閱讀後輸出改版後（見 outputs.js），o.text 對新資料來說存的是已清理過的 HTML
@@ -66,21 +53,8 @@ function outputItemHtml(o) {
   `;
 }
 
-function edgeItemHtml(e) {
-  const title = e.book ? escapeHtml(e.book.title || '（未命名）') : '（書籍已刪除）';
-  return `
-    <li>
-      <div class="home-list-title">${e.book ? `<a href="#/books/${e.bookId}/graph">${title}</a>` : title}</div>
-      <p class="home-list-text">${escapeHtml(e.fromNode.label)} —${escapeHtml(e.label || '關聯')}→ ${escapeHtml(e.toNode.label)}</p>
-    </li>
-  `;
-}
-
 export async function renderRecentActivity(container) {
-  const [outputs, edges] = await Promise.all([
-    buildRecentOutputs(5),
-    buildRecentEdges(5),
-  ]);
+  const outputs = await buildRecentOutputs(5);
 
   container.innerHTML = `
     <div class="sidebar-panel">
@@ -88,12 +62,6 @@ export async function renderRecentActivity(container) {
       ${outputs.length === 0
         ? '<p class="empty">還沒有任何輸出。</p>'
         : `<ul class="home-list">${outputs.map(outputItemHtml).join('')}</ul>`}
-    </div>
-    <div class="sidebar-panel">
-      <h4>最近關聯</h4>
-      ${edges.length === 0
-        ? '<p class="empty">還沒有任何圖譜關聯。</p>'
-        : `<ul class="home-list">${edges.map(edgeItemHtml).join('')}</ul>`}
     </div>
   `;
 }
