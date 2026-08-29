@@ -1,6 +1,6 @@
 import { DB } from './db.js';
 import { STATUS_OPTIONS } from './readingRecords.js';
-import { MOTIVATION_TAGS } from './outputs.js';
+import { MOTIVATION_TAGS, MOTIVATION_TAG_GROUPS } from './outputs.js';
 import { getFavoriteAuthorMap, toggleFavoriteAuthor } from './authors.js';
 import { escapeHtml } from './utils.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
@@ -188,7 +188,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
           </select>
         </label>
         <label class="field-wide">閱讀動機（可複選，選填）
-          <span class="tag-checkboxes motivation-tags">${MOTIVATION_TAGS.map((m) => `<label><input type="checkbox" name="motivationTags" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('')}</span>
+          <span class="tag-checkboxes motivation-tags">${MOTIVATION_TAGS.map((m) => `<label data-group="${MOTIVATION_TAG_GROUPS[m]}"><input type="checkbox" name="motivationTags" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('')}</span>
         </label>
         <label class="field-wide" for="field-motivation-text">我現在為什麼想讀它？
           <textarea id="field-motivation-text" name="motivationText" rows="2" placeholder="低壓力，想到什麼寫什麼，不寫也沒關係"></textarea>

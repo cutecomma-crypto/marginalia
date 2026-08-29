@@ -4,7 +4,7 @@ import { renderMotivation, renderReflections } from './outputs.js';
 import { renderNotesSection } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, renderTagChip } from './utils.js';
 import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS } from './bookForm.js';
 
 // rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
@@ -55,7 +55,7 @@ export async function renderBookDetail(container, rawId) {
           <h2>${escapeHtml(book.title || '（未命名）')}</h2>
           ${book.tags && book.tags.length ? `
           <div class="detail-tags">
-            ${book.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}
+            ${book.tags.map((t) => renderTagChip(t)).join('')}
           </div>
           ` : ''}
           <div class="detail-grid-compact">

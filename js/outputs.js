@@ -1,11 +1,20 @@
 import { DB } from './db.js';
-import { escapeHtml, applyHashtagLinks, showToast } from './utils.js';
+import { escapeHtml, applyHashtagLinks, showToast, renderTagChip } from './utils.js';
 import { attachSelectionToolbar } from './services/selectionToolbarService.js';
 
 // 對照 PROJECT_SPEC.md 第 4 節：低壓力、選填，不要求填完。
 // 閱讀動機一本書只有一筆（存在就更新）；閱讀後輸出可以隨閱讀過程累積多筆。
 export const MOTIVATION_TAGS = ['好奇', '解決問題', '工作需要', '自我成長', '主題學習', '別人推薦', '文案吸引', '隨意閱讀', '其他'];
 const REFLECTION_TAGS = ['發現', '思考', '疑問', '認同', '不認同', '聯想到其他事情', '改變了某個看法', '一般心得'];
+
+// 閱讀動機膠囊未選中時分成三個同色系色階（a 玫瑰／b 焦糖／c 橄欖），不要 9 個
+// 選項長得一模一樣——依語意分組：a 是好奇心/外部驅動，b 是目標型的成長學習，
+// c 是隨性/衝動型的閱讀動機。REFLECTION_TAGS（心得標籤）沒有固定分組，維持原樣。
+export const MOTIVATION_TAG_GROUPS = {
+  好奇: 'a', 解決問題: 'a', 別人推薦: 'a',
+  工作需要: 'b', 自我成長: 'b', 主題學習: 'b',
+  文案吸引: 'c', 隨意閱讀: 'c', 其他: 'c',
+};
 
 async function getOutputsByKind(bookId, kind) {
   const all = await DB.getByIndex('outputs', 'bookId', bookId);
@@ -24,10 +33,10 @@ async function getDefaultReflectionDate(bookId) {
   return (latest && latest.endDate) || todayIso();
 }
 
-function tagCheckboxes(name, options, selected) {
+function tagCheckboxes(name, options, selected, groupMap) {
   const selectedList = selected || [];
   return options.map((tag) => `
-    <label>
+    <label${groupMap && groupMap[tag] ? ` data-group="${groupMap[tag]}"` : ''}>
       <input type="checkbox" name="${name}" value="${escapeHtml(tag)}" ${selectedList.includes(tag) ? 'checked' : ''}>
       ${escapeHtml(tag)}
     </label>
@@ -318,7 +327,7 @@ export async function renderMotivation(container, bookId) {
     <h4 class="section-heading">💡 閱讀動機</h4>
     <form id="motivation-form" class="book-form">
       <label>可以選擇（可複選）
-        <span class="tag-checkboxes motivation-tags">${tagCheckboxes('motivationTags', MOTIVATION_TAGS, existing && existing.tags)}</span>
+        <span class="tag-checkboxes motivation-tags">${tagCheckboxes('motivationTags', MOTIVATION_TAGS, existing && existing.tags, MOTIVATION_TAG_GROUPS)}</span>
       </label>
       <label>我為什麼想看這本書？
         <textarea name="text" rows="2">${escapeHtml(existing && existing.text)}</textarea>
@@ -352,7 +361,7 @@ function reflectionItem(item) {
   return `
     <div class="output-item" data-id="${item.id}">
       <button type="button" class="btn btn-danger output-delete" data-id="${item.id}">刪除</button>
-      ${item.tags && item.tags.length ? `<div class="output-tags">${item.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+      ${item.tags && item.tags.length ? `<div class="output-tags">${item.tags.map((t) => renderTagChip(t)).join('')}</div>` : ''}
       ${item.text ? `<div class="reflection-body">${item.format === 'html' ? renderStoredReflectionHtml(item.text) : renderReflectionMarkdown(item.text)}</div>` : ''}
       <input type="date" class="output-date-input" data-id="${item.id}" value="${escapeHtml(dateValue)}">
     </div>

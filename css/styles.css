@@ -17,7 +17,10 @@
    --accent-green／--danger／--gold 是既有的語意色（借閱狀態／危險操作／螢光筆），
    跟這次的 60-30-10 主題色階層無關，維持不動，避免功能性顏色被牽連著改到。 */
 :root {
-  --bg: #faf6f0;
+  /* 濃度比 #FAF6F0 更深一階的奶油色，讓純白卡片跟底色的對比更明顯，
+     「卡片浮在背景上」的層次感才看得出來——底色跟卡片色太接近時，
+     再怎麼加陰影視覺上都還是會糊在一起。 */
+  --bg: #f2ead9;
   --surface: #ffffff;
   --surface-alt: #f0ece1;
   --border: rgba(140, 122, 112, 0.35);
@@ -35,6 +38,12 @@
   --danger: #b3492f;
   --danger-soft: #f5e2d9;
   --gold: #d9973f;
+  /* 卡片陰影統一從 --text 這個色相取，陰影是「材質」不是裝飾色，跟品牌色系
+     脫節的灰黑陰影會讓卡片看起來像貼上去的，不是真的立體浮起來。resting 用
+     很淡的 5% 不透明度；hover/互動時用稍微明顯一點的 10%，兩者都不夠深到
+     搶走卡片內容本身的注意力。 */
+  --shadow-card: 0 4px 12px rgba(74, 46, 43, 0.05);
+  --shadow-card-hover: 0 6px 16px rgba(74, 46, 43, 0.1);
   --font-heading: "Yuanti TC", "PingFang TC", sans-serif;
 }
 
@@ -653,13 +662,17 @@ header h1 a {
   }
 }
 
+/* 白卡片靠陰影跟底色的明暗差自己浮出來，拿掉原本的實線邊框——邊框+陰影
+   兩種立體暗示疊在一起在雜誌排版裡反而顯得雜，純陰影更乾淨。 */
 .sidebar-panel {
   background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
   padding: 1rem 1.1rem;
 }
 
+/* 側邊欄每個區塊標題（最近輸出／喜愛的作者／閱讀統計…）左邊加一條粉紅指示線，
+   純文字標題在白卡片上很容易跟內文分不清層級，這條色塊一眼就能定位「這是標題」。 */
 .sidebar-panel h4 {
   margin: 0 0 0.7rem;
   font-size: 0.92rem;
@@ -667,6 +680,8 @@ header h1 a {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  border-left: 4px solid var(--accent);
+  padding-left: 8px;
 }
 
 .sidebar-year-tag {
@@ -837,6 +852,9 @@ header h1 a {
   width: 100%;
   border-collapse: collapse;
   background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
 }
 
 .book-table .col-category,
@@ -867,6 +885,25 @@ header h1 a {
 .book-table a {
   text-decoration: none;
   font-weight: 600;
+}
+
+/* 斑馬紋＋整列 hover：純白通篇一列列排下去容易看花眼，隔行淡淡的暖米色
+   幫視線在同一列上對齊；滑過整列（不是只有書名那一格）變成柔粉，比只變
+   書名底色更明顯知道「游標在哪一列」，書名文字同時加深呼應被選中的狀態。 */
+.book-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.book-table tbody tr:nth-child(even) {
+  background: #faf7f2;
+}
+
+.book-table tbody tr:hover {
+  background: #fdf0f2;
+}
+
+.book-table tbody tr:hover a {
+  color: var(--primary-hover);
 }
 
 .book-list-count {
@@ -1137,8 +1174,8 @@ header h1 a {
   flex-direction: column;
   gap: 1rem;
   background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
   padding: 1rem 1.25rem;
   margin-bottom: 1.5rem;
 }
@@ -1400,6 +1437,31 @@ header h1 a {
 
 .tag-checkboxes label:has(input:checked)::before {
   content: "✓";
+}
+
+/* 閱讀動機膠囊未選中時的多彩同色系分組（跟上面選中狀態的粉紅不衝突：
+   選擇器多了 [data-group] 屬性，權重比基本的 .tag-checkboxes label 高，
+   同時選中時靠再下面那條 :has(input:checked) 組合規則蓋回粉紅）。
+   a 玫瑰／b 焦糖／c 橄欖，三組色階彼此都是「淺底＋對應深一階的字色」，
+   同一份對比邏輯，只是換色相，放在一起不會顯得雜亂只會顯得豐富。 */
+.tag-checkboxes.motivation-tags label[data-group="a"] {
+  background: #fce4e8;
+  color: #c85a6e;
+}
+
+.tag-checkboxes.motivation-tags label[data-group="b"] {
+  background: #fdf0e1;
+  color: #b06030;
+}
+
+.tag-checkboxes.motivation-tags label[data-group="c"] {
+  background: #faf3d1;
+  color: #826e2d;
+}
+
+.tag-checkboxes.motivation-tags label[data-group]:has(input:checked) {
+  background: var(--accent);
+  color: #fff;
 }
 
 .tag-checkboxes input {
@@ -1708,6 +1770,24 @@ header h1 a {
   border-radius: 999px;
   padding: 0.1rem 0.6rem;
   font-size: 0.75rem;
+}
+
+/* 書籍/心得標籤是自由輸入文字，用 utils.js 的 renderTagChip() 依標籤字串
+   算出固定的 data-group，套用跟閱讀動機膠囊同一份三色階（同一套「淺底+
+   對應深字色」邏輯），讓「最近輸出」跟詳情頁的標籤群組視覺上豐富但和諧。 */
+.output-tag[data-group="a"] {
+  background: #fce4e8;
+  color: #c85a6e;
+}
+
+.output-tag[data-group="b"] {
+  background: #fdf0e1;
+  color: #b06030;
+}
+
+.output-tag[data-group="c"] {
+  background: #faf3d1;
+  color: #826e2d;
 }
 
 .output-date {
@@ -2833,8 +2913,8 @@ header h1 a {
 
 .graph-panel {
   background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
   padding: 1rem 1.1rem;
   margin-bottom: 1rem;
 }
@@ -3089,9 +3169,13 @@ header h1 a {
   text-decoration: none;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
+  /* 這裡跟其他單張卡片（sidebar-panel／book-header-panel／graph-panel）不同，
+     保留一圈很淡的邊框：格狀排列時很多張卡片緊挨在一起，純靠陰影不容易分清楚
+     每張卡片的邊界，邊框+陰影一起才夠清楚。 */
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-card);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   /* 讓下面的類型標籤可以用「這張卡片本身量到的寬度」決定要不要顯示，
      而不是猜測整個 viewport 的斷點——同一列的卡片在不同螢幕寬度下欄數不同，
@@ -3102,7 +3186,7 @@ header h1 a {
 
 .book-gallery-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(35, 27, 20, 0.12);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .book-gallery-cover {

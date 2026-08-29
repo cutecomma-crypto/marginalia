@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, renderTagChip } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 10 節首頁建議區塊。「我的閱讀」數字概覽併進 stats.js 的側邊欄精簡統計，
 // 這裡只負責「最近輸出」「最近關聯」，放在首頁側邊欄下半部。
@@ -53,7 +53,7 @@ function buildOutputPreview(item) {
 function outputItemHtml(o) {
   const title = o.book ? escapeHtml(o.book.title || '（未命名）') : '（書籍已刪除）';
   const tags = o.tags && o.tags.length
-    ? `<div class="output-tags">${o.tags.map((t) => `<span class="output-tag">${escapeHtml(t)}</span>`).join('')}</div>`
+    ? `<div class="output-tags">${o.tags.map((t) => renderTagChip(t)).join('')}</div>`
     : '';
   const preview = buildOutputPreview(o);
   const text = preview ? `<p class="home-list-text">${escapeHtml(preview)}</p>` : '';
