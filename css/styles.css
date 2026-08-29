@@ -203,6 +203,17 @@ header h1 a {
     display: inline-flex;
     align-items: center;
   }
+
+  /* 書籍列表的搜尋列現在有搜尋框＋排序＋每頁筆數三個控制項，窄螢幕硬擠一行
+     會被迫橫向捲動；改成自動換行，「共 X 本」字樣獨占一行靠左，不再黏right。 */
+  .search-row {
+    flex-wrap: wrap;
+  }
+
+  .search-row .book-list-count {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .btn-primary {
@@ -920,6 +931,70 @@ header h1 a {
   background: var(--surface);
   color: var(--text);
   flex-shrink: 0;
+}
+
+/* 書籍列表分頁列：奶油底（--surface-alt）+ 深棕字，跟頁面上其他「素雅預設、
+   互動時才亮粉紅」的按鈕語言一致（呼應 .btn:hover 的設計），不是另外發明一套配色。 */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1.5rem;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pagination-btn,
+.pagination-page {
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.pagination-btn:hover:not(:disabled),
+.pagination-page:hover:not(.is-active) {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-page.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: default;
+}
+
+.pagination-ellipsis {
+  color: var(--text-muted);
+  padding: 0 0.2rem;
+}
+
+@media (max-width: 768px) {
+  .pagination-btn,
+  .pagination-page {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 .book-completed-date {
