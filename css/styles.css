@@ -716,10 +716,25 @@ header h1 a {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  /* 原本這個 0.7rem 是靠 h4／select 兩個子元素「剛好同時都有」margin-bottom:0.7rem
+     湊出來的，年份選單改跟一個沒有 margin 的 <span> 標籤放一起後，兩個子元素高度
+     不對稱會讓 select 在 flex 列裡看起來偏高——間距移到 row 本身統一控制。 */
+  margin-bottom: 0.7rem;
 }
 
-.sidebar-stat-heading-row h4 {
-  margin: 0 0 0.7rem;
+/* 「年度閱讀成果」是卡片裡的第二層小標題，不是整張卡片的標題（那個是上面的
+   <h4>我的藏書概況</h4>，已經有粉紅指示線），故意用比較輕的字重/顏色跟第一層
+   的狀態方塊拉開層級，再用上緣一條分隔線＋留白，明確斷開「兩層資料」的視覺。 */
+.sidebar-stat-heading-row--year {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.stat-section-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .sidebar-year-select {
@@ -729,7 +744,6 @@ header h1 a {
   font-size: 0.78rem;
   background: var(--surface);
   color: var(--text-muted);
-  margin-bottom: 0.7rem;
 }
 
 .sidebar-stat-highlight {

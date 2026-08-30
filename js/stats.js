@@ -272,21 +272,25 @@ export async function renderSidebarStats(container, options = {}) {
   let activeCategory = null;
   let activeRetention = null;
 
+  // 第一層：全站書籍狀態統計（閱讀中／尚未閱讀／已讀完），不受年份選擇影響，
+  // 是使用者一打開網站最想先看到的「我現在藏書整體長怎樣」；年份切換只影響
+  // 下面第二層的年度成果數字，兩層資料來源不同，順序調整純粹是排版，不動邏輯。
   container.innerHTML = `
     <div class="sidebar-panel">
-      <div class="sidebar-stat-heading-row">
-        <h4>閱讀統計</h4>
+      <h4>我的藏書概況</h4>
+      <div class="sidebar-stat-grid">
+        <div class="sidebar-stat-cell" data-status="閱讀中" title="點擊只看閱讀中的書"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
+        <div class="sidebar-stat-cell" data-status="尚未閱讀" title="點擊只看尚未閱讀的書"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
+        <div class="sidebar-stat-cell" data-status="已讀完" title="點擊只看已讀完的書"><span class="v">${completed}</span><span class="l">已讀完</span></div>
+      </div>
+      <div class="sidebar-stat-heading-row sidebar-stat-heading-row--year">
+        <span class="stat-section-label">年度閱讀成果</span>
         <select id="sidebar-stats-year-select" class="sidebar-year-select">
           <option value="">全部年份</option>
           ${yearOptions.map((y) => `<option value="${escapeHtml(y)}" ${y === defaultYear ? 'selected' : ''}>${escapeHtml(y)} 年</option>`).join('')}
         </select>
       </div>
       <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYearStats.highlight)}</div>
-      <div class="sidebar-stat-grid">
-        <div class="sidebar-stat-cell" data-status="閱讀中" title="點擊只看閱讀中的書"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
-        <div class="sidebar-stat-cell" data-status="尚未閱讀" title="點擊只看尚未閱讀的書"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
-        <div class="sidebar-stat-cell" data-status="已讀完" title="點擊只看已讀完的書"><span class="v">${completed}</span><span class="l">已讀完</span></div>
-      </div>
       <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
       <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
     </div>
