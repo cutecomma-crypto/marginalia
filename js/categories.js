@@ -2,14 +2,58 @@ import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 
 // 對照 PROJECT_SPEC.md 第 1 節。「書籍類型」是固定選項＋可自訂的單選分類。
-export const CATEGORY_GROUPS = [
-  { label: '文學小說', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '驚悚小說', '大眾文學', '旅行文學', '輕小說', '言情小說', '耽美'] },
+//
+// 每個大類別內部的子選項依「字數長度」由少到多排序，同字數維持原本寫在陣列裡的
+// 相對順序（stable sort）——短名稱先出現，掃選單時比較好找。「文學小說」裡的
+// 「耽美」是唯一例外：不管字數多短，一律強制排在該大類別最下面，這條規則跟字數
+// 排序無關，所以獨立用 pinnedToEnd 表示，不是塞進字數排序的比較函式裡搞特殊判斷。
+//
+// 下面 RAW_CATEGORY_GROUPS 維持人類好讀的原始寫法（不用自己手動算字數排序），
+// 實際匯出給選單使用的 CATEGORY_GROUPS 是排序過的版本，兩者靠 sortCategoryOptions()
+// 這個純函式連起來——以後新增分類只要照原本順序加進 RAW 清單，排序自動算好，
+// 不用每次手動重新排一次陣列、也不會漏算或算錯字數。
+function sortCategoryOptions(options, pinnedToEnd = []) {
+  const pinnedSet = new Set(pinnedToEnd);
+  const sorted = options
+    .filter((name) => !pinnedSet.has(name))
+    .map((name, index) => ({ name, index }))
+    .sort((a, b) => a.name.length - b.name.length || a.index - b.index)
+    .map((entry) => entry.name);
+  return [...sorted, ...pinnedToEnd.filter((name) => options.includes(name))];
+}
+
+const RAW_CATEGORY_GROUPS = [
+  { label: '文學小說', options: ['中文文學', '歐美文學', '日本文學', '韓國文學', '科幻小說', '懸疑推理小說', '大眾文學', '旅行文學', '輕小說', '言情小說', '耽美'], pinnedToEnd: ['耽美'] },
   { label: '商業理財', options: ['職場工作術', '生產力/筆記術', '投資理財', '企業管理', '經濟趨勢'] },
   { label: '心理勵志', options: ['心理學理論', '自我提升', '人際關係', '心靈雞湯'] },
   { label: '人文社會', options: ['歷史', '哲學理論', '人物傳記', '社會科學'] },
   { label: '生活應用/工具', options: ['學習法/思考術', '電腦資訊', '語言學習', '生活風格'] },
   { label: '藝術設計', options: ['美術設計', '電影表演', '音樂建築'] },
 ];
+
+export const CATEGORY_GROUPS = RAW_CATEGORY_GROUPS.map((g) => ({
+  label: g.label,
+  options: sortCategoryOptions(g.options, g.pinnedToEnd || []),
+}));
+
+// 系統預設分類改名時，既有書籍資料庫裡存的還是舊名稱字串，不會自動跟著變——
+// 這裡列出「舊名稱 → 新名稱」對照表，每次程式啟動時（見 bootstrap-extensions.js
+// 的 initCategoryMigration()）掃一次全部書籍，把還停留在舊名稱的資料悄悄更新成
+// 新名稱。之後如果還有其他分類要改名，在這個表多加一行就好，不用再寫一次遷移邏輯。
+const LEGACY_CATEGORY_RENAMES = {
+  驚悚小說: '懸疑推理小說',
+};
+
+export async function migrateLegacyCategoryNames() {
+  if (Object.keys(LEGACY_CATEGORY_RENAMES).length === 0) return;
+  const books = await DB.getAll('books');
+  for (const book of books) {
+    const newName = LEGACY_CATEGORY_RENAMES[book.category];
+    if (newName) {
+      await DB.update('books', { ...book, category: newName });
+    }
+  }
+}
 export const CUSTOM_CATEGORY_VALUE = '__custom__';
 const CUSTOM_CATEGORY_STORAGE_KEY = 'marginalia:customCategories';
 

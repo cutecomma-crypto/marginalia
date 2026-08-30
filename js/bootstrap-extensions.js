@@ -15,6 +15,7 @@ import { requestPersistentStorage, isStoragePersisted } from './services/storage
 import { installGlobalShortcuts } from './services/keyboardShortcutsService.js';
 import { WebDavSyncService, trackLocalChanges } from './services/webdavSyncService.js';
 import { startAutoLocalBackup } from './services/localBackupService.js';
+import { migrateLegacyCategoryNames } from './categories.js';
 
 export async function gatherAllData() {
   const data = {};
@@ -65,8 +66,16 @@ export function initLocalBackup() {
   startAutoLocalBackup(gatherAllData);
 }
 
+// §7：舊分類名稱自動遷移（例如「驚悚小說」→「懸疑推理小說」）。每次啟動都會掃一次
+// 全部書籍，但實際只有 category 還停留在舊名稱的書籍才會被更新，其餘資料不受影響；
+// 對照表在 categories.js 的 LEGACY_CATEGORY_RENAMES，之後還有其他分類要改名只要加表。
+export function initCategoryMigration() {
+  migrateLegacyCategoryNames();
+}
+
 // ---- 目前實際啟用的模組（逐一測試通過才加進這裡）----
 initKeyboardShortcuts();
 initStoragePersistence();
 initWebDavAutoSync();
+initCategoryMigration();
 // initLocalBackup() 還沒被要求啟用，先留著沒呼叫。
