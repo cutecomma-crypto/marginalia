@@ -16,6 +16,7 @@ import { installGlobalShortcuts } from './services/keyboardShortcutsService.js';
 import { WebDavSyncService, trackLocalChanges } from './services/webdavSyncService.js';
 import { startAutoLocalBackup } from './services/localBackupService.js';
 import { migrateLegacyCategoryNames } from './categories.js';
+import { migrateLegacyBookFields } from './bookForm.js';
 
 export async function gatherAllData() {
   const data = {};
@@ -73,9 +74,17 @@ export function initCategoryMigration() {
   migrateLegacyCategoryNames();
 }
 
+// §8：舊「書籍形式」／「存留狀態」欄位值自動遷移（來源與存留狀態解耦，見 bookForm.js
+// 的 migrateLegacyBookFields 開頭註解）。跟 §7 一樣每次啟動都掃一次，只有真的還停留在
+// 舊字串的書籍會被更新。
+export function initBookFieldMigration() {
+  migrateLegacyBookFields();
+}
+
 // ---- 目前實際啟用的模組（逐一測試通過才加進這裡）----
 initKeyboardShortcuts();
 initStoragePersistence();
 initWebDavAutoSync();
 initCategoryMigration();
+initBookFieldMigration();
 // initLocalBackup() 還沒被要求啟用，先留著沒呼叫。

@@ -1,4 +1,5 @@
 import { DB } from './db.js';
+import { BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
 
 // 共用的「書籍 → 最新一筆閱讀紀錄」查表邏輯。原本 stats.js／authors.js／bookList.js
 // 三個地方各自重複了一份幾乎一樣的 Map 建法，抽成這裡單一個來源。
@@ -55,9 +56,15 @@ export function filterBooksByCategory(books, category) {
   return books.filter((book) => (book.category || '未分類') === category);
 }
 
-// 「借出中」快捷篩選：直接看書籍本身的存留狀態欄位，不用查閱讀紀錄。
+// 「借出中／借入未還」快捷篩選：直接看書籍本身的存留狀態欄位，不用查閱讀紀錄。
+// 「借入未還」比較特殊，要同時符合「來源是圖書館借閱」且「存留狀態是借入未還」
+// 兩個條件，跟左側邊欄「借入未還」按鈕的計數口徑一致——避免使用者手動把某本
+// 非圖書館來源的書標成「借入未還」時，被誤算進這個專屬圖書館書籍的統計／篩選結果。
 export function filterBooksByRetentionStatus(books, retentionStatus) {
   if (!retentionStatus) return books;
+  if (retentionStatus === BORROWED_RETENTION_STATUS) {
+    return books.filter((book) => book.format === LIBRARY_SOURCE_FORMAT && book.retentionStatus === BORROWED_RETENTION_STATUS);
+  }
   return books.filter((book) => book.retentionStatus === retentionStatus);
 }
 

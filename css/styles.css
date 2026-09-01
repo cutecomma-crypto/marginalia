@@ -905,7 +905,8 @@ header h1 a {
 }
 
 .book-table .col-category,
-.book-table .col-completed {
+.book-table .col-completed,
+.book-table .col-actions {
   width: 1%;
 }
 
@@ -918,12 +919,14 @@ header h1 a {
   white-space: nowrap;
 }
 
-/* 書名／作者交給欄位自然撐開寬度、單行不換行；類型／完成日期詞彙固定短，
+/* 書名／作者交給欄位自然撐開寬度、單行不換行；類型／完成日期／操作詞彙固定短，
    col 給 1% 等於「只吃內容需要的最小寬度」，釋放出來的空間全部留給書名／作者。 */
 .book-table th:nth-child(3),
 .book-table td:nth-child(3),
 .book-table th:nth-child(4),
-.book-table td:nth-child(4) {
+.book-table td:nth-child(4),
+.book-table th:nth-child(5),
+.book-table td:nth-child(5) {
   padding-left: 1.1rem;
   padding-right: 1.1rem;
   text-align: center;
@@ -932,6 +935,47 @@ header h1 a {
 .book-table a {
   text-decoration: none;
   font-weight: 600;
+}
+
+/* 一鍵歸還：表格／封面網格共用同一顆輕量小按鈕（<button> 或 <span>都套這個 class），
+   借用既有的 --accent-green 語意色（原本註解就寫著這組顏色是留給「借閱狀態」用的），
+   跟危險操作的紅色、主要動作的品牌色都區隔開，讀起來像「完成、正向」的小動作。 */
+.quick-return-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-green-soft);
+  color: var(--accent-green);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.quick-return-btn:hover {
+  filter: brightness(0.94);
+}
+
+.book-gallery-info .quick-return-btn {
+  margin-top: 0.5rem;
+}
+
+/* 書籍詳情頁的一鍵歸還按鈕放在跟「編輯」「刪除」同一排操作列，維持跟它們
+   一樣的 .btn 外框樣式，只把文字／邊框換成同一組 --accent-green 語意色。 */
+.btn.quick-return-btn {
+  border: 1px solid var(--accent-green);
+  background: var(--accent-green-soft);
+  color: var(--accent-green);
+}
+
+.btn.quick-return-btn:hover {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: var(--surface);
 }
 
 /* 斑馬紋＋整列 hover：純白通篇一列列排下去容易看花眼，隔行淡淡的暖米色

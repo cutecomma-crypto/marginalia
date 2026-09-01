@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
+import { DEFAULT_RETENTION_STATUS } from './bookForm.js';
 
 // 對照使用者需求：從 Notion 匯出的閱讀紀錄 CSV，欄位名稱因人而異，所以用「欄位對照」
 // 讓使用者自己選哪一欄對應到 Marginalia 的哪個欄位，而不是寫死固定的表頭名稱。
@@ -12,8 +13,10 @@ const MARGINALIA_FIELDS = [
 ];
 
 // Marginalia 有、但 Notion 對照不到的欄位，匯入時一律套用這組預設值。
+// 存留狀態的預設值改用 bookForm.js 匯出的常數而不是自己寫死字串，這樣以後
+// DEFAULT_RETENTION_STATUS 的實際文字（例如「保存」曾經改名成「保存中」）
+// 改了，這裡不用跟著手動同步，也不會漏改變成一個孤立的舊字串。
 const DEFAULT_CATEGORY = '';
-const DEFAULT_RETENTION_STATUS = '保存';
 
 const FIELD_GUESS_PATTERNS = {
   title: ['title', '書名', '書籍名稱', 'name', '名稱'],

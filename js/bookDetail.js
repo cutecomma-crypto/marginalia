@@ -4,8 +4,8 @@ import { renderMotivation, renderReflections } from './outputs.js';
 import { renderNotesSection } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml, renderTagChip } from './utils.js';
-import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS } from './bookForm.js';
+import { escapeHtml, renderTagChip, showToast } from './utils.js';
+import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, RETURNED_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
 
 // rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
 // 的欄位可以傳這個代替純文字 value，呼叫端要自己先 escapeHtml() 過使用者輸入的部分。
@@ -15,14 +15,20 @@ function detailRow(label, value, { rawValue } = {}) {
   return `<div class="detail-row"><span class="detail-label">${escapeHtml(label)}</span><span class="detail-value">${valueHtml}</span></div>`;
 }
 
-// 借閱狀態附上「（借閱管道 - 圖書館名稱）」、借出狀態附上「（借給 XX）」，
-// 其他存留狀態單純顯示狀態本身。
+// 圖書館借閱細節（借閱管道－圖書館名稱）跟著「來源」顯示，不管現在存留狀態是
+// 借入未還還是已經歸還——這是書從哪裡來的歷史紀錄，不是「現在還沒還」才成立的事。
+function formatDisplay(book) {
+  const format = book.format || '';
+  if (format === LIBRARY_SOURCE_FORMAT) {
+    const detail = [book.libraryBorrowType, book.libraryName].filter(Boolean).join(' - ');
+    return detail ? `${format}（${detail}）` : format;
+  }
+  return format;
+}
+
+// 存留狀態單純顯示狀態本身，借出狀態附上「（借給 XX）」。
 function retentionStatusDisplay(book) {
   const status = book.retentionStatus || DEFAULT_RETENTION_STATUS;
-  if (status === BORROWED_RETENTION_STATUS) {
-    const detail = [book.libraryBorrowType, book.libraryName].filter(Boolean).join(' - ');
-    return detail ? `${status}（${detail}）` : status;
-  }
   if (status === LENT_OUT_RETENTION_STATUS && book.lentTo) {
     return `${status}（借給 ${book.lentTo}）`;
   }
@@ -38,11 +44,13 @@ export async function renderBookDetail(container, rawId) {
   }
   const favoriteAuthors = await getFavoriteAuthorMap();
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
+  const isBorrowedUnreturned = book.retentionStatus === BORROWED_RETENTION_STATUS;
 
   container.innerHTML = `
     <div class="toolbar">
       <a href="#/books">← 回列表</a>
       <div class="toolbar-actions">
+        ${isBorrowedUnreturned ? '<button type="button" class="btn quick-return-btn" id="quick-return-btn">↩ 一鍵歸還</button>' : ''}
         <a class="btn" href="#/books/${bookId}/graph">🕸️ 關係圖譜</a>
         <a class="btn" href="#/books/${bookId}/edit">編輯</a>
         <button type="button" class="btn btn-danger" id="delete-book">刪除</button>
@@ -67,7 +75,7 @@ export async function renderBookDetail(container, rawId) {
             ${detailRow('出版社', book.publisher)}
             ${detailRow('書籍類型', book.category)}
             ${detailRow('出版日期', book.publishDate)}
-            ${detailRow('書籍形式', book.format)}
+            ${detailRow('書籍形式／來源', formatDisplay(book))}
             ${detailRow('存留狀態', retentionStatusDisplay(book))}
           </div>
         </div>
@@ -109,6 +117,28 @@ export async function renderBookDetail(container, rawId) {
     });
   }
 
+  // 「一鍵歸還」跟閱讀進度區塊觸發的「切換成已歸還」提示，改完存留狀態後都需要重新
+  // 反映在頁面上；直接整頁重新呼叫 renderBookDetail 最保險（保證跟資料庫實際狀態一致，
+  // 不用自己手動同步每一處用到 book 資料的地方），唯一要顧慮的是使用者手上分頁籤
+  // （閱讀動機／閱讀後輸出／筆記／佳句）不要被重繪打斷跳回第一個分頁，所以重繪前後
+  // 記錄＋還原目前選到的分頁籤。
+  async function refreshDetail() {
+    const activeTab = container.querySelector('.main-tab-btn.is-active')?.dataset.tab;
+    await renderBookDetail(container, rawId);
+    if (activeTab && activeTab !== 'motivation') {
+      container.querySelector(`.main-tab-btn[data-tab="${activeTab}"]`)?.click();
+    }
+  }
+
+  const quickReturnBtn = container.querySelector('#quick-return-btn');
+  if (quickReturnBtn) {
+    quickReturnBtn.addEventListener('click', async () => {
+      await DB.update('books', { ...book, retentionStatus: RETURNED_RETENTION_STATUS });
+      showToast('已更新為已歸還');
+      await refreshDetail();
+    });
+  }
+
   container.querySelector('#delete-book').addEventListener('click', async () => {
     if (!window.confirm(`確定要刪除《${book.title || '（未命名）'}》嗎？此動作無法復原，連同它的閱讀紀錄、輸出、筆記、圖譜一起刪除。`)) return;
     await DB.removeByIndex('reading_records', 'bookId', bookId);
@@ -130,7 +160,7 @@ export async function renderBookDetail(container, rawId) {
     });
   });
 
-  await renderReadingSection(container.querySelector('#reading-section'), bookId, book);
+  await renderReadingSection(container.querySelector('#reading-section'), bookId, book, { onReturnedSuggestionAccepted: refreshDetail });
   await renderMotivation(container.querySelector('#motivation-container'), bookId);
   await renderReflections(container.querySelector('#reflection-container'), bookId);
   await renderNotesSection(container.querySelector('#notes-section'), bookId);

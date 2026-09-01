@@ -1,5 +1,6 @@
 import { DB } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, showToast } from './utils.js';
+import { LIBRARY_SOURCE_FORMAT, BORROWED_RETENTION_STATUS, RETURNED_RETENTION_STATUS } from './bookForm.js';
 
 // 對照 PROJECT_SPEC.md 第 2 節。頁數不重複存一份，直接沿用書籍資料的「頁數」欄位當分母。
 export const STATUS_OPTIONS = ['尚未閱讀', '閱讀中', '已讀完', '暫停', '棄讀', '重讀'];
@@ -18,7 +19,8 @@ function starButtons(rating) {
     .join('');
 }
 
-export async function renderReadingSection(container, bookId, book) {
+export async function renderReadingSection(container, bookId, book, options = {}) {
+  const onReturnedSuggestionAccepted = options.onReturnedSuggestionAccepted || (() => {});
   const record = await getRecordForBook(bookId);
   const totalPages = book.pages || null;
   const currentPage = record && record.currentPage != null ? record.currentPage : '';
@@ -97,6 +99,19 @@ export async function renderReadingSection(container, bookId, book) {
     } else {
       await DB.add('reading_records', payload);
     }
-    await renderReadingSection(container, bookId, book);
+
+    // 圖書館借閱的書標成已讀完，很可能代表書已經還了——但這裡只是「提示」，不強制覆蓋，
+    // 使用者可以選擇先不動存留狀態（例如借閱平台允許續借，其實還沒真的還書）。
+    // 只提示一次：已經是「已歸還」或其他狀態就不會再問。
+    if (payload.status === '已讀完' && book.format === LIBRARY_SOURCE_FORMAT && book.retentionStatus === BORROWED_RETENTION_STATUS) {
+      if (window.confirm('這本書的來源是「圖書館借閱」，要順便把存留狀態切換成「已歸還」嗎？')) {
+        await DB.update('books', { ...book, retentionStatus: RETURNED_RETENTION_STATUS });
+        book.retentionStatus = RETURNED_RETENTION_STATUS;
+        showToast('已更新為已歸還');
+        await onReturnedSuggestionAccepted();
+        return; // 上面的回呼已經把整個書籍詳情頁（含這個閱讀進度區塊）重繪過一次，不用再往下重複渲染。
+      }
+    }
+    await renderReadingSection(container, bookId, book, options);
   });
 }

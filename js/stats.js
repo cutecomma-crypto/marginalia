@@ -1,7 +1,7 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 import { buildRecordByBookMap, isCompletedInYear } from './bookStats.js';
-import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS } from './bookForm.js';
+import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
 
 // 對照 PROJECT_SPEC.md 第 3 節與 B 原則 6：全部自動計算，不可手動輸入。
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -181,9 +181,11 @@ function categoryEntriesForYear(books, recordByBook, year) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]);
 }
 
-// 「借出中／借入中」快捷篩選按鈕：放在「各類型書籍數量」正上方，不受年份選擇影響
+// 「借出中／借入未還」快捷篩選按鈕：放在「各類型書籍數量」正上方，不受年份選擇影響
 // （存留狀態是書籍當下的狀態，不是某一年才成立的事）。0 本時仍顯示，但不能點。
 // 兩顆按鈕共用同一個 retentionFilter 狀態、互斥（跟閱讀狀態方塊同一套「單選＋再點一次取消」邏輯）。
+// 「借入未還」的本數口徑必須跟 bookStats.js 的 filterBooksByRetentionStatus 一致
+// （同時符合來源是圖書館借閱＋存留狀態是借入未還），已歸還的書不計入這個數字。
 function retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention) {
   return `
     <div class="retention-filter-row">
@@ -191,10 +193,20 @@ function retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention) {
         📤 借出中（${lentOutCount} 本）
       </button>
       <button type="button" class="retention-filter-btn${activeRetention === BORROWED_RETENTION_STATUS ? ' is-active' : ''}" data-retention="${BORROWED_RETENTION_STATUS}" ${borrowedCount === 0 ? 'disabled' : ''}>
-        📥 借入中（${borrowedCount} 本）
+        📥 借入未還（${borrowedCount} 本）
       </button>
     </div>
   `;
+}
+
+// 「一鍵歸還」（bookDetail.js／bookList.js）把某本書標成已歸還之後，直接補一筆數字上去，
+// 不用整個側邊欄重新抓資料庫、重新渲染——那樣會把使用者當下展開的分類清單、
+// 選到的年份等狀態全部打回預設值，殺雞用牛刀。
+export function patchBorrowedCountBadge(sidebarContainer, newCount) {
+  const btn = sidebarContainer.querySelector(`.retention-filter-btn[data-retention="${BORROWED_RETENTION_STATUS}"]`);
+  if (!btn) return;
+  btn.innerHTML = `📥 借入未還（${newCount} 本）`;
+  btn.disabled = newCount === 0;
 }
 
 function categorySectionHtml(categoryEntries, year, activeCategory, lentOutCount, borrowedCount, activeRetention) {
@@ -268,7 +280,7 @@ export async function renderSidebarStats(container, options = {}) {
 
   const defaultYearStats = statsForYear(stats, completed, defaultYear);
   const lentOutCount = books.filter((b) => b.retentionStatus === LENT_OUT_RETENTION_STATUS).length;
-  const borrowedCount = books.filter((b) => b.retentionStatus === BORROWED_RETENTION_STATUS).length;
+  const borrowedCount = books.filter((b) => b.format === LIBRARY_SOURCE_FORMAT && b.retentionStatus === BORROWED_RETENTION_STATUS).length;
   let activeCategory = null;
   let activeRetention = null;
 

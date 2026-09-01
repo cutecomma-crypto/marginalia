@@ -5,12 +5,59 @@ import { getFavoriteAuthorMap, toggleFavoriteAuthor } from './authors.js';
 import { escapeHtml } from './utils.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 
-const FORMAT_OPTIONS = ['紙本', '電子書', '有聲書', '其他'];
-const RETENTION_STATUS_OPTIONS = ['保存', '待售', '借閱', '借出', '售出', '轉贈'];
-export const DEFAULT_RETENTION_STATUS = '保存';
-export const BORROWED_RETENTION_STATUS = '借閱';
+// 「書籍形式／來源」跟「存留狀態」解耦：來源只回答「這本書從哪裡來」（買的、圖書館借的…），
+// 跟這本書現在手上還在不在、還了沒，是兩件互不相干的事——舊版把「圖書館借閱」塞進存留狀態
+// 的一個選項（「借閱」），導致書一旦讀完歸還，存留狀態卻永遠卡在「借閱」，沒有地方可以標記
+// 「已經還了」。LIBRARY_SOURCE_FORMAT 是唯一需要在別的模組（stats.js／bookStats.js／
+// readingRecords.js／bookDetail.js）拿來做條件判斷的來源值，其餘來源純粹顯示用，不用另外匯出常數。
+// 「紙本購買」排第一個：新增書籍時沒特別選就是這個隱性預設值（<select> 沒有任何
+// option 帶 selected 時瀏覽器會選第一個），大多數人的藏書還是買來的書居多，
+// 「圖書館借閱」是使用者要主動選才會變成的狀態，不該是預設猜測。
+const FORMAT_OPTIONS = ['紙本購買', '電子書', '有聲書', '圖書館借閱', '其他'];
+export const LIBRARY_SOURCE_FORMAT = '圖書館借閱';
+
+// 存留狀態改成單純描述「這本書現在的持有狀態」，跟來源脫鉤：
+// 保存中（手上留著）／借入未還（跟圖書館借的，還沒還）／已歸還（跟圖書館借的，已經還了）／
+// 借出（借給朋友，還沒拿回來）／已售出/贈送（不再是我的書了）。
+const RETENTION_STATUS_OPTIONS = ['保存中', '借入未還', '已歸還', '借出', '已售出/贈送'];
+export const DEFAULT_RETENTION_STATUS = '保存中';
+export const BORROWED_RETENTION_STATUS = '借入未還';
+export const RETURNED_RETENTION_STATUS = '已歸還';
 export const LENT_OUT_RETENTION_STATUS = '借出';
+export const SOLD_RETENTION_STATUS = '已售出/贈送';
 const LIBRARY_BORROW_TYPE_OPTIONS = ['實體圖書館', '線上圖書館 / 電子書'];
+
+// 存留狀態的選項字串改名／合併後，既有書籍資料庫裡存的還是舊字串，不會自動跟著變。
+// 「借閱」比較特殊：解耦之前它同時代表「這本書是圖書館借的」跟「現在還沒還」兩件事，
+// 拆開後「現在還沒還」變成新的「借入未還」，但「這本書是圖書館借的」這個來源資訊
+// 也要順便搬到「書籍形式／來源」欄位，不然舊資料的來源會維持原本 format 值
+// （例如「紙本」→「紙本購買」），沒辦法反映出它其實是跟圖書館借的。
+const LEGACY_RETENTION_RENAMES = {
+  保存: DEFAULT_RETENTION_STATUS,
+  借閱: BORROWED_RETENTION_STATUS,
+  售出: SOLD_RETENTION_STATUS,
+  轉贈: SOLD_RETENTION_STATUS,
+  待售: DEFAULT_RETENTION_STATUS, // 新選項清單沒有對應的「待售」概念，退回保存中。
+};
+const LEGACY_FORMAT_RENAMES = {
+  紙本: '紙本購買',
+};
+
+export async function migrateLegacyBookFields() {
+  const books = await DB.getAll('books');
+  for (const book of books) {
+    const wasLibraryLoan = book.retentionStatus === '借閱';
+    const newRetention = LEGACY_RETENTION_RENAMES[book.retentionStatus];
+    const newFormat = wasLibraryLoan ? LIBRARY_SOURCE_FORMAT : LEGACY_FORMAT_RENAMES[book.format];
+    if (newRetention || newFormat) {
+      await DB.update('books', {
+        ...book,
+        ...(newRetention ? { retentionStatus: newRetention } : {}),
+        ...(newFormat ? { format: newFormat } : {}),
+      });
+    }
+  }
+}
 
 // 上傳的封面圖直接壓縮成 base64 存進 IndexedDB（純本機，不用連網、不用外部圖床）。
 // 縮到最長邊 500px、JPEG 品質 0.82，避免原圖太大把資料庫和備份檔案撐爆。
@@ -95,15 +142,19 @@ function wireCoverUpload(form) {
   });
 }
 
-// 存留狀態選「借閱」才展開圖書館借閱細節、選「借出」才展開借給誰，
-// 其他狀態下兩組都藏起來，避免表單看起來欄位一堆用不到。
-function wireRetentionStatusToggle(form) {
-  const select = form.elements.retentionStatus;
+// 圖書館借閱細節（借閱管道／圖書館名稱）跟著「來源」欄位展開／收起，「借給誰」
+// 則跟著「存留狀態」欄位——來源與存留狀態解耦之後，這兩組細節欄位分別依附在
+// 各自真正相關的欄位上，不再都綁在存留狀態一個欄位切換。
+function wireSourceAndRetentionToggles(form) {
+  const formatSelect = form.elements.format;
+  const retentionSelect = form.elements.retentionStatus;
   const borrowFields = form.querySelector('#library-borrow-fields');
   const lentOutFields = form.querySelector('#lent-out-fields');
-  select.addEventListener('change', () => {
-    borrowFields.hidden = select.value !== BORROWED_RETENTION_STATUS;
-    lentOutFields.hidden = select.value !== LENT_OUT_RETENTION_STATUS;
+  formatSelect.addEventListener('change', () => {
+    borrowFields.hidden = formatSelect.value !== LIBRARY_SOURCE_FORMAT;
+  });
+  retentionSelect.addEventListener('change', () => {
+    lentOutFields.hidden = retentionSelect.value !== LENT_OUT_RETENTION_STATUS;
   });
 }
 
@@ -152,17 +203,12 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
         <legend>🛒 擁有／購買資料</legend>
         <label for="field-purchase-date">購買日期<input id="field-purchase-date" type="date" name="purchaseDate" value="${escapeHtml(book.purchaseDate)}"></label>
         <label for="field-purchase-price">購買價格<input id="field-purchase-price" type="number" name="purchasePrice" min="0" value="${escapeHtml(book.purchasePrice)}"></label>
-        <label for="field-format">書籍形式
+        <label for="field-format">書籍形式／來源
           <select id="field-format" name="format">
             ${FORMAT_OPTIONS.map((f) => `<option value="${escapeHtml(f)}" ${book.format === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
           </select>
         </label>
-        <label for="retention-status-select">存留狀態
-          <select name="retentionStatus" id="retention-status-select">
-            ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-          </select>
-        </label>
-        <div class="field-wide library-borrow-fields" id="library-borrow-fields" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === BORROWED_RETENTION_STATUS ? '' : 'hidden'}>
+        <div class="field-wide library-borrow-fields" id="library-borrow-fields" ${book.format === LIBRARY_SOURCE_FORMAT ? '' : 'hidden'}>
           <label for="field-library-borrow-type">借閱管道
             <select id="field-library-borrow-type" name="libraryBorrowType">
               ${LIBRARY_BORROW_TYPE_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${book.libraryBorrowType === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
@@ -172,6 +218,11 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
             <input id="field-library-name" name="libraryName" value="${escapeHtml(book.libraryName)}" placeholder="例如：市立圖書館、HyRead 電子書平台">
           </label>
         </div>
+        <label for="retention-status-select">存留狀態
+          <select name="retentionStatus" id="retention-status-select">
+            ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+          </select>
+        </label>
         <div class="field-wide library-borrow-fields" id="lent-out-fields" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === LENT_OUT_RETENTION_STATUS ? '' : 'hidden'}>
           <label class="field-wide" for="field-lent-to">借給誰 / 借出備註
             <input id="field-lent-to" name="lentTo" value="${escapeHtml(book.lentTo)}" placeholder="例如：小明，或「小明（2026/08/27 借出）」">
@@ -225,7 +276,7 @@ export async function renderBookForm(container, rawId) {
   const form = container.querySelector('#book-form');
   wireCoverUpload(form);
   wireCategorySelect(form.elements.category);
-  wireRetentionStatusToggle(form);
+  wireSourceAndRetentionToggles(form);
 
   const authorInput = form.elements.author;
   const favoriteBtn = container.querySelector('#author-favorite-btn');
@@ -246,6 +297,17 @@ export async function renderBookForm(container, rawId) {
       return;
     }
 
+    // 新增書籍時如果一次把「來源」設成圖書館借閱、「存留狀態」設成借入未還、
+    // 「閱讀狀態」又直接選已讀完（例如補登一本早就看完的借閱書），三個條件同時成立
+    // 就順手問一句要不要直接存成「已歸還」，跟 readingRecords.js 更新閱讀進度時
+    // 觸發的提示是同一個情境、同一句用語，只是這裡發生在新增當下。
+    let retentionStatus = data.retentionStatus || DEFAULT_RETENTION_STATUS;
+    if (isNew && data.format === LIBRARY_SOURCE_FORMAT && retentionStatus === BORROWED_RETENTION_STATUS && data.status === '已讀完') {
+      if (window.confirm('這本書的來源是「圖書館借閱」，閱讀狀態也已經是「已讀完」，要順便把存留狀態切換成「已歸還」嗎？')) {
+        retentionStatus = RETURNED_RETENTION_STATUS;
+      }
+    }
+
     const payload = {
       title,
       author: (data.author || '').trim(),
@@ -254,7 +316,7 @@ export async function renderBookForm(container, rawId) {
       purchaseDate: data.purchaseDate || '',
       purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : null,
       format: data.format || '其他',
-      retentionStatus: data.retentionStatus || DEFAULT_RETENTION_STATUS,
+      retentionStatus,
       libraryBorrowType: data.libraryBorrowType || '',
       libraryName: (data.libraryName || '').trim(),
       lentTo: (data.lentTo || '').trim(),
