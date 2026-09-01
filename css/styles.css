@@ -327,6 +327,20 @@ header h1 a {
   background: rgba(0, 0, 0, 0.08);
 }
 
+/* 作者篩選膠囊改用靈魂粉紅色底色，跟其他篩選膠囊（分類／狀態／年份…）的
+   中性配色區隔開——作者篩選可以從很多地方（表格、封面卡片、側邊欄、書籍
+   詳情頁）觸發，用專屬顏色讓使用者一眼看出「目前套用的是作者篩選」。
+   [data-key="author"] 屬性選擇器比純 .filter-badge 類別選擇器更高優先度，
+   不用 !important 就能蓋掉上面的中性底色。 */
+.filter-badge[data-key="author"] {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.filter-badge[data-key="author"] .filter-badge-remove:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
 .filter-badge-remove .reset-close-icon {
   width: 0.6rem;
   height: 0.6rem;
@@ -844,6 +858,7 @@ header h1 a {
 }
 
 .favorite-author-link:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -1428,6 +1443,27 @@ header h1 a {
    一個 <span>，單獨上色，作者名稱本身維持 --text 主要文字色不受影響。 */
 .favorite-heart {
   color: var(--accent);
+}
+
+/* 全站可點擊的作者名稱（書籍列表表格／封面網格／書籍詳情頁），點下去篩選出
+   該作者的所有藏書。表格版是 <button>、封面網格版是 <span>（外層卡片本身
+   已經是 <a>，不能再塞 <button>），視覺上統一成同一顆樣式，不分標籤種類。
+   Hover 用底線＋粉紅變色雙重提示，跟純文字（未分類等不可點欄位）明顯區隔開。 */
+.author-name-link {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.author-name-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
 }
 
 .page-progress {

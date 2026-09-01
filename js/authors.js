@@ -37,7 +37,8 @@ export async function toggleFavoriteAuthor(name, favoriteMap) {
 
 // year 為 null 代表「全部年份」：本數＝作者全站累積書籍量，名單按字母排序；
 // 指定年份時，本數只算「該年完成」的書，並改成依本數由多到少排序，讓當年讀最多的喜愛作者排在最上面。
-export async function renderFavoriteAuthorsPanel(container, year = null) {
+export async function renderFavoriteAuthorsPanel(container, year = null, options = {}) {
+  const onAuthorClick = options.onAuthorClick || (() => {});
   const [favoriteMap, books, records] = await Promise.all([
     getFavoriteAuthorMap(),
     DB.getAll('books'),
@@ -75,26 +76,18 @@ export async function renderFavoriteAuthorsPanel(container, year = null) {
   container.querySelectorAll('.favorite-author-link').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const name = btn.dataset.name;
-      const searchInput = document.querySelector('#book-search');
       // 邊界防禦：上面的 getFavoriteAuthorMap 已經會把沒書的作者濾掉，正常情況下不會點到
       // 已無書籍的名字；這裡多一層點擊當下再查一次資料庫，是為了防住「另一個分頁／視窗
       // 改了資料，這個分頁的側邊欄還沒重繪」這種還沒來得及反映的極端情況——避免使用者點下去
-      // 之後停在一個空白的搜尋結果，卻不知道發生了什麼事。
+      // 之後套用一個查無結果的作者篩選，卻不知道發生了什麼事。
       const liveBooks = await DB.getAll('books');
       const stillHasBooks = liveBooks.some((b) => (b.author || '').trim() === name);
       if (!stillHasBooks) {
-        if (searchInput) {
-          searchInput.value = '';
-          searchInput.dispatchEvent(new Event('input'));
-        }
         showToast('該作者名下已無書籍，已自動更新列表');
-        await renderFavoriteAuthorsPanel(container, year);
+        await renderFavoriteAuthorsPanel(container, year, { onAuthorClick });
         return;
       }
-      if (!searchInput) return;
-      searchInput.value = name;
-      searchInput.dispatchEvent(new Event('input'));
-      searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      onAuthorClick(name);
     });
   });
 }

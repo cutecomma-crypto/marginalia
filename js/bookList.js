@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
-import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus } from './bookStats.js';
+import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
 import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS } from './bookForm.js';
 
 // 借出中／借入中兩顆快捷篩選按鈕共用同一個 retentionFilter 狀態，這裡統一決定標題上要顯示哪個中文標籤。
@@ -14,6 +14,22 @@ function retentionFilterLabel(retention) {
 
 function formatDateSlash(dateStr) {
   return dateStr ? dateStr.replaceAll('-', '/') : '';
+}
+
+// 書籍詳情頁點作者名稱要「跳頁＋套用篩選」一次完成，但列表頁的篩選狀態全部活在
+// renderBookList 的閉包變數裡，沒辦法直接從別的頁面塞值進去——於是借用 hash 的
+// 後半段夾帶一段假 query string（例如 #/books?author=東野圭吾，這不是真正的網址
+// 查詢字串，單純是 hash 片段裡自訂的文字），列表頁載入時讀一次、套用完馬上用
+// history.replaceState 把網址清乾淨，之後重新整理或再次點擊「所有書籍」都不會殘留。
+function readAndClearAuthorFilterFromHash() {
+  const hash = window.location.hash;
+  const qIndex = hash.indexOf('?');
+  if (qIndex === -1) return null;
+  const author = new URLSearchParams(hash.slice(qIndex + 1)).get('author');
+  if (author) {
+    history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/books`);
+  }
+  return author;
 }
 
 // 「顯示全部書籍」按鈕用的細線 X，取代原本比較搶眼、線條較粗的「✕」文字符號。
@@ -30,13 +46,30 @@ function completedDateCell(record) {
   return `<span class="book-completed-date">${escapeHtml(text)}</span>`;
 }
 
+// 作者名稱點擊即篩選：只有真的有作者名稱才輸出可點擊元素，避免空字串也生出一顆
+// 沒東西可篩的按鈕。點擊事件用 event delegation 掛在 #book-list-body 上（見下方
+// bodyEl.addEventListener），這裡只負責標記 class／data-author，不在這裡個別綁定。
+function authorNameHtml(book) {
+  if (!book.author) return '';
+  return `<button type="button" class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</button>`;
+}
+
+// 封面網格模式整張卡片本身就是 <a>，裡面不能再塞一個 <button>（互動元素巢狀在
+// HTML 語意上不合法），改用 <span> 靠 event delegation 處理，並在監聽器裡
+// preventDefault／stopPropagation 擋掉外層 <a> 的導覽，做法跟 <button> 版一致，
+// 只是換一個不會被瀏覽器特殊處理的容器標籤。
+function authorNameHtmlInline(book) {
+  if (!book.author) return '';
+  return `<span class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</span>`;
+}
+
 function bookRow(book, favoriteAuthors, recordMap) {
   const record = recordMap.get(book.id);
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
   return `
     <tr>
       <td><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a></td>
-      <td class="author-cell" title="${escapeHtml(book.author)}"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${escapeHtml(book.author)}</td>
+      <td class="author-cell"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</td>
       <td>${escapeHtml(book.category)}</td>
       <td>${completedDateCell(record)}</td>
     </tr>
@@ -107,7 +140,7 @@ function bookGalleryCard(book, favoriteAuthors, recordMap) {
       </div>
       <div class="book-gallery-info">
         <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
-        <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" title="喜愛的作者">♥</span> ' : ''}${escapeHtml(book.author)}</div>
+        <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" title="喜愛的作者">♥</span> ' : ''}${authorNameHtmlInline(book)}</div>
         <div class="book-gallery-meta">
           ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
           ${completedDateCell(record)}
@@ -246,17 +279,30 @@ export async function renderBookList(container) {
   const countEl = container.querySelector('#book-list-count');
 
   // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量／借出中／熱門標籤，跟右側書籍列表是同一份狀態，
-  // 五種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
+  // 六種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
   // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書，借出中／借入中只留符合的存留狀態，
+  // 作者只留符合該作者的書（見下面 applyAuthorFilter），
   // activeTag 是熱門標籤點擊帶出來的搜尋字串（跟使用者自己打字搜尋分開追蹤，才能只有前者顯示成篩選膠囊）。
   let yearFilter = null;
   let statusFilter = null;
   let categoryFilter = null;
   let retentionFilter = null;
   let activeTag = null;
+  let authorFilter = readAndClearAuthorFilterFromHash();
   let viewMode = 'table';
   let pageSize = 12;
   let currentPage = 1;
+
+  // 作者篩選沒有像其他篩選那樣「點原本那個 UI 元素就能取消」的對應開關（作者名稱
+  // 到處都可以點：表格、封面卡片、側邊欄喜愛作者、書籍詳情頁），統一收斂到這個
+  // 函式，篩選標籤列的清除按鈕跟四個點擊來源都呼叫同一份邏輯。
+  function applyAuthorFilter(name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    authorFilter = trimmed;
+    currentPage = 1;
+    renderList();
+  }
 
   // 平滑滾動回列表頂部，只有「切換每頁顯示數量」跟「換頁」這兩種操作才需要——
   // 打字搜尋、切換篩選這些操作使用者視線本來就停在畫面上，不需要幫他們捲動。
@@ -299,6 +345,14 @@ export async function renderBookList(container) {
         if (chip) chip.click();
       } });
     }
+    if (authorFilter) {
+      const authorBookCount = books.filter((b) => (b.author || '').trim() === authorFilter).length;
+      entries.push({ key: 'author', label: `👤 作者：${authorFilter}（共 ${authorBookCount} 本）`, remove: () => {
+        authorFilter = null;
+        currentPage = 1;
+        renderList();
+      } });
+    }
     return entries;
   }
 
@@ -311,6 +365,7 @@ export async function renderBookList(container) {
     base = filterBooksByStatus(base, recordMap, statusFilter);
     base = filterBooksByCategory(base, categoryFilter);
     base = filterBooksByRetentionStatus(base, retentionFilter);
+    base = filterBooksByAuthor(base, authorFilter);
     const sorted = sortBooks(base, recordMap, sortSelect.value);
 
     // 分頁永遠是「搜尋＋篩選＋排序都套用完之後」的最後一步，總頁數依 sorted（搜尋後的
@@ -327,7 +382,7 @@ export async function renderBookList(container) {
     if (sorted.length === 0) {
       bodyEl.innerHTML = query
         ? `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`
-        : `<p class="empty">${(yearFilter || statusFilter || categoryFilter || retentionFilter) ? '沒有符合目前篩選條件的書籍。' : '還沒有任何書籍，點擊上方新增第一本。'}</p>`;
+        : `<p class="empty">${(yearFilter || statusFilter || categoryFilter || retentionFilter || authorFilter) ? '沒有符合目前篩選條件的書籍。' : '還沒有任何書籍，點擊上方新增第一本。'}</p>`;
       paginationEl.innerHTML = '';
     } else {
       bodyEl.innerHTML = viewMode === 'gallery'
@@ -380,6 +435,7 @@ export async function renderBookList(container) {
     categoryFilter = null;
     retentionFilter = null;
     activeTag = null;
+    authorFilter = null;
     currentPage = 1;
     searchInput.value = '';
     const yearSelect = container.querySelector('#sidebar-stats-year-select');
@@ -425,6 +481,19 @@ export async function renderBookList(container) {
       currentPage = 1;
       renderList();
     },
+    onAuthorClick: applyAuthorFilter,
+  });
+
+  // 表格模式的作者按鈕、封面網格模式的作者 <span> 共用同一個 delegated listener——
+  // #book-list-body 底下的內容每次 renderList() 都整個重繪，掛在容器本身而不是
+  // 個別元素上，才不用每次重繪後重新綁定。網格卡片本身是 <a>，這裡順手擋掉外層
+  // 導覽，讓點作者名稱只觸發篩選、不會同時跳進書籍詳情頁。
+  bodyEl.addEventListener('click', (event) => {
+    const link = event.target.closest('.author-name-link');
+    if (!link) return;
+    event.preventDefault();
+    event.stopPropagation();
+    applyAuthorFilter(link.dataset.author);
   });
 
   searchInput.addEventListener('input', () => {

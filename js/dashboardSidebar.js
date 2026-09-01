@@ -14,6 +14,7 @@ export async function renderDashboardSidebar(container, options = {}) {
   const onCategoryFilterChange = options.onCategoryFilterChange || (() => {});
   const onRetentionFilterChange = options.onRetentionFilterChange || (() => {});
   const onTagClick = options.onTagClick || (() => {});
+  const onAuthorClick = options.onAuthorClick || (() => {});
 
   container.innerHTML = `
     <div id="stats-panel-container"></div>
@@ -26,7 +27,7 @@ export async function renderDashboardSidebar(container, options = {}) {
 
   await renderSidebarStats(container.querySelector('#stats-panel-container'), {
     onYearChange: (year) => {
-      renderFavoriteAuthorsPanel(favoriteAuthorsContainer, year);
+      renderFavoriteAuthorsPanel(favoriteAuthorsContainer, year, { onAuthorClick });
       onYearChange(year);
     },
     onStatusFilterChange,
@@ -34,6 +35,6 @@ export async function renderDashboardSidebar(container, options = {}) {
     onRetentionFilterChange,
   });
   await renderPopularTagsPanel(container.querySelector('#popular-tags-container'), { onTagClick });
-  await renderFavoriteAuthorsPanel(favoriteAuthorsContainer);
+  await renderFavoriteAuthorsPanel(favoriteAuthorsContainer, null, { onAuthorClick });
   await renderRecentActivity(container.querySelector('#home-sections-container'));
 }

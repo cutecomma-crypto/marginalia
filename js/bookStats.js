@@ -60,3 +60,10 @@ export function filterBooksByRetentionStatus(books, retentionStatus) {
   if (!retentionStatus) return books;
   return books.filter((book) => book.retentionStatus === retentionStatus);
 }
+
+// 點擊作者名稱篩選：認完全相同（trim 過）的作者名稱字串，跟喜愛作者、
+// 側邊欄作者統計用的比對邏輯（authors.js）一致，不做子字串模糊比對。
+export function filterBooksByAuthor(books, author) {
+  if (!author) return books;
+  return books.filter((book) => (book.author || '').trim() === author);
+}

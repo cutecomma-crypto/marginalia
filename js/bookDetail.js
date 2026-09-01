@@ -61,7 +61,7 @@ export async function renderBookDetail(container, rawId) {
           <div class="detail-grid-compact">
             ${detailRow('作者', book.author, {
               rawValue: book.author
-                ? `${isFavoriteAuthor ? '<span class="favorite-heart">♥</span> ' : ''}${escapeHtml(book.author)}`
+                ? `${isFavoriteAuthor ? '<span class="favorite-heart">♥</span> ' : ''}<button type="button" class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</button>`
                 : undefined,
             })}
             ${detailRow('出版社', book.publisher)}
@@ -96,6 +96,18 @@ export async function renderBookDetail(container, rawId) {
       </div>
     </div>
   `;
+
+  // 作者名稱可點擊：跳回「所有書籍」列表並套用該作者的篩選。篩選狀態活在 bookList.js
+  // 的閉包裡，跨頁面沒辦法直接傳變數過去，借用 hash 帶一段 #/books?author=XXX
+  // （不是真正的網址查詢字串，單純是 hash 片段裡的自訂文字）夾帶要套用的作者名稱，
+  // 列表頁載入時會自己讀出來、套用後把網址清乾淨（見 bookList.js 的
+  // readAndClearAuthorFilterFromHash）。
+  const authorLinkBtn = container.querySelector('.author-name-link');
+  if (authorLinkBtn) {
+    authorLinkBtn.addEventListener('click', () => {
+      window.location.hash = `#/books?author=${encodeURIComponent(authorLinkBtn.dataset.author)}`;
+    });
+  }
 
   container.querySelector('#delete-book').addEventListener('click', async () => {
     if (!window.confirm(`確定要刪除《${book.title || '（未命名）'}》嗎？此動作無法復原，連同它的閱讀紀錄、輸出、筆記、圖譜一起刪除。`)) return;
