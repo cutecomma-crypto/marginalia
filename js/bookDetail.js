@@ -5,7 +5,7 @@ import { renderNotesSection } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml, renderTagChip, showToast } from './utils.js';
-import { DEFAULT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, RETURNED_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
+import { DEFAULT_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
 
 // rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
 // 的欄位可以傳這個代替純文字 value，呼叫端要自己先 escapeHtml() 過使用者輸入的部分。
@@ -44,13 +44,16 @@ export async function renderBookDetail(container, rawId) {
   }
   const favoriteAuthors = await getFavoriteAuthorMap();
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
-  const isBorrowedUnreturned = book.retentionStatus === BORROWED_RETENTION_STATUS;
+  // 「借入未還」顯示「一鍵歸還」、「借出」顯示「已收回」，跟書籍列表操作欄共用
+  // 同一份 QUICK_RETENTION_ACTIONS 設定（見 bookForm.js），按鈕文字／目標狀態／
+  // Toast 文案兩邊不會各自維護一份、久了長出落差。
+  const quickAction = QUICK_RETENTION_ACTIONS[book.retentionStatus];
 
   container.innerHTML = `
     <div class="toolbar">
       <a href="#/books">← 回列表</a>
       <div class="toolbar-actions">
-        ${isBorrowedUnreturned ? '<button type="button" class="btn quick-return-btn" id="quick-return-btn">↩ 一鍵歸還</button>' : ''}
+        ${quickAction ? `<button type="button" class="btn quick-action-btn" id="quick-action-btn">${escapeHtml(quickAction.label)}</button>` : ''}
         <a class="btn" href="#/books/${bookId}/graph">🕸️ 關係圖譜</a>
         <a class="btn" href="#/books/${bookId}/edit">編輯</a>
         <button type="button" class="btn btn-danger" id="delete-book">刪除</button>
@@ -130,11 +133,11 @@ export async function renderBookDetail(container, rawId) {
     }
   }
 
-  const quickReturnBtn = container.querySelector('#quick-return-btn');
-  if (quickReturnBtn) {
-    quickReturnBtn.addEventListener('click', async () => {
-      await DB.update('books', { ...book, retentionStatus: RETURNED_RETENTION_STATUS });
-      showToast('已更新為已歸還');
+  const quickActionBtn = container.querySelector('#quick-action-btn');
+  if (quickActionBtn) {
+    quickActionBtn.addEventListener('click', async () => {
+      await DB.update('books', { ...book, retentionStatus: quickAction.targetStatus });
+      showToast(quickAction.toast);
       await refreshDetail();
     });
   }

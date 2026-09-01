@@ -43,6 +43,16 @@ const LEGACY_FORMAT_RENAMES = {
   紙本: '紙本購買',
 };
 
+// 「一鍵歸還」（借入未還→已歸還）跟「已收回」（借出→保存中）是同一種操作模式：
+// 從某個「暫時流通在外」的狀態，一鍵切回它的終點狀態，只改 retentionStatus 這一個欄位，
+// 書籍其他資料（作者、筆記、閱讀進度……）完全不動。書籍列表（bookList.js）跟書籍詳情頁
+// （bookDetail.js）共用同一份設定，不各自重複定義一次「這個狀態該切到哪裡、按鈕文字
+// 是什麼、Toast 說什麼」，以後要調整文案或行為只用改這一個地方，兩處不會此後跟著不同步。
+export const QUICK_RETENTION_ACTIONS = {
+  [BORROWED_RETENTION_STATUS]: { targetStatus: RETURNED_RETENTION_STATUS, label: '↩ 一鍵歸還', toast: '已更新為已歸還' },
+  [LENT_OUT_RETENTION_STATUS]: { targetStatus: DEFAULT_RETENTION_STATUS, label: '↩ 已收回', toast: '書籍已順利收回' },
+};
+
 export async function migrateLegacyBookFields() {
   const books = await DB.getAll('books');
   for (const book of books) {

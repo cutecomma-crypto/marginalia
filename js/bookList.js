@@ -2,9 +2,9 @@ import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml, showToast } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
-import { patchBorrowedCountBadge } from './stats.js';
+import { patchRetentionCountBadge } from './stats.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
-import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, RETURNED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
+import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
 
 // 借出中／借入未還兩顆快捷篩選按鈕共用同一個 retentionFilter 狀態，這裡統一決定標題上要顯示哪個中文標籤。
 function retentionFilterLabel(retention) {
@@ -64,18 +64,22 @@ function authorNameHtmlInline(book) {
   return `<span class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</span>`;
 }
 
-// 一鍵歸還快捷按鈕：只有「借入未還」狀態的書才會顯示，點下去不用進編輯表單，
-// 直接把存留狀態改成「已歸還」。跟作者名稱一樣走 event delegation（見下方
-// bodyEl.addEventListener），表格版用 <button>、封面網格版因為外層卡片本身
-// 已經是 <a>，一樣改用 <span> 避免巢狀 <button> 的 HTML 語意問題。
-function quickReturnBtnHtml(book) {
-  if (book.retentionStatus !== BORROWED_RETENTION_STATUS) return '';
-  return `<button type="button" class="quick-return-btn" data-book-id="${book.id}" title="標記為已歸還">↩ 一鍵歸還</button>`;
+// 快捷狀態切換按鈕：「借入未還」顯示「一鍵歸還」、「借出」顯示「已收回」，
+// 其餘狀態不顯示——QUICK_RETENTION_ACTIONS（bookForm.js）決定某個狀態該顯示
+// 什麼文字、點下去要切到哪個目標狀態，這裡只負責照設定把 HTML 印出來。
+// 跟作者名稱一樣走 event delegation（見下方 bodyEl.addEventListener），
+// 表格版用 <button>、封面網格版因為外層卡片本身已經是 <a>，
+// 一樣改用 <span> 避免巢狀 <button> 的 HTML 語意問題。
+function quickActionBtnHtml(book) {
+  const action = QUICK_RETENTION_ACTIONS[book.retentionStatus];
+  if (!action) return '';
+  return `<button type="button" class="quick-action-btn" data-book-id="${book.id}" data-target-status="${escapeHtml(action.targetStatus)}" data-toast="${escapeHtml(action.toast)}" title="${escapeHtml(action.label)}">${escapeHtml(action.label)}</button>`;
 }
 
-function quickReturnBtnHtmlInline(book) {
-  if (book.retentionStatus !== BORROWED_RETENTION_STATUS) return '';
-  return `<span class="quick-return-btn" data-book-id="${book.id}" title="標記為已歸還">↩ 一鍵歸還</span>`;
+function quickActionBtnHtmlInline(book) {
+  const action = QUICK_RETENTION_ACTIONS[book.retentionStatus];
+  if (!action) return '';
+  return `<span class="quick-action-btn" data-book-id="${book.id}" data-target-status="${escapeHtml(action.targetStatus)}" data-toast="${escapeHtml(action.toast)}" title="${escapeHtml(action.label)}">${escapeHtml(action.label)}</span>`;
 }
 
 function bookRow(book, favoriteAuthors, recordMap) {
@@ -87,7 +91,7 @@ function bookRow(book, favoriteAuthors, recordMap) {
       <td class="author-cell"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</td>
       <td>${escapeHtml(book.category)}</td>
       <td>${completedDateCell(record)}</td>
-      <td class="action-cell">${quickReturnBtnHtml(book)}</td>
+      <td class="action-cell">${quickActionBtnHtml(book)}</td>
     </tr>
   `;
 }
@@ -162,7 +166,7 @@ function bookGalleryCard(book, favoriteAuthors, recordMap) {
           ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
           ${completedDateCell(record)}
         </div>
-        ${quickReturnBtnHtmlInline(book)}
+        ${quickActionBtnHtmlInline(book)}
       </div>
     </a>
   `;
@@ -514,25 +518,29 @@ export async function renderBookList(container) {
     applyAuthorFilter(link.dataset.author);
   });
 
-  // 一鍵歸還：直接改 books 陣列裡對應那本書的物件（不用整批重新向資料庫要一次），
-  // renderList() 讀的就是同一份陣列，篩選／統計／badge 本數立刻反映最新狀態；
-  // 側邊欄「借入未還」按鈕的本數是另一棵獨立的渲染樹，同時補一個小 DOM 更新
-  // （patchBorrowedCountBadge）避免整個側邊欄重繪，打斷使用者當下展開的分類清單、
-  // 選到的年份等狀態。
+  // 一鍵歸還／已收回：只改 books 陣列裡對應那本書的 retentionStatus 欄位（不用整批
+  // 重新向資料庫要一次，其他欄位——作者、筆記、閱讀進度全部不動），renderList() 讀的
+  // 就是同一份陣列，篩選／統計／操作欄按鈕立刻反映最新狀態；側邊欄「借出中／借入未還」
+  // 按鈕的本數是另一棵獨立的渲染樹，同時補一個小 DOM 更新（patchRetentionCountBadge）
+  // 避免整個側邊欄重繪，打斷使用者當下展開的分類清單、選到的年份等狀態。
   bodyEl.addEventListener('click', async (event) => {
-    const btn = event.target.closest('.quick-return-btn');
+    const btn = event.target.closest('.quick-action-btn');
     if (!btn) return;
     event.preventDefault();
     event.stopPropagation();
     const id = Number(btn.dataset.bookId);
     const book = books.find((b) => b.id === id);
     if (!book) return;
-    await DB.update('books', { ...book, retentionStatus: RETURNED_RETENTION_STATUS });
-    book.retentionStatus = RETURNED_RETENTION_STATUS;
-    showToast('已更新為已歸還');
+    const targetStatus = btn.dataset.targetStatus;
+    await DB.update('books', { ...book, retentionStatus: targetStatus });
+    book.retentionStatus = targetStatus;
+    showToast(btn.dataset.toast);
     renderList();
+    const sidebarEl = container.querySelector('#dashboard-sidebar');
     const newBorrowedCount = books.filter((b) => b.format === LIBRARY_SOURCE_FORMAT && b.retentionStatus === BORROWED_RETENTION_STATUS).length;
-    patchBorrowedCountBadge(container.querySelector('#dashboard-sidebar'), newBorrowedCount);
+    const newLentOutCount = books.filter((b) => b.retentionStatus === LENT_OUT_RETENTION_STATUS).length;
+    patchRetentionCountBadge(sidebarEl, BORROWED_RETENTION_STATUS, newBorrowedCount);
+    patchRetentionCountBadge(sidebarEl, LENT_OUT_RETENTION_STATUS, newLentOutCount);
   });
 
   searchInput.addEventListener('input', () => {

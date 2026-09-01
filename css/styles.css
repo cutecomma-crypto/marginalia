@@ -937,10 +937,11 @@ header h1 a {
   font-weight: 600;
 }
 
-/* 一鍵歸還：表格／封面網格共用同一顆輕量小按鈕（<button> 或 <span>都套這個 class），
+/* 一鍵歸還／已收回：表格／封面網格共用同一顆輕量小按鈕（<button> 或 <span>都套這個
+   class，實際文字跟目標狀態由 QUICK_RETENTION_ACTIONS 決定，見 bookForm.js），
    借用既有的 --accent-green 語意色（原本註解就寫著這組顏色是留給「借閱狀態」用的），
    跟危險操作的紅色、主要動作的品牌色都區隔開，讀起來像「完成、正向」的小動作。 */
-.quick-return-btn {
+.quick-action-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -956,23 +957,23 @@ header h1 a {
   transition: filter 0.15s ease;
 }
 
-.quick-return-btn:hover {
+.quick-action-btn:hover {
   filter: brightness(0.94);
 }
 
-.book-gallery-info .quick-return-btn {
+.book-gallery-info .quick-action-btn {
   margin-top: 0.5rem;
 }
 
-/* 書籍詳情頁的一鍵歸還按鈕放在跟「編輯」「刪除」同一排操作列，維持跟它們
+/* 書籍詳情頁的快捷狀態切換按鈕放在跟「編輯」「刪除」同一排操作列，維持跟它們
    一樣的 .btn 外框樣式，只把文字／邊框換成同一組 --accent-green 語意色。 */
-.btn.quick-return-btn {
+.btn.quick-action-btn {
   border: 1px solid var(--accent-green);
   background: var(--accent-green-soft);
   color: var(--accent-green);
 }
 
-.btn.quick-return-btn:hover {
+.btn.quick-action-btn:hover {
   background: var(--accent-green);
   border-color: var(--accent-green);
   color: var(--surface);

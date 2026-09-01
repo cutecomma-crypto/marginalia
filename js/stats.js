@@ -181,6 +181,17 @@ function categoryEntriesForYear(books, recordByBook, year) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]);
 }
 
+// 「借出中／借入未還」按鈕的圖示＋中文標籤，初始渲染（retentionButtonsHtml）跟
+// 之後的即時補丁（patchRetentionCountBadge）共用同一份，文案以後要改只用改這裡一處。
+const RETENTION_BADGE_LABELS = {
+  [LENT_OUT_RETENTION_STATUS]: '📤 借出中',
+  [BORROWED_RETENTION_STATUS]: '📥 借入未還',
+};
+
+function retentionBadgeText(retentionStatus, count) {
+  return `${RETENTION_BADGE_LABELS[retentionStatus]}（${count} 本）`;
+}
+
 // 「借出中／借入未還」快捷篩選按鈕：放在「各類型書籍數量」正上方，不受年份選擇影響
 // （存留狀態是書籍當下的狀態，不是某一年才成立的事）。0 本時仍顯示，但不能點。
 // 兩顆按鈕共用同一個 retentionFilter 狀態、互斥（跟閱讀狀態方塊同一套「單選＋再點一次取消」邏輯）。
@@ -190,22 +201,23 @@ function retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention) {
   return `
     <div class="retention-filter-row">
       <button type="button" class="retention-filter-btn${activeRetention === LENT_OUT_RETENTION_STATUS ? ' is-active' : ''}" data-retention="${LENT_OUT_RETENTION_STATUS}" ${lentOutCount === 0 ? 'disabled' : ''}>
-        📤 借出中（${lentOutCount} 本）
+        ${retentionBadgeText(LENT_OUT_RETENTION_STATUS, lentOutCount)}
       </button>
       <button type="button" class="retention-filter-btn${activeRetention === BORROWED_RETENTION_STATUS ? ' is-active' : ''}" data-retention="${BORROWED_RETENTION_STATUS}" ${borrowedCount === 0 ? 'disabled' : ''}>
-        📥 借入未還（${borrowedCount} 本）
+        ${retentionBadgeText(BORROWED_RETENTION_STATUS, borrowedCount)}
       </button>
     </div>
   `;
 }
 
-// 「一鍵歸還」（bookDetail.js／bookList.js）把某本書標成已歸還之後，直接補一筆數字上去，
-// 不用整個側邊欄重新抓資料庫、重新渲染——那樣會把使用者當下展開的分類清單、
-// 選到的年份等狀態全部打回預設值，殺雞用牛刀。
-export function patchBorrowedCountBadge(sidebarContainer, newCount) {
-  const btn = sidebarContainer.querySelector(`.retention-filter-btn[data-retention="${BORROWED_RETENTION_STATUS}"]`);
+// 一鍵歸還／已收回（bookDetail.js／bookList.js）把某本書的存留狀態改掉之後，直接補一筆
+// 數字上去，不用整個側邊欄重新抓資料庫、重新渲染——那樣會把使用者當下展開的分類清單、
+// 選到的年份等狀態全部打回預設值，殺雞用牛刀。retentionStatus 傳「借出」或「借入未還」，
+// 兩種快捷操作共用這一個函式，不用各寫一份幾乎一樣的 DOM 補丁邏輯。
+export function patchRetentionCountBadge(sidebarContainer, retentionStatus, newCount) {
+  const btn = sidebarContainer.querySelector(`.retention-filter-btn[data-retention="${retentionStatus}"]`);
   if (!btn) return;
-  btn.innerHTML = `📥 借入未還（${newCount} 本）`;
+  btn.innerHTML = retentionBadgeText(retentionStatus, newCount);
   btn.disabled = newCount === 0;
 }
 
