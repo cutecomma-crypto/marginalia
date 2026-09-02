@@ -159,8 +159,12 @@ function openAuthModal(initialMode = 'login') {
         showToast('登入成功');
         close();
       } else if (mode === 'register') {
-        await signUp(email, password);
-        showToast('註冊成功！請至信箱收取驗證信');
+        // Supabase 專案的「Confirm email」設定決定 signUp() 完成當下是不是已經直接
+        // 拿到一個可用的 session（關掉驗證信要求時就是；沒關掉的話 session 會是 null，
+        // 要等使用者點信裡的連結才會有）——Toast 文案照實際結果講，不要不管設定
+        // 一律都叫使用者去收信，關掉驗證信的情境下根本沒有信可收。
+        const { session } = await signUp(email, password);
+        showToast(session ? '註冊成功，已自動登入' : '註冊成功！請至信箱收取驗證信');
         close();
       } else if (mode === 'forgot') {
         await resetPasswordForEmail(email);
