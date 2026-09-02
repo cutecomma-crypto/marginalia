@@ -17,6 +17,7 @@ import { WebDavSyncService, trackLocalChanges } from './services/webdavSyncServi
 import { startAutoLocalBackup } from './services/localBackupService.js';
 import { migrateLegacyCategoryNames } from './categories.js';
 import { migrateLegacyBookFields } from './bookForm.js';
+import { initAuthUI } from './authUI.js';
 
 export async function gatherAllData() {
   const data = {};
@@ -81,10 +82,17 @@ export function initBookFieldMigration() {
   migrateLegacyBookFields();
 }
 
+// §9：Header 右側登入狀態徽章＋登入／註冊／忘記密碼 Modal，見 authUI.js。
+// 沒設定 Supabase（js/config.js 還是預留位置）的話這個函式內部會直接跳過，
+// 不掛任何 UI、不連網，本機模式完全不受影響。
+// export 出來（而不是直接在這裡呼叫）是為了跟其餘模組保持同一種可個別開關的風格，
+// 實際啟用與否看最下面的清單。
+
 // ---- 目前實際啟用的模組（逐一測試通過才加進這裡）----
 initKeyboardShortcuts();
 initStoragePersistence();
 initWebDavAutoSync();
 initCategoryMigration();
 initBookFieldMigration();
+initAuthUI();
 // initLocalBackup() 還沒被要求啟用，先留著沒呼叫。

@@ -1,132 +1,41 @@
-const DB_NAME = 'ReadingSecondBrainDB';
-const DB_VERSION = 4;
+// 全站資料存取的唯一入口，現在是一個路由器：依照「目前有沒有登入雲端帳號」，
+// 把每個方法轉發給 localDb.js 的 LocalDB（IndexedDB，登出狀態）或 cloudDb.js 的
+// CloudDB（Supabase，登入狀態）。兩邊方法名稱／參數／回傳形狀完全對齊，所以
+// bookForm.js／quotes.js／notes.js／outputs.js／graph.js／readingRecords.js／
+// authors.js／bookDetail.js／bookList.js……全站所有原本 import { DB } 的地方
+// 一行都不用改，登入後自動變成讀寫雲端、登出後自動變回讀寫本機。
+//
+// 連 WebDAV 同步（webdavSyncService.js 的 gatherAllData/applyRemoteData，
+// 遍歷 DB.STORE_NAMES 逐一 getAll/clear/update）也會「順便」變成「登入時備份/
+// 還原雲端帳號資料、登出時備份/還原本機資料」，不用另外寫代碼——這是路由器設計
+// 自然帶來的效果，不是刻意為 WebDAV 另外處理。
+import { LocalDB } from './localDb.js';
+import { CloudDB } from './cloudDb.js';
+import { getCurrentUser, ensureAuthReady } from './services/authService.js';
 
-// 對照 PROJECT_SPEC.md：books(第1節) / reading_records(第2節) / outputs(第4節)
-// / notes(第7節快速筆記) / groups+nodes+edges(第5節本書圖譜，群組卡片版)
-// favorite_authors：喜愛的作者名單，以作者名字比對書籍，不綁定單一 bookId。
-// quotes：佳句摘錄，綁定單一 bookId。
-const STORE_CONFIG = {
-  books: { indexes: [] },
-  reading_records: { indexes: ['bookId'] },
-  outputs: { indexes: ['bookId'] },
-  notes: { indexes: ['bookId'] },
-  groups: { indexes: ['bookId'] },
-  nodes: { indexes: ['bookId'] },
-  edges: { indexes: ['bookId'] },
-  favorite_authors: { indexes: [] },
-  quotes: { indexes: ['bookId'] },
-};
-
-let dbPromise = null;
-
-function openDB() {
-  if (dbPromise) return dbPromise;
-
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      for (const [storeName, config] of Object.entries(STORE_CONFIG)) {
-        if (db.objectStoreNames.contains(storeName)) continue;
-        const store = db.createObjectStore(storeName, {
-          keyPath: 'id',
-          autoIncrement: true,
-        });
-        for (const indexName of config.indexes) {
-          store.createIndex(indexName, indexName, { unique: false });
-        }
-      }
-    };
-
-    request.onsuccess = (event) => resolve(event.target.result);
-    request.onerror = (event) => reject(event.target.error);
-  });
-
-  return dbPromise;
+function pick() {
+  return getCurrentUser() ? CloudDB : LocalDB;
 }
 
-function add(storeName, record) {
-  return openDB().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    const payload = { ...record, createdAt: record.createdAt || new Date().toISOString() };
-    const request = tx.objectStore(storeName).add(payload);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  }));
-}
-
-function getById(storeName, id) {
-  return openDB().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const request = tx.objectStore(storeName).get(id);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  }));
-}
-
-function getAll(storeName) {
-  return openDB().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const request = tx.objectStore(storeName).getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  }));
-}
-
-function getByIndex(storeName, indexName, value) {
-  return openDB().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const index = tx.objectStore(storeName).index(indexName);
-    const request = index.getAll(value);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  }));
-}
-
-function update(storeName, record) {
-  return openDB().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    const request = tx.objectStore(storeName).put(record);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  }));
-}
-
-function clear(storeName) {
-  return openDB().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    const request = tx.objectStore(storeName).clear();
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  }));
-}
-
-async function removeByIndex(storeName, indexName, value) {
-  const records = await getByIndex(storeName, indexName, value);
-  for (const record of records) {
-    await remove(storeName, record.id);
-  }
-}
-
-function remove(storeName, id) {
-  return openDB().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    const request = tx.objectStore(storeName).delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  }));
+// 頁面剛載入時，Supabase 從 localStorage 還原上次登入 session 是非同步的；
+// 每個方法真正決定要轉發給哪一邊之前，先 await ensureAuthReady() 一次——
+// 只有第一次呼叫會等（等 session 還原完成），之後立刻 resolve，呼叫端感覺不到差異。
+// 沒設定 Supabase 的話 ensureAuthReady() 幾乎立即 resolve，行為跟改版前完全一樣。
+function route(methodName) {
+  return async (...args) => {
+    await ensureAuthReady();
+    return pick()[methodName](...args);
+  };
 }
 
 export const DB = {
-  openDB,
-  add,
-  getById,
-  getAll,
-  getByIndex,
-  update,
-  remove,
-  removeByIndex,
-  clear,
-  STORE_NAMES: Object.keys(STORE_CONFIG),
+  add: route('add'),
+  getById: route('getById'),
+  getAll: route('getAll'),
+  getByIndex: route('getByIndex'),
+  update: route('update'),
+  remove: route('remove'),
+  removeByIndex: route('removeByIndex'),
+  clear: route('clear'),
+  STORE_NAMES: LocalDB.STORE_NAMES,
 };

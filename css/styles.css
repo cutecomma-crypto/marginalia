@@ -88,6 +88,125 @@ header nav a {
   text-decoration: none;
 }
 
+/* 加入登入狀態徽章後，「資料管理」連結跟徽章要黏在一起靠右，不是各自散開到
+   header 左右兩端——header 本身還是只有兩個 flex 子元素（Logo／這個容器），
+   space-between 的版面邏輯完全不用動。 */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.auth-login-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.auth-login-btn:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.auth-nickname {
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.auth-logout-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.auth-logout-btn:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+/* 登入 Modal 裡「還沒有帳號？註冊」這類切換文字連結，跟 .favorite-author-link
+   同一套「無框純文字＋hover 底線變色」的可點擊視覺語言。 */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-hover);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-btn:hover {
+  color: var(--accent);
+}
+
+.auth-modal-switch {
+  margin-top: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.auth-modal-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+  margin-bottom: 0.9rem;
+}
+
+/* 「偵測到本機有 N 本書，要同步到雲端帳號嗎？」提示條，固定在畫面底部，
+   跟 .app-toast 共用同一個视觉層級（z-index 200 以上，蓋在一般內容上面），
+   但這個是需要使用者主動按按鈕的提示，不像 toast 會自動消失。 */
+.cloud-migration-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card-hover);
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  z-index: 210;
+  max-width: calc(100vw - 2rem);
+}
+
 main {
   padding: 2rem clamp(1.5rem, 4vw, 4rem);
   max-width: 1440px;

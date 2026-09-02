@@ -1,5 +1,7 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
+import { getCurrentUser } from './services/authService.js';
+import { getSupabaseClient } from './services/supabaseClient.js';
 
 // 對照 PROJECT_SPEC.md 第 1 節。「書籍類型」是固定選項＋可自訂的單選分類。
 //
@@ -57,11 +59,48 @@ export async function migrateLegacyCategoryNames() {
 export const CUSTOM_CATEGORY_VALUE = '__custom__';
 const CUSTOM_CATEGORY_STORAGE_KEY = 'marginalia:customCategories';
 
-// 使用者自己新增的分類存在 localStorage（跟 graph.js 的狀態標籤預設清單同一套做法），
-// 之後每次開表單都要記得，並且要合併進「已知分類」清單，不要被誤判成舊資料。
+// 使用者自己新增的分類，登出狀態存 localStorage（跟 graph.js 的狀態標籤預設清單
+// 同一套做法）；登入狀態則存 Supabase 的 categories 表，但 loadCustomCategories／
+// saveCustomCategories 呼叫端到處都是同步呼叫（categoryOptionsHtml() 組表單 HTML
+// 本身是同步的），沒辦法直接把這兩個函式改成 async——所以登入時改用「記憶體快取」：
+// 登入成功當下由 authUI.js 呼叫 loadCloudCategoriesIntoCache() 把雲端資料整批抓
+// 進 cloudCategoriesCache 一次，之後 loadCustomCategories() 都是同步讀這個快取；
+// saveCustomCategories() 寫入時同步更新快取、非同步（fire-and-forget）把整份清單
+// 覆寫回 Supabase，呼叫端完全不用等、不用改成 await。
+let cloudCategoriesCache = null;
+
+export async function loadCloudCategoriesIntoCache() {
+  const supabase = await getSupabaseClient();
+  const user = getCurrentUser();
+  if (!supabase || !user) {
+    cloudCategoriesCache = [];
+    return;
+  }
+  const { data, error } = await supabase.from('categories').select('name, "group"').eq('user_id', user.id);
+  cloudCategoriesCache = error ? [] : data.map((row) => ({ name: row.name, group: row.group || '' }));
+}
+
+export function clearCloudCategoriesCache() {
+  cloudCategoriesCache = null;
+}
+
+// 整份覆寫（先清空使用者名下所有分類、再整批插入目前清單）比逐筆比對新增/刪除
+// 簡單很多，自訂分類數量通常很少（十幾筆），不會是效能問題；先刪後插也不用
+// 額外處理「改名」是刪除舊列還是更新舊列的判斷。
+async function syncCloudCategories(list) {
+  const supabase = await getSupabaseClient();
+  const user = getCurrentUser();
+  if (!supabase || !user) return;
+  await supabase.from('categories').delete().eq('user_id', user.id);
+  if (list.length > 0) {
+    await supabase.from('categories').insert(list.map((c) => ({ user_id: user.id, name: c.name, group: c.group || '' })));
+  }
+}
+
 // 每筆記錄現在存 { name, group }，才能知道要插進哪個大類別；改版前存的純字串陣列
 // 一樣要讀得出來（視為沒有所屬大類別，退回最底部的「自訂分類」區塊）。
 function loadCustomCategories() {
+  if (getCurrentUser()) return cloudCategoriesCache || [];
   try {
     const parsed = JSON.parse(localStorage.getItem(CUSTOM_CATEGORY_STORAGE_KEY) || '[]');
     if (!Array.isArray(parsed)) return [];
@@ -74,6 +113,11 @@ function loadCustomCategories() {
 }
 
 function saveCustomCategories(list) {
+  if (getCurrentUser()) {
+    cloudCategoriesCache = list;
+    syncCloudCategories(list);
+    return;
+  }
   localStorage.setItem(CUSTOM_CATEGORY_STORAGE_KEY, JSON.stringify(list));
 }
 
