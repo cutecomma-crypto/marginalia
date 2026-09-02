@@ -9,6 +9,18 @@
 -- 每張表都是同一套四條 RLS policy：使用者只能看到、新增、修改、刪除
 -- user_id 等於自己的列。這是這個公開多使用者產品唯一的資料隔離防線，
 -- 務必整份執行、不要漏掉任何一張表的 policy。
+--
+-- RLS policy 只負責「篩選哪些『列』看得到」，不是資料庫權限的全部——PostgreSQL
+-- 角色本身還要先有權限「碰得到」這個 schema／這些表（GRANT），兩層都要有才行。
+-- Supabase 用 Table Editor 建表會自動幫你補這層 GRANT，但直接在 SQL Editor 貼
+-- create table 不會，沒補的話即使 RLS policy 全部設對，查詢還是會收到
+-- 「permission denied for schema public」，不是 RLS 擋下來，是連權限檢查那關都過不了。
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on all tables in schema public to anon, authenticated;
+grant usage, select on all sequences in schema public to anon, authenticated;
+-- 以後在這個 schema 新增的表也要自動套用同一組權限，不用每加一張表就補跑一次上面兩行。
+alter default privileges in schema public grant select, insert, update, delete on tables to anon, authenticated;
+alter default privileges in schema public grant usage, select on sequences to anon, authenticated;
 
 -- ============ books ============
 create table books (
