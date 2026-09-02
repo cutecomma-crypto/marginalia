@@ -1,9 +1,25 @@
 // 首次登入的「把本機藏書搬到雲端帳號」提示與遷移邏輯。
 //
-// 觸發時機：每次登入成功後（見 authUI.js 的 onAuthStateChange），檢查「雲端帳號
-// 目前是空的」且「本機 IndexedDB 有書」且「這個帳號沒被標記已經遷移過」——
-// 三個條件同時成立才顯示提示條，避免同一個帳號每次登入都被問一次，也避免
-// 已經有雲端資料的帳號（例如換一台裝置登入）被本機這台裝置的舊資料嚇到。
+// 觸發時機：每次登入成功後（見 authUI.js 的 onAuthStateChange），只要「本機有
+// 雲端還沒有的書」就會顯示提示條——這個判斷是即時比對本機／雲端書籍算出來的，
+// 不是靠一個「migrated: true」的一次性旗標。原本用旗標的版本有個真實發生過的
+// 問題：搬移途中部分失敗（例如某幾本書的欄位格式導致寫入失敗），旗標還是被設成
+// true，之後不管重新整理幾次都不會再提示，使用者也沒有簡單的入口把漏掉的書
+// 補齊。改成即時比對之後，只要本機、雲端book 數量或內容對不起來，登入時就會
+// 一直提示，直到真的補齊為止；「暫不同步」只是把這次的提示條關掉，不是永久壓下去。
+//
+// 比對方式：書籍沒有一個「本機 id 對應雲端 id」的紀錄可查（雲端 id 是 Postgres
+// 重新指派的），所以用「書名＋作者＋建立時間」當指紋，本機每一本書算一個指紋，
+// 雲端也算一次，指紋不在雲端裡的本機書就是「還沒搬過去的書」。這個比對法可以
+// 放心重複執行——不管按幾次「立即同步」、重新整理幾次，已經搬過去的書永遠不會
+// 被指紋比對出來、不會被重複插入第二次。
+//
+// migrateLocalToCloud() 特意 export 出來，除了給下面的提示條按鈕呼叫，也是設計
+// 成可以直接在瀏覽器主控台手動呼叫的「補齊」工具：
+//   const { migrateLocalToCloud } = await import('/js/cloudMigration.js');
+//   await migrateLocalToCloud();
+// 不用等提示條出現、也不用重新整理頁面，執行完主控台會印出完整的成功/略過/
+// 失敗明細（失敗的話用 console.table 列出每一筆的表格、書名、Postgres 錯誤訊息）。
 //
 // 遷移完成後不刪除本機資料（留著當備份，使用者可以之後自己用「資料管理」頁清除），
 // 只跳 Toast 告知完成，DB 路由器接下來自然全部改讀寫雲端。
@@ -11,10 +27,6 @@ import { LocalDB } from './localDb.js';
 import { CloudDB } from './cloudDb.js';
 import { getCurrentUser } from './services/authService.js';
 import { showToast } from './utils.js';
-
-function migratedFlagKey(userId) {
-  return `marginalia_cloud_migrated_${userId}`;
-}
 
 function bannerEl() {
   let el = document.getElementById('cloud-migration-banner');
@@ -29,6 +41,25 @@ function bannerEl() {
 
 function removeBanner() {
   document.getElementById('cloud-migration-banner')?.remove();
+}
+
+// createdAt 在本機（IndexedDB）存的是 new Date().toISOString() 那種 Z 結尾格式，
+// 但同一個時間點搬到 Postgres 的 timestamptz 欄位、再讀回來，Supabase 會用
+// 「+00:00」結尾格式回傳（例如本機是 "...321Z"、雲端讀回來變成 "...321+00:00"）——
+// 兩個字串代表的其實是同一個時間瞬間，但字串本身不相等，直接比對字串會誤判成
+// 「雲端還沒有這本書」，讓已經搬過去的書每次都被重新判定成缺漏（這是實測抓到的
+// 真實 bug，不是預防性猜測）。統一都用 Date 物件轉一次 toISOString()，不管輸入是
+// 哪種結尾格式，輸出永遠是同一種標準格式，比對才會準。
+function normalizeTimestamp(value) {
+  if (!value) return '';
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? new Date(time).toISOString() : String(value);
+}
+
+// 書名＋作者＋建立時間三個欄位本機本來就有、不用額外存任何對照表。createdAt
+// 精確到毫秒，同一本書不可能重複建立兩次剛好撞到同一個毫秒，足夠當指紋用。
+function bookFingerprint(book) {
+  return `${(book.title || '').trim()} ${(book.author || '').trim()} ${normalizeTimestamp(book.createdAt)}`;
 }
 
 // 累積好幾年的本機資料，欄位型別很容易「歷史悠久」——例如某個版本的表單曾經把
@@ -73,14 +104,38 @@ function sanitizeOutputPayload(output) {
   return { ...output, tags: Array.isArray(output.tags) ? output.tags : [] };
 }
 
+// 把這次執行的結果完整印到主控台：先印一行總覽（略過幾本／嘗試幾本／成功幾本／
+// 失敗幾本），有失敗的話再用 console.table 把「哪張表、哪本書、Postgres 實際
+// 錯誤訊息」攤開來，不用使用者自己一筆一筆去猜壞在哪裡、也不用重新執行一次
+// 才看得到明細——這個函式在成功與失敗時都會被呼叫，永遠看得到完整結果。
+function logMigrationResult(result) {
+  console.log(
+    `[Marginalia 雲端同步] 本機共 ${result.totalLocalBooks} 本，`
+    + `${result.alreadyInCloudCount} 本雲端已有（略過），`
+    + `${result.attemptedCount} 本嘗試搬移，`
+    + `${result.migratedBookCount} 本成功，`
+    + `${result.failures.length} 筆失敗。`,
+  );
+  if (result.failures.length > 0) {
+    console.error(`[Marginalia 雲端同步] 失敗明細（共 ${result.failures.length} 筆）：`);
+    console.table(result.failures.map((f) => ({
+      表格: f.store,
+      標題: f.title,
+      錯誤訊息: f.error?.message || String(f.error),
+    })));
+    // console.table 只能顯示字串摘要，完整的錯誤物件（含 details／hint／code）
+    // 再逐筆展開印一次，需要深入除錯時可以直接展開看。
+    result.failures.forEach((f) => console.error(`[${f.store}] ${f.title}`, f.error));
+  }
+}
+
 // 逐本書搬，不是逐張表搬：這樣「某一本書的資料本身有問題」只會讓那一本書
 // （以及掛在它名下的閱讀紀錄、心得、筆記、佳句、關係圖譜）被跳過，不會讓
-// 後面還沒搬到的兩三百本書全部卡住、整個遷移一次全部失敗。每個失敗都記下
-// 「哪一本書、哪張表、Postgres 實際回傳什麼訊息」，遷移結束後一次印出來，
-// 不用使用者自己一筆一筆去猜壞在哪裡。
-async function migrateLocalToCloud() {
-  const [books, allGroups, allNodes, allEdges, allReadingRecords, allOutputs, allNotes, allQuotes] = await Promise.all([
+// 後面還沒搬到的書全部卡住、整個遷移一次全部失敗。
+export async function migrateLocalToCloud() {
+  const [books, cloudBooks, allGroups, allNodes, allEdges, allReadingRecords, allOutputs, allNotes, allQuotes] = await Promise.all([
     LocalDB.getAll('books'),
+    CloudDB.getAll('books'),
     LocalDB.getAll('groups'),
     LocalDB.getAll('nodes'),
     LocalDB.getAll('edges'),
@@ -90,10 +145,13 @@ async function migrateLocalToCloud() {
     LocalDB.getAll('quotes'),
   ]);
 
+  const existingFingerprints = new Set(cloudBooks.map(bookFingerprint));
+  const booksToMigrate = books.filter((b) => !existingFingerprints.has(bookFingerprint(b)));
+
   const failures = [];
   let migratedBookCount = 0;
 
-  for (const book of books) {
+  for (const book of booksToMigrate) {
     const { id: oldBookId, ...bookRest } = book;
     let newBookId;
     try {
@@ -160,34 +218,43 @@ async function migrateLocalToCloud() {
     }
   }
 
-  for (const favorite of await LocalDB.getAll('favorite_authors')) {
-    const { id, ...rest } = favorite; // 沒有外鍵（只認作者名字字串），直接搬
-    try {
-      await CloudDB.add('favorite_authors', rest);
-    } catch (error) {
-      failures.push({ store: 'favorite_authors', title: favorite.name || '（未命名）', error });
+  // 喜愛作者沒有外鍵、也沒有天然的指紋欄位可以拿來判斷「雲端是不是已經有了」，
+  // 只在本機書籍一本都還沒搬過（首次搬移）時才一起搬，避免每次補齊漏掉的書時
+  // 都把喜愛作者清單重複插入。
+  if (cloudBooks.length === 0) {
+    for (const favorite of await LocalDB.getAll('favorite_authors')) {
+      const { id, ...rest } = favorite;
+      try {
+        await CloudDB.add('favorite_authors', rest);
+      } catch (error) {
+        failures.push({ store: 'favorite_authors', title: favorite.name || '（未命名）', error });
+      }
     }
   }
 
-  if (failures.length > 0) {
-    console.error(`雲端同步：${failures.length} 筆資料失敗，明細如下（表格 / 標題 / Postgres 錯誤訊息）：`);
-    failures.forEach((f) => console.error(`[${f.store}] ${f.title} →`, f.error?.message || f.error, f.error));
-  }
-
-  return { migratedBookCount, totalBooks: books.length, failures };
+  const result = {
+    totalLocalBooks: books.length,
+    alreadyInCloudCount: books.length - booksToMigrate.length,
+    attemptedCount: booksToMigrate.length,
+    migratedBookCount,
+    failures,
+  };
+  logMigrationResult(result);
+  return result;
 }
 
 export async function maybeOfferCloudMigration() {
   const user = getCurrentUser();
   if (!user) return;
-  if (localStorage.getItem(migratedFlagKey(user.id))) return;
 
   const [localBooks, cloudBooks] = await Promise.all([LocalDB.getAll('books'), CloudDB.getAll('books')]);
-  if (localBooks.length === 0 || cloudBooks.length > 0) return;
+  const existingFingerprints = new Set(cloudBooks.map(bookFingerprint));
+  const missingCount = localBooks.filter((b) => !existingFingerprints.has(bookFingerprint(b))).length;
+  if (missingCount === 0) return; // 本機每一本書雲端都已經有了，不用提示
 
   const el = bannerEl();
   el.innerHTML = `
-    <span>偵測到本機有 ${localBooks.length} 本書，要同步到雲端帳號嗎？</span>
+    <span>偵測到本機有 ${missingCount} 本書尚未同步到雲端帳號，要同步嗎？</span>
     <button type="button" class="btn btn-primary btn-sm" id="cloud-migration-confirm">立即同步</button>
     <button type="button" class="btn btn-sm" id="cloud-migration-dismiss">暫不同步</button>
   `;
@@ -198,14 +265,12 @@ export async function maybeOfferCloudMigration() {
     btn.textContent = '同步中…';
     try {
       const result = await migrateLocalToCloud();
-      // 就算有部分失敗也標記成「已遷移過」——不然下次登入會拿全部 303 本書重跑一次，
-      // 已經成功搬過去的那些會在雲端重複一份。失敗的細節已經印在主控台，
-      // 使用者可以照著明細手動把那幾筆漏掉的資料補上去。
-      localStorage.setItem(migratedFlagKey(user.id), 'true');
       if (result.failures.length > 0) {
-        showToast(`已同步 ${result.migratedBookCount}/${result.totalBooks} 本書，${result.failures.length} 筆資料失敗，詳情請看主控台`);
+        showToast(`已同步 ${result.migratedBookCount}/${result.attemptedCount} 本書，${result.failures.length} 筆失敗，詳情請看主控台`);
+      } else if (result.attemptedCount === 0) {
+        showToast('本機藏書已經全部在雲端帳號裡了');
       } else {
-        showToast(`本機 ${result.migratedBookCount} 本書已全部同步到雲端帳號`);
+        showToast(`已補齊 ${result.migratedBookCount} 本書到雲端帳號`);
       }
       removeBanner();
       // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的
