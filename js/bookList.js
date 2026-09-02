@@ -140,7 +140,7 @@ function bookTableHtml(list, favoriteAuthors, recordMap) {
         <col class="col-actions">
       </colgroup>
       <thead>
-        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th><th>操作</th></tr>
+        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th><th>書籍歸還</th></tr>
       </thead>
       <tbody>
         ${list.map((book) => bookRow(book, favoriteAuthors, recordMap)).join('')}
