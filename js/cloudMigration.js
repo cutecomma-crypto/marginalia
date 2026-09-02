@@ -307,19 +307,35 @@ export async function maybeOfferCloudMigration() {
     try {
       const result = await migrateLocalToCloud();
       removeBanner();
-      // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的
-      // 同一個處理方式），手動補發一次讓目前頁面重新抓一次資料，畫出剛同步好的雲端內容。
-      window.dispatchEvent(new Event('hashchange'));
+
+      // 失敗明細（如果有）特意排在觸發 hashchange 重新整理頁面「之前」處理，
+      // 不要讓兩件事搶著跑：就算 hashchange 觸發的重繪過程中出了什麼意外，
+      // Modal 也已經確實掛上 document.body 了。openMigrationFailuresModal 本身
+      // 又包一層 try/catch、萬一還是失敗就退而求其次跳原生 alert()——這樣不管
+      // Modal 的 DOM/CSS 有沒有意外出狀況，錯誤明細都保證會有某種形式顯示在
+      // 畫面上，不會整個安靜失敗、只留主控台看得到。
       if (result.failures.length > 0) {
-        // 失敗明細直接開 Modal 顯示在頁面上（見 openMigrationFailuresModal），
-        // 不是只印在主控台——一般使用者不一定看得到、貼得進去 DevTools。
         showToast(`已同步 ${result.migratedBookCount}/${result.attemptedCount} 本書，${result.failures.length} 筆失敗`);
-        openMigrationFailuresModal(result.failures);
+        console.log(`[Marginalia 雲端同步] 準備開啟失敗明細視窗（共 ${result.failures.length} 筆）…`);
+        try {
+          openMigrationFailuresModal(result.failures);
+          console.log('[Marginalia 雲端同步] 失敗明細視窗已開啟。');
+        } catch (modalErr) {
+          console.error('[Marginalia 雲端同步] 開啟失敗明細視窗時發生例外，改用 alert() 顯示：', modalErr);
+          window.alert(
+            `${result.failures.length} 本書同步失敗：\n\n`
+            + result.failures.map((f) => `《${f.title}》（${f.store}）\n${f.error?.message || String(f.error)}`).join('\n\n'),
+          );
+        }
       } else if (result.attemptedCount === 0) {
         showToast('本機藏書已經全部在雲端帳號裡了');
       } else {
         showToast(`已補齊 ${result.migratedBookCount} 本書到雲端帳號`);
       }
+
+      // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的
+      // 同一個處理方式），手動補發一次讓目前頁面重新抓一次資料，畫出剛同步好的雲端內容。
+      window.dispatchEvent(new Event('hashchange'));
     } catch (err) {
       showToast('同步失敗，請稍後再試一次');
       console.error(err);
