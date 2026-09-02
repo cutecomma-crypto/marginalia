@@ -114,35 +114,113 @@ function toNullableNumber(value) {
   return Number.isFinite(num) ? num : null;
 }
 
+// 這次實測抓到的真正根本原因：有些書是很早期版本建立的，本機記錄裡還帶著
+// 「contentType」「owned」這類更早期資料結構用過、現在 Supabase 資料表根本
+// 沒有對應欄位的舊屬性。原本用 {...book} 整包複製，這些歷史包袱也會一起被
+// 塞進送給 Postgres 的 payload，PostgREST 收到一個схema 完全不認識的欄位名稱
+// 就直接拒絕整筆寫入（「Could not find the 'x' column of 'books' in the
+// schema cache」）——不是資料型別錯，是欄位本身在雲端資料表裡根本不存在。
+//
+// 修法是每張表都明確列出「資料庫實際擁有的欄位」，只挑這些欄位出來組 payload，
+// 不管本機這筆記錄身上還背著多少歷史上用過又被淘汰的舊屬性，通通不會被夾帶
+// 過去——比 {...spread} 整包複製安全得多，之後不管本機資料多久以前建立的、
+// 中間經過幾次改版，都不會再因為欄位對不上而整筆搬移失敗。
 function sanitizeBookPayload(book) {
   return {
-    ...book,
+    title: book.title,
+    author: book.author,
+    publisher: book.publisher,
+    category: book.category,
+    format: book.format,
+    retentionStatus: book.retentionStatus,
+    libraryBorrowType: book.libraryBorrowType,
+    libraryName: book.libraryName,
+    lentTo: book.lentTo,
+    publishDate: book.publishDate,
+    purchaseDate: book.purchaseDate,
     purchasePrice: toNullableNumber(book.purchasePrice),
+    coverImage: book.coverImage,
     tags: Array.isArray(book.tags) ? book.tags : [],
+    createdAt: book.createdAt,
   };
 }
 
 function sanitizeGroupPayload(group) {
-  return { ...group, x: toNullableNumber(group.x), y: toNullableNumber(group.y) };
+  return {
+    name: group.name,
+    subtitle: group.subtitle,
+    color: group.color,
+    x: toNullableNumber(group.x),
+    y: toNullableNumber(group.y),
+    bookId: group.bookId,
+    createdAt: group.createdAt,
+  };
 }
 
 function sanitizeNodePayload(node) {
-  return { ...node, order: toNullableNumber(node.order) };
+  return {
+    label: node.label,
+    title: node.title,
+    status: node.status,
+    description: node.description,
+    order: toNullableNumber(node.order),
+    bookId: node.bookId,
+    groupId: node.groupId,
+    createdAt: node.createdAt,
+  };
+}
+
+function sanitizeEdgePayload(edge) {
+  return {
+    label: edge.label,
+    direction: edge.direction,
+    color: edge.color,
+    lineStyle: edge.lineStyle,
+    bookId: edge.bookId,
+    fromNodeId: edge.fromNodeId,
+    toNodeId: edge.toNodeId,
+    createdAt: edge.createdAt,
+  };
 }
 
 function sanitizeReadingRecordPayload(record) {
   return {
-    ...record,
+    status: record.status,
+    startDate: record.startDate,
+    endDate: record.endDate,
     currentPage: toNullableNumber(record.currentPage),
     readCount: toNullableNumber(record.readCount) ?? 0,
     rating: toNullableNumber(record.rating) ?? 0,
+    updatedAt: record.updatedAt,
+    bookId: record.bookId,
+    createdAt: record.createdAt,
   };
 }
 
 // outputs 的 tags 跟 books 一樣是 jsonb 欄位，同樣可能因為舊資料格式漂移
 // 存到非陣列的值，一起清過一次。
 function sanitizeOutputPayload(output) {
-  return { ...output, tags: Array.isArray(output.tags) ? output.tags : [] };
+  return {
+    kind: output.kind,
+    tags: Array.isArray(output.tags) ? output.tags : [],
+    text: output.text,
+    format: output.format,
+    date: output.date,
+    bookId: output.bookId,
+    createdAt: output.createdAt,
+  };
+}
+
+function sanitizeNotePayload(note) {
+  return { text: note.text, bookId: note.bookId, createdAt: note.createdAt };
+}
+
+function sanitizeQuotePayload(quote) {
+  return { content: quote.content, page: quote.page, bookId: quote.bookId, createdAt: quote.createdAt };
+}
+
+function sanitizeFavoriteAuthorPayload(favorite) {
+  return { name: favorite.name, createdAt: favorite.createdAt };
 }
 
 // 把這次執行的結果完整印到主控台：先印一行總覽（略過幾本／嘗試幾本／成功幾本／
@@ -193,10 +271,10 @@ export async function migrateLocalToCloud() {
   let migratedBookCount = 0;
 
   for (const book of booksToMigrate) {
-    const { id: oldBookId, ...bookRest } = book;
+    const oldBookId = book.id;
     let newBookId;
     try {
-      newBookId = await CloudDB.add('books', sanitizeBookPayload(bookRest));
+      newBookId = await CloudDB.add('books', sanitizeBookPayload(book));
       migratedBookCount++;
     } catch (error) {
       failures.push({ store: 'books', title: book.title || '（未命名）', error });
@@ -205,10 +283,9 @@ export async function migrateLocalToCloud() {
 
     const groupIdMap = new Map();
     for (const group of allGroups.filter((g) => g.bookId === oldBookId)) {
-      const { id: oldGroupId, bookId, ...rest } = group;
       try {
-        const newGroupId = await CloudDB.add('groups', sanitizeGroupPayload({ ...rest, bookId: newBookId }));
-        groupIdMap.set(oldGroupId, newGroupId);
+        const newGroupId = await CloudDB.add('groups', sanitizeGroupPayload({ ...group, bookId: newBookId }));
+        groupIdMap.set(group.id, newGroupId);
       } catch (error) {
         failures.push({ store: 'groups', title: `${book.title}／${group.name || '未命名群組'}`, error });
       }
@@ -216,26 +293,24 @@ export async function migrateLocalToCloud() {
 
     const nodeIdMap = new Map();
     for (const node of allNodes.filter((n) => n.bookId === oldBookId)) {
-      const { id: oldNodeId, bookId, groupId, ...rest } = node;
       try {
         const newNodeId = await CloudDB.add('nodes', sanitizeNodePayload({
-          ...rest,
+          ...node,
           bookId: newBookId,
-          groupId: groupId ? (groupIdMap.get(groupId) ?? null) : null,
+          groupId: node.groupId ? (groupIdMap.get(node.groupId) ?? null) : null,
         }));
-        nodeIdMap.set(oldNodeId, newNodeId);
+        nodeIdMap.set(node.id, newNodeId);
       } catch (error) {
         failures.push({ store: 'nodes', title: `${book.title}／${node.label || '未命名人物'}`, error });
       }
     }
 
     for (const edge of allEdges.filter((e) => e.bookId === oldBookId)) {
-      const { fromNodeId, toNodeId, ...rest } = edge;
-      const newFromNodeId = nodeIdMap.get(fromNodeId);
-      const newToNodeId = nodeIdMap.get(toNodeId);
+      const newFromNodeId = nodeIdMap.get(edge.fromNodeId);
+      const newToNodeId = nodeIdMap.get(edge.toNodeId);
       if (!newFromNodeId || !newToNodeId) continue; // 這條線兩端有人物卡片搬失敗，連帶跳過，不留斷頭的關係線
       try {
-        await CloudDB.add('edges', { ...rest, bookId: newBookId, fromNodeId: newFromNodeId, toNodeId: newToNodeId });
+        await CloudDB.add('edges', sanitizeEdgePayload({ ...edge, bookId: newBookId, fromNodeId: newFromNodeId, toNodeId: newToNodeId }));
       } catch (error) {
         failures.push({ store: 'edges', title: `${book.title}／${edge.label || '關係線'}`, error });
       }
@@ -244,14 +319,13 @@ export async function migrateLocalToCloud() {
     const bookIdKeyedStores = [
       ['reading_records', allReadingRecords, sanitizeReadingRecordPayload],
       ['outputs', allOutputs, sanitizeOutputPayload],
-      ['notes', allNotes, (r) => r],
-      ['quotes', allQuotes, (r) => r],
+      ['notes', allNotes, sanitizeNotePayload],
+      ['quotes', allQuotes, sanitizeQuotePayload],
     ];
     for (const [storeName, records, sanitize] of bookIdKeyedStores) {
       for (const record of records.filter((r) => r.bookId === oldBookId)) {
-        const { id, bookId, ...rest } = record;
         try {
-          await CloudDB.add(storeName, sanitize({ ...rest, bookId: newBookId }));
+          await CloudDB.add(storeName, sanitize({ ...record, bookId: newBookId }));
         } catch (error) {
           failures.push({ store: storeName, title: book.title || '（未命名）', error });
         }
@@ -264,9 +338,8 @@ export async function migrateLocalToCloud() {
   // 都把喜愛作者清單重複插入。
   if (cloudBooks.length === 0) {
     for (const favorite of await LocalDB.getAll('favorite_authors')) {
-      const { id, ...rest } = favorite;
       try {
-        await CloudDB.add('favorite_authors', rest);
+        await CloudDB.add('favorite_authors', sanitizeFavoriteAuthorPayload(favorite));
       } catch (error) {
         failures.push({ store: 'favorite_authors', title: favorite.name || '（未命名）', error });
       }
