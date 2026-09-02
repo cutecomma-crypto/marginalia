@@ -31,59 +31,150 @@ function removeBanner() {
   document.getElementById('cloud-migration-banner')?.remove();
 }
 
-// Postgres 會替每一筆新資料指派全新的 id，跟本機自動遞增的 id 不一樣，
-// 所有外鍵（bookId／groupId／fromNodeId／toNodeId）都要照「books → groups →
-// nodes → edges」這個依賴順序，邊搬邊用 Map 記住「本機舊 id → 雲端新 id」，
-// 下一層才查得到要填什麼。reading_records／outputs／notes／quotes 只依賴
-// bookId，順序上什麼時候搬都可以，這裡跟在 books 後面一起處理。
+// 累積好幾年的本機資料，欄位型別很容易「歷史悠久」——例如某個版本的表單曾經把
+// 空白數字欄位存成空字串 ''，而不是 null。Postgres 的 numeric／integer 欄位
+// 收到 '' 會直接丟出「invalid input syntax」，這正是 HTTP 400 最常見的成因之一。
+// 搬移到雲端前統一用這個函式清過一次：''、undefined、NaN 一律變成 null，
+// 其餘保留原本的數字，比事後一本一本猜哪個欄位壞掉快得多、也更保險。
+function toNullableNumber(value) {
+  if (value === '' || value === undefined || value === null) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function sanitizeBookPayload(book) {
+  return {
+    ...book,
+    purchasePrice: toNullableNumber(book.purchasePrice),
+    tags: Array.isArray(book.tags) ? book.tags : [],
+  };
+}
+
+function sanitizeGroupPayload(group) {
+  return { ...group, x: toNullableNumber(group.x), y: toNullableNumber(group.y) };
+}
+
+function sanitizeNodePayload(node) {
+  return { ...node, order: toNullableNumber(node.order) };
+}
+
+function sanitizeReadingRecordPayload(record) {
+  return {
+    ...record,
+    currentPage: toNullableNumber(record.currentPage),
+    readCount: toNullableNumber(record.readCount) ?? 0,
+    rating: toNullableNumber(record.rating) ?? 0,
+  };
+}
+
+// outputs 的 tags 跟 books 一樣是 jsonb 欄位，同樣可能因為舊資料格式漂移
+// 存到非陣列的值，一起清過一次。
+function sanitizeOutputPayload(output) {
+  return { ...output, tags: Array.isArray(output.tags) ? output.tags : [] };
+}
+
+// 逐本書搬，不是逐張表搬：這樣「某一本書的資料本身有問題」只會讓那一本書
+// （以及掛在它名下的閱讀紀錄、心得、筆記、佳句、關係圖譜）被跳過，不會讓
+// 後面還沒搬到的兩三百本書全部卡住、整個遷移一次全部失敗。每個失敗都記下
+// 「哪一本書、哪張表、Postgres 實際回傳什麼訊息」，遷移結束後一次印出來，
+// 不用使用者自己一筆一筆去猜壞在哪裡。
 async function migrateLocalToCloud() {
-  const books = await LocalDB.getAll('books');
-  const bookIdMap = new Map();
+  const [books, allGroups, allNodes, allEdges, allReadingRecords, allOutputs, allNotes, allQuotes] = await Promise.all([
+    LocalDB.getAll('books'),
+    LocalDB.getAll('groups'),
+    LocalDB.getAll('nodes'),
+    LocalDB.getAll('edges'),
+    LocalDB.getAll('reading_records'),
+    LocalDB.getAll('outputs'),
+    LocalDB.getAll('notes'),
+    LocalDB.getAll('quotes'),
+  ]);
+
+  const failures = [];
+  let migratedBookCount = 0;
+
   for (const book of books) {
-    const { id: oldId, ...rest } = book;
-    const newId = await CloudDB.add('books', rest);
-    bookIdMap.set(oldId, newId);
-  }
+    const { id: oldBookId, ...bookRest } = book;
+    let newBookId;
+    try {
+      newBookId = await CloudDB.add('books', sanitizeBookPayload(bookRest));
+      migratedBookCount++;
+    } catch (error) {
+      failures.push({ store: 'books', title: book.title || '（未命名）', error });
+      continue; // 書本身搬失敗，掛在它名下的其他資料搬過去也沒有意義，整批跳過
+    }
 
-  const groupIdMap = new Map();
-  for (const group of await LocalDB.getAll('groups')) {
-    const { id: oldId, bookId, ...rest } = group;
-    const newId = await CloudDB.add('groups', { ...rest, bookId: bookIdMap.get(bookId) });
-    groupIdMap.set(oldId, newId);
-  }
+    const groupIdMap = new Map();
+    for (const group of allGroups.filter((g) => g.bookId === oldBookId)) {
+      const { id: oldGroupId, bookId, ...rest } = group;
+      try {
+        const newGroupId = await CloudDB.add('groups', sanitizeGroupPayload({ ...rest, bookId: newBookId }));
+        groupIdMap.set(oldGroupId, newGroupId);
+      } catch (error) {
+        failures.push({ store: 'groups', title: `${book.title}／${group.name || '未命名群組'}`, error });
+      }
+    }
 
-  const nodeIdMap = new Map();
-  for (const node of await LocalDB.getAll('nodes')) {
-    const { id: oldId, bookId, groupId, ...rest } = node;
-    const newId = await CloudDB.add('nodes', {
-      ...rest,
-      bookId: bookIdMap.get(bookId),
-      groupId: groupId ? groupIdMap.get(groupId) : null,
-    });
-    nodeIdMap.set(oldId, newId);
-  }
+    const nodeIdMap = new Map();
+    for (const node of allNodes.filter((n) => n.bookId === oldBookId)) {
+      const { id: oldNodeId, bookId, groupId, ...rest } = node;
+      try {
+        const newNodeId = await CloudDB.add('nodes', sanitizeNodePayload({
+          ...rest,
+          bookId: newBookId,
+          groupId: groupId ? (groupIdMap.get(groupId) ?? null) : null,
+        }));
+        nodeIdMap.set(oldNodeId, newNodeId);
+      } catch (error) {
+        failures.push({ store: 'nodes', title: `${book.title}／${node.label || '未命名人物'}`, error });
+      }
+    }
 
-  for (const edge of await LocalDB.getAll('edges')) {
-    const { id, bookId, fromNodeId, toNodeId, ...rest } = edge;
-    await CloudDB.add('edges', {
-      ...rest,
-      bookId: bookIdMap.get(bookId),
-      fromNodeId: nodeIdMap.get(fromNodeId),
-      toNodeId: nodeIdMap.get(toNodeId),
-    });
-  }
+    for (const edge of allEdges.filter((e) => e.bookId === oldBookId)) {
+      const { fromNodeId, toNodeId, ...rest } = edge;
+      const newFromNodeId = nodeIdMap.get(fromNodeId);
+      const newToNodeId = nodeIdMap.get(toNodeId);
+      if (!newFromNodeId || !newToNodeId) continue; // 這條線兩端有人物卡片搬失敗，連帶跳過，不留斷頭的關係線
+      try {
+        await CloudDB.add('edges', { ...rest, bookId: newBookId, fromNodeId: newFromNodeId, toNodeId: newToNodeId });
+      } catch (error) {
+        failures.push({ store: 'edges', title: `${book.title}／${edge.label || '關係線'}`, error });
+      }
+    }
 
-  for (const storeName of ['reading_records', 'outputs', 'notes', 'quotes']) {
-    for (const record of await LocalDB.getAll(storeName)) {
-      const { id, bookId, ...rest } = record;
-      await CloudDB.add(storeName, { ...rest, bookId: bookIdMap.get(bookId) });
+    const bookIdKeyedStores = [
+      ['reading_records', allReadingRecords, sanitizeReadingRecordPayload],
+      ['outputs', allOutputs, sanitizeOutputPayload],
+      ['notes', allNotes, (r) => r],
+      ['quotes', allQuotes, (r) => r],
+    ];
+    for (const [storeName, records, sanitize] of bookIdKeyedStores) {
+      for (const record of records.filter((r) => r.bookId === oldBookId)) {
+        const { id, bookId, ...rest } = record;
+        try {
+          await CloudDB.add(storeName, sanitize({ ...rest, bookId: newBookId }));
+        } catch (error) {
+          failures.push({ store: storeName, title: book.title || '（未命名）', error });
+        }
+      }
     }
   }
 
   for (const favorite of await LocalDB.getAll('favorite_authors')) {
     const { id, ...rest } = favorite; // 沒有外鍵（只認作者名字字串），直接搬
-    await CloudDB.add('favorite_authors', rest);
+    try {
+      await CloudDB.add('favorite_authors', rest);
+    } catch (error) {
+      failures.push({ store: 'favorite_authors', title: favorite.name || '（未命名）', error });
+    }
   }
+
+  if (failures.length > 0) {
+    console.error(`雲端同步：${failures.length} 筆資料失敗，明細如下（表格 / 標題 / Postgres 錯誤訊息）：`);
+    failures.forEach((f) => console.error(`[${f.store}] ${f.title} →`, f.error?.message || f.error, f.error));
+  }
+
+  return { migratedBookCount, totalBooks: books.length, failures };
 }
 
 export async function maybeOfferCloudMigration() {
@@ -106,9 +197,16 @@ export async function maybeOfferCloudMigration() {
     btn.disabled = true;
     btn.textContent = '同步中…';
     try {
-      await migrateLocalToCloud();
+      const result = await migrateLocalToCloud();
+      // 就算有部分失敗也標記成「已遷移過」——不然下次登入會拿全部 303 本書重跑一次，
+      // 已經成功搬過去的那些會在雲端重複一份。失敗的細節已經印在主控台，
+      // 使用者可以照著明細手動把那幾筆漏掉的資料補上去。
       localStorage.setItem(migratedFlagKey(user.id), 'true');
-      showToast('本機藏書已同步到雲端帳號');
+      if (result.failures.length > 0) {
+        showToast(`已同步 ${result.migratedBookCount}/${result.totalBooks} 本書，${result.failures.length} 筆資料失敗，詳情請看主控台`);
+      } else {
+        showToast(`本機 ${result.migratedBookCount} 本書已全部同步到雲端帳號`);
+      }
       removeBanner();
       // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的
       // 同一個處理方式），手動補發一次讓目前頁面重新抓一次資料，畫出剛同步好的雲端內容。
