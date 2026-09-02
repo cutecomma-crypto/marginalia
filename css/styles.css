@@ -207,6 +207,74 @@ header nav a {
   max-width: calc(100vw - 2rem);
 }
 
+/* 同步失敗明細 Modal：跟自訂分類管理的 .category-manager-card 同一套「加寬、
+   限高、內容可捲動」的清單樣式，錯誤訊息用淡橘底色跟一般文字區隔開，
+   一眼就看得出哪幾行是「壞掉的原因」而不是書名。 */
+.migration-failures-card {
+  width: 460px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.migration-failures-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem;
+}
+
+.migration-failures-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.migration-failures-list li {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  background: var(--surface-alt);
+}
+
+.migration-failure-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.migration-failure-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.migration-failure-store {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.migration-failure-message {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+  word-break: break-word;
+}
+
 main {
   padding: 2rem clamp(1.5rem, 4vw, 4rem);
   max-width: 1440px;

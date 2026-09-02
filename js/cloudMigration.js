@@ -26,7 +26,7 @@
 import { LocalDB } from './localDb.js';
 import { CloudDB } from './cloudDb.js';
 import { getCurrentUser } from './services/authService.js';
-import { showToast } from './utils.js';
+import { showToast, escapeHtml } from './utils.js';
 
 function bannerEl() {
   let el = document.getElementById('cloud-migration-banner');
@@ -41,6 +41,47 @@ function bannerEl() {
 
 function removeBanner() {
   document.getElementById('cloud-migration-banner')?.remove();
+}
+
+// 同步失敗的明細直接畫在頁面上的 Modal，不是只印到瀏覽器主控台——Console 對
+// 一般使用者來說門檻太高（連貼上指令都可能被 Chrome 的防貼上機制擋下來），
+// 失敗清單就應該跟成功/失敗的 Toast 一樣，是「看得到、點得到」的頁面內容。
+// 沿用跟登入 Modal、自訂分類管理 Modal 同一套 .modal-backdrop/.modal-card 樣式。
+function openMigrationFailuresModal(failures) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal-card migration-failures-card" role="dialog" aria-modal="true" aria-labelledby="migration-failures-title">
+      <h3 id="migration-failures-title">⚠️ ${failures.length} 本書同步失敗</h3>
+      <p class="migration-failures-hint">本機資料完全沒有受影響，以下是搬移到雲端時發生錯誤的項目，可以之後再重試「立即同步」補齊。</p>
+      <ul class="migration-failures-list">
+        ${failures.map((f) => `
+          <li>
+            <div class="migration-failure-head">
+              <span class="migration-failure-title">${escapeHtml(f.title)}</span>
+              <span class="migration-failure-store">${escapeHtml(f.store)}</span>
+            </div>
+            <p class="migration-failure-message">${escapeHtml(f.error?.message || String(f.error))}</p>
+          </li>
+        `).join('')}
+      </ul>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="migration-failures-close">關閉</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  function close() {
+    document.removeEventListener('keydown', onKeydown);
+    backdrop.remove();
+  }
+  function onKeydown(event) {
+    if (event.key === 'Escape') close();
+  }
+  backdrop.addEventListener('mousedown', (event) => { if (event.target === backdrop) close(); });
+  backdrop.querySelector('#migration-failures-close').addEventListener('click', close);
+  document.addEventListener('keydown', onKeydown);
 }
 
 // createdAt 在本機（IndexedDB）存的是 new Date().toISOString() 那種 Z 結尾格式，
@@ -255,7 +296,7 @@ export async function maybeOfferCloudMigration() {
   const el = bannerEl();
   el.innerHTML = `
     <span>偵測到本機有 ${missingCount} 本書尚未同步到雲端帳號，要同步嗎？</span>
-    <button type="button" class="btn btn-primary btn-sm" id="cloud-migration-confirm">立即同步</button>
+    <button type="button" class="btn btn-primary btn-sm" id="cloud-migration-confirm">強制補同步</button>
     <button type="button" class="btn btn-sm" id="cloud-migration-dismiss">暫不同步</button>
   `;
   el.querySelector('#cloud-migration-dismiss').addEventListener('click', removeBanner);
@@ -265,22 +306,25 @@ export async function maybeOfferCloudMigration() {
     btn.textContent = '同步中…';
     try {
       const result = await migrateLocalToCloud();
+      removeBanner();
+      // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的
+      // 同一個處理方式），手動補發一次讓目前頁面重新抓一次資料，畫出剛同步好的雲端內容。
+      window.dispatchEvent(new Event('hashchange'));
       if (result.failures.length > 0) {
-        showToast(`已同步 ${result.migratedBookCount}/${result.attemptedCount} 本書，${result.failures.length} 筆失敗，詳情請看主控台`);
+        // 失敗明細直接開 Modal 顯示在頁面上（見 openMigrationFailuresModal），
+        // 不是只印在主控台——一般使用者不一定看得到、貼得進去 DevTools。
+        showToast(`已同步 ${result.migratedBookCount}/${result.attemptedCount} 本書，${result.failures.length} 筆失敗`);
+        openMigrationFailuresModal(result.failures);
       } else if (result.attemptedCount === 0) {
         showToast('本機藏書已經全部在雲端帳號裡了');
       } else {
         showToast(`已補齊 ${result.migratedBookCount} 本書到雲端帳號`);
       }
-      removeBanner();
-      // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的
-      // 同一個處理方式），手動補發一次讓目前頁面重新抓一次資料，畫出剛同步好的雲端內容。
-      window.dispatchEvent(new Event('hashchange'));
     } catch (err) {
       showToast('同步失敗，請稍後再試一次');
       console.error(err);
       btn.disabled = false;
-      btn.textContent = '立即同步';
+      btn.textContent = '強制補同步';
     }
   });
 }
