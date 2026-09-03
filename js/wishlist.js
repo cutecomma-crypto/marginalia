@@ -170,13 +170,13 @@ function ensureDrawerBuilt() {
     <p class="wishlist-drawer-hint">先記下想讀、被推薦的書，之後想開始讀了再一鍵轉入正式藏書庫。</p>
     <form id="wishlist-form" class="book-form compact-form" novalidate>
       <label class="field-required" for="wishlist-title-input">書名 *
-        <input type="text" id="wishlist-title-input" name="title" required placeholder="這本書叫什麼名字？">
+        <input type="text" id="wishlist-title-input" name="title" required placeholder="請輸入書名">
       </label>
       <label for="wishlist-author-input">作者
-        <input type="text" id="wishlist-author-input" name="author" placeholder="知道的話可以先填，選填">
+        <input type="text" id="wishlist-author-input" name="author" placeholder="選填">
       </label>
       <label for="wishlist-note-input">推薦來源／備註
-        <textarea id="wishlist-note-input" name="note" rows="2" placeholder="例如：某 Podcast 節目、朋友介紹、FB 讀書會"></textarea>
+        <textarea id="wishlist-note-input" name="note" rows="2" placeholder="選填，例如：朋友推薦"></textarea>
       </label>
       <div class="form-actions">
         <button type="button" class="btn" id="wishlist-cancel-edit-btn" hidden>取消編輯</button>
