@@ -272,7 +272,8 @@ export async function renderBookList(container) {
   const favoriteAuthors = await getFavoriteAuthorMap();
   const recordMap = await loadRecordByBookMap();
 
-  // 讓 Header 那顆「📊 藏書統計」抽屜觸發按鈕知道「現在在書籍列表頁、有抽屜
+  // 讓 Header 那顆「藏書統計」抽屜觸發按鈕（跟 favicon 共用同一張書本＋書籤
+  // 圖示，見 index.html）知道「現在在書籍列表頁、有抽屜
   // 可以開」——按鈕本身是 index.html 的靜態內容、按鈕的 click 監聽器掛在
   // app.js（只掛一次，見該檔案開頭註解），這裡只負責在按鈕上補一個 CSS
   // 顯示開關會讀的 class；app.js 的 route() 已經在每次換頁最前面先移除掉，

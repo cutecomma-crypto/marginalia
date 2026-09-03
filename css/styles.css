@@ -141,8 +141,6 @@ header h1 {
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
-  font-size: 1.05rem;
-  line-height: 1;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
@@ -150,6 +148,16 @@ header h1 {
 .sidebar-drawer-toggle-btn:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
+}
+
+/* 直接沿用 favicon.png（見 favicon.png／favicon.ico 的線條感書本＋書籤圖示），
+   不是另外手繪一顆長得很像但不完全一樣的 SVG——這樣 Header 這顆按鈕跟瀏覽器
+   分頁上的圖示保證是同一個檔案、同一份像素，不會有「兩個地方各自維護一份、
+   哪天改了其中一個卻忘記改另一個」的風險。 */
+.sidebar-drawer-toggle-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: block;
 }
 
 @media (max-width: 1024px) {
@@ -382,23 +390,6 @@ main {
   margin: 0 auto;
 }
 
-/* 手機瀏覽器的網址列／工具列有時候會懸浮在頁面內容上方（尤其捲動方向、
-   瀏覽器種類不同時行為不太一致），留一段足夠的頂部留白，確保第一張卡片
-   不會一開頁就緊貼在網址列或 Header 下緣、視覺上黏在一起。這條規則刻意寫在
-   上面桌面版 main{} 規則的正下方——上面那條 padding 是簡寫（同時設定
-   padding-top/right/bottom/left 四個方向），跟這裡單獨設定的 padding-top
-   選擇器優先度相同，寫在前面的媒體查詢會被寫在後面的桌面版簡寫規則蓋掉，
-   不管螢幕寬度符不符合媒體查詢條件都一樣（跟前面 .book-table 的 white-space
-   是同一種踩雷方式，這裡一併修正、就近擺放避免以後又分離開來重蹈覆轍）。
-   額外加上 !important：這裡的 padding-top 是「手機版絕對不能跟 Header 疊在
-   一起」這條硬性規則，不希望之後任何地方（包含這個檔案以外、還沒被檢查過的
-   規則）用同樣選擇器的 padding／padding-top 意外蓋掉它。 */
-@media (max-width: 768px) {
-  main {
-    padding-top: 80px !important;
-  }
-}
-
 #status.ok {
   color: var(--accent-green);
 }
@@ -512,11 +503,52 @@ header h1 a {
     display: inline-flex;
     align-items: center;
   }
+}
 
-  /* 書籍列表的搜尋列現在有搜尋框＋排序＋每頁筆數三個控制項，窄螢幕硬擠一行
-     會被迫橫向捲動；改成自動換行，「共 X 本」字樣獨占一行靠左，不再黏right。 */
+/* 「強迫症極致對齊」：平板直立／手機（<1024px）下，書籍列表頁從標題列、
+   願望清單／新增書籍按鈕、搜尋列、到最下面一張張書籍卡片，左右邊界要
+   完全對齊在同一條基準線上。真正決定這條基準線的只有 main 的左右
+   padding——.toolbar／.search-row／.book-list-body 這些區塊本身都沒有
+   額外的左右 padding/margin，全部是 .dashboard-main 底下 100% 寬度的
+   區塊，main 的 padding 對了，底下每一層自然而然全部對齊，不需要另外
+   一個一個元件加補丁。全部用 !important：這條規則要贏過桌面版 main{}
+   的簡寫 padding，跟贏過任何其他同選擇器規則，不靠原始碼順序決勝負
+   （這個檔案已經在同一種「優先度相同、純粹比順序」的坑上跌倒過好幾次，
+   這裡直接用 !important 把風險排除)。 */
+@media (max-width: 1024px) {
+  main {
+    padding: 80px 16px 24px 16px !important;
+  }
+
+  /* 搜尋列原本是「搜尋框（彈性寬度，上限 360px）＋兩個依內容自動調整寬度的
+     下拉選單＋靠右的『共 N 本』字樣」擠在同一橫排，窄螢幕上三個控制項長短
+     不一、忽長忽短，跟下面滿版寬度的書籍卡片比起來明顯「沒對齊」。改成
+     每個控制項各自獨立一行、都撐滿 100% 寬度，跟卡片的左右邊界完全一致；
+     搜尋框原本的 360px 上限只在桌面版夠寬、旁邊還有下拉選單要並排時才有
+     意義，這裡拿掉。三個控制項另外統一給一個明確的 40px 高度，取代原本
+     input／select 兩種原生表單元件天生高度就對不齊的問題（min-height:44px
+     是給觸控裝置用的最小點擊區域，這裡改成明確的 40px 高度，數字上略低於
+     44px，但這是這次「精細對齊」明確指定的高度，仍然遠高於一般文字行高，
+     不會影響可點擊性）。 */
   .search-row {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    max-width: 100% !important;
+  }
+
+  .search-input,
+  .sort-select {
+    width: 100% !important;
+    height: 40px !important;
+    /* min-height 是另一條獨立的規則（touch-target 用的 44px 下限，見前面
+       ≤768px 那個區塊），跟 height 是兩個互不衝突、各自成立的屬性——即使
+       height 加了 !important，瀏覽器算最終高度時還是會被更大的 min-height
+       頂上去，實測量出來是 44px 不是要求的 40px，一定要一起蓋掉才會準。 */
+    min-height: 40px !important;
+    box-sizing: border-box !important;
   }
 
   .search-row .book-list-count {
@@ -1556,7 +1588,7 @@ header h1 a {
     width: 100% !important;
     margin-bottom: 12px !important;
     box-sizing: border-box !important;
-    padding: 1rem 1.1rem;
+    padding: 14px 16px !important;
     border: 1px solid var(--border-hairline);
     border-radius: 10px;
     box-shadow: var(--shadow-card);
@@ -1584,15 +1616,25 @@ header h1 a {
   /* 桌面版「書籍類型／完成日期／書籍歸還」三欄有專屬的置中＋左右內距規則
      （.book-table td:nth-child(3)/(4)/(5)，見上面桌面版樣式），選擇器比這裡
      單純的 .book-table td 更精細（多了 :nth-child 偽類），優先度更高，不靠
-     媒體查詢就會直接蓋掉上面那條卡片版的 text-align:left／padding:0——這裡
-     用同一組 nth-child 選擇器蓋回去，跟書名／作者維持同一套靠左對齊、無內距
-     的卡片排版，不會三格文字置中、兩格靠左，看起來不一致。 */
+     媒體查詢就會直接蓋掉上面那條卡片版的 padding:0——這裡用同一組 nth-child
+     選擇器把內距蓋回去，text-align 則不在這裡統一設定，留給下面「左右分欄」
+     那條規則個別決定（書名／類型維持左欄靠左，作者／完成日期是右欄要靠右）。 */
   .book-table td:nth-child(3),
   .book-table td:nth-child(4),
   .book-table td:nth-child(5) {
     padding-left: 0;
     padding-right: 0;
-    text-align: left;
+  }
+
+  /* 雜誌感的左右分欄卡片：書名＋類型是左欄（維持預設的靠左對齊），作者＋
+     完成日期是右欄，統一靠右對齊——這是這次「卡片內部左右分欄」明確要求的
+     排版，不是單純的清單樣式。.book-table td 是 flex-direction:column，
+     子項（::before 標籤跟內容）預設 align-items:stretch 會撐滿整個格子的
+     寬度，所以只要在這裡改 text-align，標籤跟內容就會一起準確地貼齊右邊，
+     不需要額外改 align-items。 */
+  .book-table td:nth-child(2),
+  .book-table td:nth-child(4) {
+    text-align: right;
   }
 
   /* 「書籍歸還」欄位大多數書都是空的（沒有快捷按鈕），卡片版不想每張卡片都
