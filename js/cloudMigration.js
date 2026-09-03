@@ -224,13 +224,13 @@ function sanitizeFavoriteAuthorPayload(favorite) {
 }
 
 function sanitizeWishlistPayload(item) {
-  return { title: item.title, note: item.note, createdAt: item.createdAt };
+  return { title: item.title, author: item.author, note: item.note, createdAt: item.createdAt };
 }
 
 // wishlist 沒有外鍵、也不屬於任何一本書，指紋邏輯跟 bookFingerprint 同一套精神
-// （書名＋備註＋建立時間），可以放心重複執行 migrateLocalToCloud() 而不會重複插入。
+// （書名＋作者＋備註＋建立時間），可以放心重複執行 migrateLocalToCloud() 而不會重複插入。
 function wishlistFingerprint(item) {
-  return `${(item.title || '').trim()} ${(item.note || '').trim()} ${normalizeTimestamp(item.createdAt)}`;
+  return `${(item.title || '').trim()} ${(item.author || '').trim()} ${(item.note || '').trim()} ${normalizeTimestamp(item.createdAt)}`;
 }
 
 // 把這次執行的結果完整印到主控台：先印一行總覽（略過幾本／嘗試幾本／成功幾本／

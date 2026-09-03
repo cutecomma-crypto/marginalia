@@ -22,6 +22,7 @@ let backdropEl = null;
 let listEl = null;
 let formEl = null;
 let titleInput = null;
+let authorInput = null;
 let noteInput = null;
 let submitBtn = null;
 let cancelEditBtn = null;
@@ -46,6 +47,7 @@ function enterEditMode(item) {
   submitBtn.textContent = '儲存修改';
   cancelEditBtn.hidden = false;
   titleInput.value = item.title || '';
+  authorInput.value = item.author || '';
   noteInput.value = item.note || '';
   titleInput.focus();
 }
@@ -55,6 +57,7 @@ function itemRowHtml(item) {
     <li data-id="${item.id}">
       <div class="wishlist-item-main">
         <span class="wishlist-item-title">${escapeHtml(item.title || '（未命名）')}</span>
+        ${item.author ? `<span class="wishlist-item-author">${escapeHtml(item.author)}</span>` : ''}
         ${item.note ? `<span class="wishlist-item-note">${escapeHtml(item.note)}</span>` : ''}
       </div>
       <div class="wishlist-item-actions">
@@ -116,6 +119,7 @@ async function refreshList() {
 function convertToBook(item) {
   const params = new URLSearchParams();
   params.set('title', item.title || '');
+  if (item.author) params.set('author', item.author);
   if (item.note) params.set('note', item.note);
   params.set('wishlistId', String(item.id));
   closeDrawer();
@@ -130,14 +134,15 @@ function wireForm() {
       titleInput.focus();
       return;
     }
+    const author = authorInput.value.trim();
     const note = noteInput.value.trim();
     try {
       if (editingId) {
         const existing = cachedItems.find((i) => i.id === editingId);
-        await DB.update(STORE, { ...existing, id: editingId, title, note });
+        await DB.update(STORE, { ...existing, id: editingId, title, author, note });
         showToast('已更新願望清單項目');
       } else {
-        await DB.add(STORE, { title, note });
+        await DB.add(STORE, { title, author, note });
         showToast('已加入願望清單');
       }
       enterAddMode();
@@ -167,6 +172,9 @@ function ensureDrawerBuilt() {
       <label class="field-required" for="wishlist-title-input">書名 *
         <input type="text" id="wishlist-title-input" name="title" required placeholder="這本書叫什麼名字？">
       </label>
+      <label for="wishlist-author-input">作者
+        <input type="text" id="wishlist-author-input" name="author" placeholder="知道的話可以先填，選填">
+      </label>
       <label for="wishlist-note-input">推薦來源／備註
         <textarea id="wishlist-note-input" name="note" rows="2" placeholder="例如：某 Podcast 節目、朋友介紹、FB 讀書會"></textarea>
       </label>
@@ -183,6 +191,7 @@ function ensureDrawerBuilt() {
   listEl = drawerEl.querySelector('#wishlist-list');
   formEl = drawerEl.querySelector('#wishlist-form');
   titleInput = drawerEl.querySelector('#wishlist-title-input');
+  authorInput = drawerEl.querySelector('#wishlist-author-input');
   noteInput = drawerEl.querySelector('#wishlist-note-input');
   submitBtn = drawerEl.querySelector('#wishlist-submit-btn');
   cancelEditBtn = drawerEl.querySelector('#wishlist-cancel-edit-btn');

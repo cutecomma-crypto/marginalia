@@ -3646,6 +3646,12 @@ header h1 a {
   overflow-wrap: anywhere;
 }
 
+.wishlist-item-author {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
 .wishlist-item-note {
   font-size: 0.76rem;
   color: var(--text-muted);

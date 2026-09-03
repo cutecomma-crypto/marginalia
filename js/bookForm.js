@@ -156,19 +156,20 @@ function wireCoverUpload(form) {
 // 則跟著「存留狀態」欄位——來源與存留狀態解耦之後，這兩組細節欄位分別依附在
 // 各自真正相關的欄位上，不再都綁在存留狀態一個欄位切換。
 // 從願望清單「轉為藏書」點過來時，用跟 bookList.js 作者篩選同一種手法（hash 帶
-// 查詢字串，見該檔案 readAndClearAuthorFilterFromHash 開頭註解）把書名／推薦來源／
-// 願望清單項目 id 帶進新增書籍表單直接預填，讀完立刻用 replaceState 把網址清乾淨，
-// 避免重新整理或再次造訪 #/books/new 時殘留上一次轉換的資料。
+// 查詢字串，見該檔案 readAndClearAuthorFilterFromHash 開頭註解）把書名／作者／
+// 推薦來源／願望清單項目 id 帶進新增書籍表單直接預填，讀完立刻用 replaceState
+// 把網址清乾淨，避免重新整理或再次造訪 #/books/new 時殘留上一次轉換的資料。
 function readAndClearWishlistPrefillFromHash() {
   const hash = window.location.hash;
   const qIndex = hash.indexOf('?');
   if (qIndex === -1) return null;
   const params = new URLSearchParams(hash.slice(qIndex + 1));
   const title = params.get('title') || '';
+  const author = params.get('author') || '';
   const note = params.get('note') || '';
   const wishlistId = params.get('wishlistId');
   history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/books/new`);
-  return { title, note, wishlistId: wishlistId ? Number(wishlistId) : null };
+  return { title, author, note, wishlistId: wishlistId ? Number(wishlistId) : null };
 }
 
 function wireSourceAndRetentionToggles(form) {
@@ -290,7 +291,7 @@ export async function renderBookForm(container, rawId) {
   }
   const isNew = !bookId;
   const wishlistPrefill = isNew ? readAndClearWishlistPrefillFromHash() : null;
-  const book = existing || (wishlistPrefill?.title ? { title: wishlistPrefill.title } : {});
+  const book = existing || (wishlistPrefill?.title ? { title: wishlistPrefill.title, author: wishlistPrefill.author } : {});
   let favoriteAuthors = await getFavoriteAuthorMap();
 
   container.innerHTML = `
