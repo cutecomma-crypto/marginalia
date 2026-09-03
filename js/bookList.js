@@ -6,6 +6,7 @@ import { patchRetentionCountBadge } from './stats.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
 import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
 import { openWishlistDrawer } from './wishlist.js';
+import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 
 // 雲端快取背景刷新（見 cloudDb.js／services/cloudCache.js 的 Stale-While-Revalidate
 // 說明）如果發現書籍資料真的變了，會發出這個事件——這裡只負責跳一個不打擾的
@@ -271,9 +272,20 @@ export async function renderBookList(container) {
   const favoriteAuthors = await getFavoriteAuthorMap();
   const recordMap = await loadRecordByBookMap();
 
+  // 讓 Header 那顆「📊 藏書統計」抽屜觸發按鈕知道「現在在書籍列表頁、有抽屜
+  // 可以開」——按鈕本身是 index.html 的靜態內容、按鈕的 click 監聽器掛在
+  // app.js（只掛一次，見該檔案開頭註解），這裡只負責在按鈕上補一個 CSS
+  // 顯示開關會讀的 class；app.js 的 route() 已經在每次換頁最前面先移除掉，
+  // 只有真的執行到這裡才會重新加回來，離開這頁按鈕會自動隱藏。
+  document.body.classList.add('has-sidebar-drawer');
+
   container.innerHTML = `
     <div class="dashboard-layout">
-      <aside class="dashboard-sidebar" id="dashboard-sidebar"></aside>
+      <div class="sidebar-drawer-backdrop" id="sidebar-drawer-backdrop"></div>
+      <aside class="dashboard-sidebar" id="dashboard-sidebar">
+        <button type="button" class="sidebar-drawer-close" id="sidebar-drawer-close" title="關閉面板">✕ 關閉</button>
+        <div class="dashboard-sidebar-inner" id="dashboard-sidebar-inner"></div>
+      </aside>
       <div class="dashboard-main">
         <div class="toolbar">
           <div class="toolbar-title-row">
@@ -495,7 +507,10 @@ export async function renderBookList(container) {
     renderList();
   });
 
-  await renderDashboardSidebar(container.querySelector('#dashboard-sidebar'), {
+  // 傳進去的是內層的 #dashboard-sidebar-inner，不是 <aside> 本身——
+  // renderDashboardSidebar() 會整個覆蓋掉傳入容器的 innerHTML，如果直接傳
+  // <aside>，每次重繪都會把外面那顆「✕ 關閉」按鈕一起洗掉。
+  await renderDashboardSidebar(container.querySelector('#dashboard-sidebar-inner'), {
     onYearChange: (year) => {
       yearFilter = year;
       currentPage = 1;
@@ -523,6 +538,26 @@ export async function renderBookList(container) {
       renderList();
     },
     onAuthorClick: applyAuthorFilter,
+  });
+
+  // 側邊欄抽屜（手機／平板直立版）的關閉方式：抽屜自己的「✕ 關閉」按鈕、
+  // 點背景遮罩、按 Esc，三種都收斂到同一個 closeSidebarDrawer()。開啟的觸發
+  // 按鈕在 Header（app.js 掛的委派監聽器），這裡只管關閉——這幾個元素每次
+  // renderBookList() 都是全新的 DOM 節點，直接綁定不會有累積監聽器的問題
+  // （跟開啟按鈕那種「按鈕本身是永久存在的靜態元素」是不同情況，見 app.js
+  // 開頭註解）。
+  const sidebarDrawerEl = container.querySelector('#dashboard-sidebar');
+  const sidebarBackdropEl = container.querySelector('#sidebar-drawer-backdrop');
+  function closeSidebarDrawer() {
+    sidebarDrawerEl.classList.remove('is-open');
+    sidebarBackdropEl.classList.remove('is-open');
+  }
+  container.querySelector('#sidebar-drawer-close').addEventListener('click', closeSidebarDrawer);
+  sidebarBackdropEl.addEventListener('click', closeSidebarDrawer);
+  pushEscapeHandler(() => {
+    if (!sidebarDrawerEl.classList.contains('is-open')) return false;
+    closeSidebarDrawer();
+    return true;
   });
 
   // 表格模式的作者按鈕、封面網格模式的作者 <span> 共用同一個 delegated listener——

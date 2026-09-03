@@ -120,6 +120,44 @@ header h1 {
   font-size: 1.25rem;
 }
 
+/* Logo 旁邊多一顆「📊 藏書統計」抽屜觸發按鈕（見 index.html），兩者用這層
+   包起來維持 header 原本「左右各一個 flex 子元素、space-between」的版面
+   邏輯不用重寫，按鈕本身平常（桌機版／不在書籍列表頁時）是隱藏的。 */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* 平常完全隱藏——只有「螢幕寬度 ≤1024px」且「body 有 has-sidebar-drawer
+   這個 class（代表目前在書籍列表頁，見 app.js／bookList.js）」兩個條件
+   同時成立才會顯示，不會在其他頁面留一顆按下去沒反應的按鈕。 */
+.sidebar-drawer-toggle-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.sidebar-drawer-toggle-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+@media (max-width: 1024px) {
+  body.has-sidebar-drawer .sidebar-drawer-toggle-btn {
+    display: inline-flex;
+  }
+}
+
 header nav a {
   font-size: 0.85rem;
   color: var(--text);
@@ -958,13 +996,14 @@ header h1 a {
   align-items: start;
 }
 
+/* 側邊欄本身（<aside>）只管「定位／捲動」這種外層框架的事，實際排面板的
+   flex／間距都交給裡面的 .dashboard-sidebar-inner（見 bookList.js 的樣板：
+   renderDashboardSidebar() 會整個覆蓋掉傳入容器的 innerHTML，如果版面樣式
+   直接寫在 <aside> 上，平板／手機版要在 <aside> 外面另外加一顆「✕ 關閉」
+   按鈕時，那顆按鈕就沒有自己的立足點可以不受 renderDashboardSidebar() 影響）。
+   拆成外殼／內容兩層，桌機版視覺上完全看不出差異，純粹是為了下面 1024px
+   斷點要把外殼變成一個可以滑出的抽屜面板時，這個結構本來就準備好了。 */
 .dashboard-sidebar {
-  display: flex;
-  flex-direction: column;
-  /* 拿掉「最近關聯」面板後側邊欄少了一塊，面板數變少、每塊份量感相對變重，
-     把面板間距從 1rem 拉開到 1.5rem，維持跟書籍卡片留白比例接近的呼吸感，
-     不會因為少了一塊內容就顯得上下擠在一起。 */
-  gap: 1.5rem;
   position: sticky;
   top: 1rem;
   /* 吸頂固定之後，側邊欄自己要有獨立高度上限＋可捲動，右側書籍清單再長，
@@ -974,6 +1013,15 @@ header h1 a {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+}
+
+.dashboard-sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  /* 拿掉「最近關聯」面板後側邊欄少了一塊，面板數變少、每塊份量感相對變重，
+     把面板間距從 1rem 拉開到 1.5rem，維持跟書籍卡片留白比例接近的呼吸感，
+     不會因為少了一塊內容就顯得上下擠在一起。 */
+  gap: 1.5rem;
 }
 
 .dashboard-sidebar::-webkit-scrollbar {
@@ -1000,41 +1048,118 @@ header h1 a {
 /* 斷點拉高到 1024px（不是 768px）：側邊欄 minmax(240px, 27%) 的下限 240px，
    在平板直立（常見 768～834px 寬）下已經佔掉快 1/3 版面，硬擠出來的主內容欄
    （書籍表格五個欄位：書名／作者／類型／完成日期／書籍歸還）連書名都會被
-   截斷——這是實際發生的跑版，不是預防性猜測。1024px 涵蓋所有主流平板直立
-   尺寸，寬度回到主內容欄一個人獨佔，表格才有足夠空間正常顯示（維持表格
-   本身，不轉卡片——手機版另外在下面的 768px 斷點才轉卡片，平板夠寬不需要）。
-   側邊欄／主內容的順序也對調：sidebar 排在前面（order:1）、main 排後面
-   （order:2），讓「我的藏書概況」這類輕量統計資訊在小螢幕上最先映入眼簾，
-   接著才是搜尋列／新增按鈕／書籍列表本身——這是這次改版明確要求的頁面
-   閱讀順序，跟之前「先看書籍列表、統計退到後面」的舊決定相反，以這次的
-   指示為準。 */
-/* 這裡改用 !important，是刻意為了讓這組規則在「平板直立／手機」這兩個斷點
-   下贏過任何其他同選擇器規則，不管日後這個檔案裡其他地方新增了什麼樣的
-   .dashboard-layout／.dashboard-sidebar／.dashboard-main 規則、寫在檔案的
-   哪個位置，都不會有「後面新加的規則不小心蓋掉小螢幕版面」這種情況再發生
-   （這正是上一輪 white-space／padding-top 踩到的坑：兩條規則優先度相同，
-   純粹靠「誰寫在後面」決勝負，非常容易不小心被之後新增的規則蓋掉）。
-   grid 也直接換成 flex：two-column 的 grid-template-columns 完全不出現在
-   這個斷點的計算裡，不會有任何殘留的欄寬設定跟 flex 版面互相干擾。 */
+   截斷。這一版改成「原生 App 抽屜」架構，比之前「側邊欄整個搬到書籍列表
+   上面、單欄堆疊」更進一步：側邊欄在小螢幕預設完全不佔版面（.dashboard-main
+   一個人獨佔 100% 寬度），要看藏書統計／分類才透過 Header 那顆「📊」按鈕
+   叫出一個從左側滑出的抽屜（position:fixed + transform，不影響文件流），
+   關掉抽屜書籍列表看起來就是一個乾淨、只有搜尋列＋書籍卡片的單欄頁面，
+   不會像「側邊欄堆疊在上面」那樣把頁面拉得又長、資訊一次全部攤開。
+   grid 換成 flex：two-column 的 grid-template-columns 完全不出現在這個
+   斷點的計算裡，.dashboard-sidebar 又改用 position:fixed 整個脫離文件流，
+   .dashboard-main 自然而然就是這個 flex 直排唯一還在正常流裡的子項，
+   天生佔滿 100% 寬度，不用額外費工夫去「擠出」空間給它。
+   所有屬性都掛 !important：這組規則要贏過任何其他同選擇器規則，不管日後
+   這個檔案裡其他地方新增了什麼樣的 .dashboard-layout／.dashboard-sidebar／
+   .dashboard-main 規則、寫在檔案的哪個位置，都不會有「後面新加的規則不小心
+   蓋掉小螢幕版面」這種情況再發生（上一輪 white-space／padding-top 就是
+   栽在「優先度相同、純粹比原始碼順序」這個坑，這裡直接用 !important 把
+   這個風險完全排除，不用再靠「誰寫在後面」這種容易出錯的方式維持正確性）。 */
 @media (max-width: 1024px) {
   .dashboard-layout {
     display: flex !important;
     flex-direction: column !important;
     width: 100% !important;
+    gap: 0 !important;
   }
-  .dashboard-sidebar {
-    position: static !important;
-    order: 1 !important;
-    max-height: none !important;
-    overflow-y: visible !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
+
   .dashboard-main {
-    order: 2 !important;
     width: 100% !important;
     max-width: 100% !important;
   }
+
+  /* 側邊欄本體變成一個貼齊螢幕左緣、固定定位的抽屜，預設用 translateX(-100%)
+     整個移到畫面外（不是 display:none——保留在 DOM 裡才能對 transform 做
+     平滑的滑入/滑出動畫，display:none 沒有過渡效果可言）。半透明底＋
+     backdrop-filter 做磨砂玻璃質感，跟願望清單抽屜（js/wishlist.js）、
+     登入 Modal 是同一套語言，全站浮起面板的視覺風格維持一致。 */
+  .dashboard-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    width: 320px !important;
+    max-width: 85vw !important;
+    max-height: none !important;
+    z-index: 145 !important;
+    background: rgba(248, 246, 240, 0.92);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border-right: 1px solid var(--border-hairline);
+    box-shadow: 8px 0 32px rgba(44, 42, 41, 0.12);
+    padding: 1.5rem 1.25rem;
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+  }
+
+  .dashboard-sidebar.is-open {
+    transform: translateX(0) !important;
+  }
+
+  /* !important：這條規則寫在檔案裡比下面 .sidebar-drawer-close 的基礎規則
+     （display:none，桌機版預設隱藏用）更前面，選擇器優先度又相同，純粹比
+     原始碼順序的話會被寫在後面的基礎規則蓋掉、不管螢幕寬度都看不到這顆
+     按鈕——這是實測抓到的真實情況，不是預防性猜測，加 !important 直接
+     排除這個風險，不用再靠調整兩條規則的先後順序來維持正確性。 */
+  .sidebar-drawer-close {
+    display: block !important;
+  }
+}
+
+/* 抽屜背景遮罩：跟 .wishlist-drawer-backdrop 同一套「半透明深色底＋淡入淡出」
+   手法，z-index 特意排在 sidebar 抽屜（145）之下、願望清單抽屜（150/151）
+   之下，兩個抽屜就算真的同時被觸發也不會疊出奇怪的圖層順序。桌機版
+   （>1024px）Header 的觸發按鈕本來就隱藏、按不到，這裡加 display:none
+   當多一層保險，不靠「使用者不會去點」這種假設。 */
+.sidebar-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 27, 20, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 144;
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .sidebar-drawer-backdrop {
+    display: block;
+  }
+}
+
+.sidebar-drawer-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 抽屜內的「✕ 關閉」按鈕：桌機版整個隱藏（側邊欄本來就是常駐顯示，沒有
+   「關閉」這個概念），只在上面 1024px 斷點裡才切回 display:block。 */
+.sidebar-drawer-close {
+  display: none;
+  margin: 0 0 1rem auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sidebar-drawer-close:hover {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 /* 「輕盈高級感」改版明確要求卡片改回加邊框——蓋掉先前「純陰影、不加邊框」

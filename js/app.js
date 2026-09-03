@@ -38,6 +38,11 @@ async function route() {
   window.scrollTo(0, 0);
   const parts = parseHash();
   app.className = '';
+  // 側邊欄抽屜的觸發按鈕只在書籍列表頁有意義（見下面的委派點擊監聽器跟
+  // bookList.js）——這個 class 掛在 body 上是給 Header 那顆按鈕的 CSS 用的
+  // 顯示開關，每次換頁先重設掉，只有 renderBookList() 真的執行時才會重新
+  // 加回來，離開書籍列表頁按鈕就會自動隱藏，不會留著一顆按下去沒反應的按鈕。
+  document.body.classList.remove('has-sidebar-drawer');
   app.innerHTML = skeletonHtml();
   try {
     if (parts[0] === 'backup') {
@@ -88,4 +93,20 @@ document.getElementById('brand-logo-link').addEventListener('click', (event) => 
     event.preventDefault();
     route();
   }
+});
+
+// 側邊欄抽屜（手機／平板直立版）的觸發按鈕在 Header 裡，是 index.html 的靜態
+// 內容、不會隨換頁被整個重繪；抽屜本體 #dashboard-sidebar 卻只有書籍列表頁
+// 才存在（bookList.js 動態渲染的），兩者生命週期完全不一樣。如果改成在
+// bookList.js 裡面幫這顆按鈕重新綁一次 click，每次重新整理書籍列表（例如
+// 點 Logo 回到 #/books 觸發的重置）都會多疊一層監聽器，點一下按鈕實際觸發
+// 好幾次開關，行為會越用越亂。改成在這裡（整個網頁生命週期只執行這一次）
+// 掛一個監聽器，點擊當下才去抓「現在畫面上到底有沒有 #dashboard-sidebar」，
+// 不管換頁幾次都只有這一個監聽器在運作，沒有累積的問題。
+document.getElementById('sidebar-drawer-toggle-btn')?.addEventListener('click', () => {
+  const sidebar = document.getElementById('dashboard-sidebar');
+  const backdrop = document.getElementById('sidebar-drawer-backdrop');
+  if (!sidebar) return; // 不在書籍列表頁，沒有抽屜可以開
+  sidebar.classList.add('is-open');
+  backdrop?.classList.add('is-open');
 });
