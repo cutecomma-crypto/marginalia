@@ -153,6 +153,31 @@ header nav a {
   text-decoration: underline;
 }
 
+/* 手機版 Header：桌面版 Logo／「資料管理」／登入狀態擠在同一行，螢幕一窄、
+   暱稱（信箱前綴，長短不一）跟「登出」按鈕就會疊在一起、被截斷。改成上下
+   兩行——第一行只放 Logo，第二行讓「資料管理」跟登入狀態徽章左右分佔滿版寬；
+   暱稱額外設字數上限＋刪節號，再長的信箱前綴也不會把「登出」擠出螢幕外。 */
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .auth-nickname {
+    max-width: 32vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* 登入 Modal 裡「還沒有帳號？註冊」這類切換文字連結，跟 .favorite-author-link
    同一套「無框純文字＋hover 底線變色」的可點擊視覺語言。 */
 .link-btn {
