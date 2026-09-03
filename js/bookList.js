@@ -7,6 +7,16 @@ import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, f
 import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
 import { openWishlistDrawer } from './wishlist.js';
 
+// 雲端快取背景刷新（見 cloudDb.js／services/cloudCache.js 的 Stale-While-Revalidate
+// 說明）如果發現書籍資料真的變了，會發出這個事件——這裡只負責跳一個不打擾的
+// Toast 提示，不強制重繪目前畫面（使用者可能正在搜尋/篩選到一半，貿然重繪
+// 會把捲動位置、輸入到一半的搜尋字串都弄丟），重新整理頁面就會看到最新內容。
+// 掛在模組頂層只註冊一次，不會因為 renderBookList() 被重複呼叫而重複掛聽。
+window.addEventListener('marginalia:cloud-cache-updated', (event) => {
+  if (event.detail?.store !== 'books') return;
+  showToast('雲端書籍資料已更新，重新整理即可看到最新內容');
+});
+
 // 借出中／借入未還兩顆快捷篩選按鈕共用同一個 retentionFilter 狀態，這裡統一決定標題上要顯示哪個中文標籤。
 function retentionFilterLabel(retention) {
   if (retention === LENT_OUT_RETENTION_STATUS) return '借出中';

@@ -24,6 +24,15 @@ import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 
 const STORE = 'wishlist';
 
+// 雲端快取背景刷新（見 cloudDb.js／services/cloudCache.js 的 Stale-While-Revalidate
+// 說明）如果發現願望清單資料真的變了，會發出這個事件——這裡只跳一個不打擾的
+// Toast 提示，不強制重繪已經打開的抽屜（使用者可能正在展開表單打字打到一半），
+// 重新整理頁面或重新打開抽屜就會看到最新內容。掛在模組頂層只註冊一次。
+window.addEventListener('marginalia:cloud-cache-updated', (event) => {
+  if (event.detail?.store !== 'wishlist') return;
+  showToast('雲端願望清單已更新，重新整理即可看到最新內容');
+});
+
 let drawerEl = null;
 let backdropEl = null;
 let listEl = null;

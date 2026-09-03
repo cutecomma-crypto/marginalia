@@ -597,6 +597,55 @@ header h1 a {
   padding: 1rem 0;
 }
 
+/* 換頁骨架屏（見 js/app.js 的 skeletonHtml()）＋真正內容出現時的淡入動畫。
+   #app > * 刻意不限定特定 class，因為每個頁面模組（bookList.js／backup.js…）
+   render 完的樣板結構都不一樣，有的是單一個 <div class="dashboard-layout">
+   包到底，有的是好幾個 <div class="graph-panel"> 平行放在最外層——不論哪一種，
+   「innerHTML 整批換掉的當下，最外層那些新節點」都算是「這次換頁的內容」，
+   一起套一次淡入即可，不用为每個頁面各自加一個共用的包裹容器。 */
+#app > * {
+  animation: app-content-fade-in 0.2s ease;
+}
+
+@keyframes app-content-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.page-skeleton {
+  padding: 0.5rem 0;
+}
+
+.skeleton-bar {
+  height: 1rem;
+  border-radius: 6px;
+  margin-bottom: 0.9rem;
+  /* 用背景漸層＋位移動畫做「掃光」效果，而不是簡單的透明度閃爍——這是
+     骨架屏最常見、最不會讓人覺得「卡住了」的動畫語彙，兩個底色都取自
+     既有的中性色階（--surface-alt／--border-soft），不新增顏色。 */
+  background: linear-gradient(90deg, var(--surface-alt) 25%, var(--border-soft) 37%, var(--surface-alt) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+.skeleton-bar-title {
+  width: 40%;
+  height: 1.5rem;
+}
+
+.skeleton-bar-wide {
+  width: 100%;
+}
+
+.skeleton-bar-narrow {
+  width: 60%;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .stats-panel {
   background: var(--surface);
   border: 1px solid var(--border-soft);

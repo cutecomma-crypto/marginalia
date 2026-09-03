@@ -1,8 +1,11 @@
 import { DB } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, showToast } from './utils.js';
 import { wireNotionImportButton } from './notionImport.js';
 import { renderPersistenceStatusWidget } from './services/storagePersistenceService.js';
 import { WebDavSyncService, renderWebDavSettingsPanel } from './services/webdavSyncService.js';
+import { isSupabaseConfigured } from './config.js';
+import { getCurrentUser } from './services/authService.js';
+import { runManualCloudSync } from './cloudMigration.js';
 
 // 對照 PROJECT_SPEC.md 第 9 節：本地儲存為主，必須支援匯出／匯入／備份，避免資料遺失。
 const STORE_LABELS = {
@@ -68,6 +71,9 @@ export async function renderBackupPage(container) {
   for (const storeName of DB.STORE_NAMES) {
     counts[storeName] = (await DB.getAll(storeName)).length;
   }
+  // 登入雲端帳號時才顯示手動同步入口——本機模式沒有「雲端」這件事，
+  // isSupabaseConfigured() 額外擋掉「連 Supabase 都還沒設定」的部署環境。
+  const showCloudSyncPanel = isSupabaseConfigured() && Boolean(getCurrentUser());
 
   container.innerHTML = `
     <div class="toolbar">
@@ -81,6 +87,14 @@ export async function renderBackupPage(container) {
         ${DB.STORE_NAMES.map((name) => `<li><span>${escapeHtml(STORE_LABELS[name] || name)}</span><span>${counts[name]} 筆</span></li>`).join('')}
       </ul>
     </div>
+
+    ${showCloudSyncPanel ? `
+    <div class="graph-panel">
+      <h4>雲端同步</h4>
+      <p class="graph-hint">登入時不會再每次重新整理頁面都自動比對本機與雲端資料（這是刻意的改動，避免拖慢頁面載入速度）。如果懷疑有資料還沒同步上雲端帳號，可以在這裡手動檢查一次。</p>
+      <button type="button" class="btn btn-primary" id="cloud-sync-check-btn">檢查雲端同步</button>
+    </div>
+    ` : ''}
 
     <div class="graph-panel">
       <h4>持久化儲存</h4>
@@ -114,6 +128,23 @@ export async function renderBackupPage(container) {
       <p id="notion-import-status" class="graph-hint"></p>
     </div>
   `;
+
+  if (showCloudSyncPanel) {
+    const syncBtn = container.querySelector('#cloud-sync-check-btn');
+    syncBtn.addEventListener('click', async () => {
+      syncBtn.disabled = true;
+      syncBtn.textContent = '檢查中…';
+      try {
+        await runManualCloudSync();
+      } catch (err) {
+        showToast('檢查失敗，請稍後再試一次');
+        console.error(err);
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.textContent = '檢查雲端同步';
+      }
+    });
+  }
 
   container.querySelector('#export-btn').addEventListener('click', async () => {
     const data = await gatherAllData();

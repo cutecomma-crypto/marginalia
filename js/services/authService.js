@@ -7,8 +7,8 @@ let currentUser = null;
 let readyPromise = null;
 const listeners = new Set();
 
-function notifyListeners() {
-  listeners.forEach((callback) => callback(currentUser));
+function notifyListeners(event) {
+  listeners.forEach((callback) => callback(currentUser, event));
 }
 
 // 頁面剛載入時，Supabase 要從 localStorage 還原上次登入的 session，這一步是非同步的；
@@ -16,6 +16,14 @@ function notifyListeners() {
 // 只有第一次呼叫真的要等（等 session 還原完成），之後 readyPromise 已經 resolve，
 // 呼叫端幾乎感覺不到延遲。沒設定 Supabase（js/config.js 還是預留位置）的話，
 // getSupabaseClient() 回傳 null，這裡直接維持 currentUser = null，永遠是本機模式。
+//
+// event 一路傳給 notifyListeners()、再傳給外部訂閱者，是刻意保留 Supabase SDK
+// 原始的事件名稱（INITIAL_SESSION／SIGNED_IN／SIGNED_OUT／TOKEN_REFRESHED…）——
+// 注意 supabase-js v2 註冊 onAuthStateChange 監聽器之後，就算 session 是剛剛
+// getSession() 已經還原過的舊 session，SDK 也還是會非同步再補發一次
+// INITIAL_SESSION 事件給這個新監聽器。呼叫端（見 authUI.js）要靠這個 event
+// 分辨「這只是重新整理頁面、session 從 localStorage 還原回來」還是「使用者
+// 真的剛剛執行了登入動作」，只有後者才需要觸發一次完整的雲端同步檢查。
 function ensureReady() {
   if (readyPromise) return readyPromise;
   readyPromise = (async () => {
@@ -23,9 +31,9 @@ function ensureReady() {
     if (!supabase) return;
     const { data } = await supabase.auth.getSession();
     currentUser = data.session?.user || null;
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user || null;
-      notifyListeners();
+      notifyListeners(event);
     });
   })();
   return readyPromise;
@@ -42,7 +50,9 @@ export function getCurrentUser() {
   return currentUser;
 }
 
-// authUI.js 用來監聽登入/登出，即時更新 header 徽章文字跟觸發首次登入遷移提示。
+// authUI.js 用來監聽登入/登出，即時更新 header 徽章文字。callback 收到
+// (user, event) 兩個參數，event 是 Supabase 原始事件名稱，見上面 ensureReady()
+// 的說明——只有 event === 'SIGNED_IN' 才代表使用者這次真的剛執行登入動作。
 export function onAuthStateChange(callback) {
   listeners.add(callback);
   return () => listeners.delete(callback);

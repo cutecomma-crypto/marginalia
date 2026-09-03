@@ -10,6 +10,7 @@ import {
 } from './services/authService.js';
 import { loadCloudCategoriesIntoCache, clearCloudCategoriesCache } from './categories.js';
 import { maybeOfferCloudMigration } from './cloudMigration.js';
+import { clearAllCache } from './services/cloudCache.js';
 
 function initialOf(user) {
   const source = user.user_metadata?.nickname || user.email || '?';
@@ -201,13 +202,25 @@ export async function initAuthUI() {
   if (!isSupabaseConfigured()) return; // 沒設定 Supabase：不掛任何 UI、不監聽，本機模式維持原樣
   await renderAuthSlot();
   handlePasswordRecoveryRedirect();
-  onAuthStateChange(async (user) => {
+  onAuthStateChange(async (user, event) => {
     await renderAuthSlot();
     if (user) {
       await loadCloudCategoriesIntoCache();
-      await maybeOfferCloudMigration();
+      // 只有「這次真的是使用者剛登入」（event === 'SIGNED_IN'）才做一次完整的
+      // 本機／雲端比對＋補同步提示——網頁重新整理時 Supabase 用 INITIAL_SESSION
+      // 事件把已經登入過的 session 還原回來（見 authService.js 的 ensureReady()
+      // 開頭說明），這種情況資料狀態根本沒有任何改變，沒有必要每次重新整理都
+      // 重新抓一次全部書籍、全部願望清單、算一次指紋比對——這正是拖慢「重新
+      // 整理」速度、也在 Console 洗一堆比對紀錄的元兇。真的有漏同步的資料，
+      // 使用者可以到「資料管理」頁手動點「檢查雲端同步」主動觸發（見 backup.js）。
+      if (event === 'SIGNED_IN') {
+        await maybeOfferCloudMigration();
+      }
     } else {
       clearCloudCategoriesCache();
+      // 登出後清掉雲端資料的本機鏡像快取（見 cloudCache.js）：同一台裝置、
+      // 同一個瀏覽器之後可能換別人登入，快取內容不該一直留在 IndexedDB 裡。
+      await clearAllCache();
     }
   });
 }

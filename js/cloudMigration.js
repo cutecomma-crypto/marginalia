@@ -386,6 +386,45 @@ export async function migrateLocalToCloud() {
   return result;
 }
 
+// 執行一次完整的本機/雲端同步比對＋搬移，並把結果用 Toast／失敗明細 Modal
+// 呈現給使用者——下面「強制補同步」提示條按鈕、以及「資料管理」頁讓使用者
+// 隨時手動觸發的「檢查雲端同步」按鈕（見 backup.js）共用這一份邏輯，不要
+// 各自維護一份幾乎一樣的成功/失敗訊息組字＋Modal 開啟流程。呼叫端自己負責
+// 按鈕的 disabled／文字狀態，這裡只管「真的執行同步＋把結果講清楚」。
+export async function runManualCloudSync() {
+  const result = await migrateLocalToCloud();
+
+  // 書籍／願望清單各自的成功筆數只在「這次真的有嘗試搬移」時才拼進 Toast 文字，
+  // 避免兩種資料只有一種缺漏時，訊息裡出現一句沒意義的「0 筆願望清單」。
+  const syncedParts = [];
+  if (result.attemptedCount > 0) syncedParts.push(`${result.migratedBookCount}/${result.attemptedCount} 本書`);
+  if (result.totalLocalWishlist > 0 && result.migratedWishlistCount > 0) syncedParts.push(`${result.migratedWishlistCount} 筆願望清單`);
+
+  if (result.failures.length > 0) {
+    showToast(`已同步${syncedParts.length > 0 ? syncedParts.join('、') : '部分資料'}，${result.failures.length} 筆失敗`);
+    console.log(`[Marginalia 雲端同步] 準備開啟失敗明細視窗（共 ${result.failures.length} 筆）…`);
+    try {
+      openMigrationFailuresModal(result.failures);
+      console.log('[Marginalia 雲端同步] 失敗明細視窗已開啟。');
+    } catch (modalErr) {
+      console.error('[Marginalia 雲端同步] 開啟失敗明細視窗時發生例外，改用 alert() 顯示：', modalErr);
+      window.alert(
+        `${result.failures.length} 筆同步失敗：\n\n`
+        + result.failures.map((f) => `《${f.title}》（${f.store}）\n${f.error?.message || String(f.error)}`).join('\n\n'),
+      );
+    }
+  } else if (syncedParts.length === 0) {
+    showToast('本機資料已經全部在雲端帳號裡了');
+  } else {
+    showToast(`已補齊${syncedParts.join('、')}到雲端帳號`);
+  }
+
+  // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的
+  // 同一個處理方式），手動補發一次讓目前頁面重新抓一次資料，畫出剛同步好的雲端內容。
+  window.dispatchEvent(new Event('hashchange'));
+  return result;
+}
+
 export async function maybeOfferCloudMigration() {
   const user = getCurrentUser();
   if (!user) return;
@@ -420,43 +459,8 @@ export async function maybeOfferCloudMigration() {
     btn.disabled = true;
     btn.textContent = '同步中…';
     try {
-      const result = await migrateLocalToCloud();
+      await runManualCloudSync();
       removeBanner();
-
-      // 失敗明細（如果有）特意排在觸發 hashchange 重新整理頁面「之前」處理，
-      // 不要讓兩件事搶著跑：就算 hashchange 觸發的重繪過程中出了什麼意外，
-      // Modal 也已經確實掛上 document.body 了。openMigrationFailuresModal 本身
-      // 又包一層 try/catch、萬一還是失敗就退而求其次跳原生 alert()——這樣不管
-      // Modal 的 DOM/CSS 有沒有意外出狀況，錯誤明細都保證會有某種形式顯示在
-      // 畫面上，不會整個安靜失敗、只留主控台看得到。
-      // 書籍／願望清單各自的成功筆數只在「這次真的有嘗試搬移」時才拼進 Toast 文字，
-      // 避免兩種資料只有一種缺漏時，訊息裡出現一句沒意義的「0 筆願望清單」。
-      const syncedParts = [];
-      if (result.attemptedCount > 0) syncedParts.push(`${result.migratedBookCount}/${result.attemptedCount} 本書`);
-      if (result.totalLocalWishlist > 0 && result.migratedWishlistCount > 0) syncedParts.push(`${result.migratedWishlistCount} 筆願望清單`);
-
-      if (result.failures.length > 0) {
-        showToast(`已同步${syncedParts.length > 0 ? syncedParts.join('、') : '部分資料'}，${result.failures.length} 筆失敗`);
-        console.log(`[Marginalia 雲端同步] 準備開啟失敗明細視窗（共 ${result.failures.length} 筆）…`);
-        try {
-          openMigrationFailuresModal(result.failures);
-          console.log('[Marginalia 雲端同步] 失敗明細視窗已開啟。');
-        } catch (modalErr) {
-          console.error('[Marginalia 雲端同步] 開啟失敗明細視窗時發生例外，改用 alert() 顯示：', modalErr);
-          window.alert(
-            `${result.failures.length} 筆同步失敗：\n\n`
-            + result.failures.map((f) => `《${f.title}》（${f.store}）\n${f.error?.message || String(f.error)}`).join('\n\n'),
-          );
-        }
-      } else if (syncedParts.length === 0) {
-        showToast('本機資料已經全部在雲端帳號裡了');
-      } else {
-        showToast(`已補齊${syncedParts.join('、')}到雲端帳號`);
-      }
-
-      // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的
-      // 同一個處理方式），手動補發一次讓目前頁面重新抓一次資料，畫出剛同步好的雲端內容。
-      window.dispatchEvent(new Event('hashchange'));
     } catch (err) {
       showToast('同步失敗，請稍後再試一次');
       console.error(err);

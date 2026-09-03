@@ -8,6 +8,22 @@ import { renderTagPage } from './tags.js';
 
 const app = document.getElementById('app');
 
+// 輕量骨架屏，取代原本會整頁卡住不動的「載入中…」文字——不知道目的地頁面
+// 長什麼樣子沒關係，幾條會閃爍的灰色色塊本身就足夠傳達「畫面正在準備」，
+// 比死氣沉沉的純文字有精神，也比整頁空白/舊內容卡著不動更清楚。這是每次
+// 換頁「立刻」（在任何 await 之前）畫出來的東西，真正的頁面內容準備好之後
+// 會直接整個覆蓋掉它，兩者之間沒有共用的 DOM 節點、不需要另外收尾清理。
+function skeletonHtml() {
+  return `
+    <div class="page-skeleton" aria-hidden="true">
+      <div class="skeleton-bar skeleton-bar-title"></div>
+      <div class="skeleton-bar skeleton-bar-wide"></div>
+      <div class="skeleton-bar skeleton-bar-wide"></div>
+      <div class="skeleton-bar skeleton-bar-narrow"></div>
+    </div>
+  `;
+}
+
 function parseHash() {
   // 有些頁面會在 hash 後面夾帶一段自訂查詢字串（例如 bookList.js 的作者篩選
   // #/books?author=X，或願望清單「轉為藏書」帶出的 #/books/new?title=X&note=Y），
@@ -22,6 +38,7 @@ async function route() {
   window.scrollTo(0, 0);
   const parts = parseHash();
   app.className = '';
+  app.innerHTML = skeletonHtml();
   try {
     if (parts[0] === 'backup') {
       await renderBackupPage(app);
