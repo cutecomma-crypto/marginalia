@@ -1,34 +1,31 @@
-/* 全站 Design Tokens，嚴格依 60-30-10 黃金比例分三層：
-   - 60% 背景層：--bg 全頁底（極柔和暖奶白），--surface 卡片/容器底（純白，
-     跟 --bg 拉出一階層次，卡片才會「浮」在頁面上，不是整片同色糊在一起）。
-     --surface-alt 是卡片內部次要區塊／hover 底色，沿用膠囊標籤未選中的暖米色，
-     跟 --surface 的純白區分開，同一色相不同層次。
-   - 30% 文字與架構層：--text 是主要文字/標題/作者名的溫柔深棕，--text-muted
-     是次要文字/日期用的柔和中性灰棕。--border／--border-soft 沒有直接用
-     --text-muted 的實色（一條 1px 分隔線用文字等級的飽和度畫出來，在純白卡片
-     上會顯得厚重、不夠「乾淨」），改用同一色相的低透明度版本，維持「同一個
-     次要色家族」但份量收在分隔線該有的輕重上——這是專業排版判斷，不是隨意偏離
-     指定色票。
-   - 10% 靈魂點綴層：--accent（Flamingo Plume 柔粉）只用在標籤／星星／愛心／
-     頁籤這類「需要被注意到」的少數焦點元素，--accent-hover 是互動時的深玫瑰粉，
-     --accent-soft 是頁籤選中底、標籤選中暈染這類大面積但要收斂彩度的輕柔粉底。
-     --primary 沿用 --text 同一個深棕（主按鈕底色跟主要文字本來就是同一套品牌色），
-     --primary-hover／--primary-soft 是它的深淺兩階衍生色。
-   --accent-green／--danger／--gold 是既有的語意色（借閱狀態／危險操作／螢光筆），
-   跟這次的 60-30-10 主題色階層無關，維持不動，避免功能性顏色被牽連著改到。 */
+/* 全站 Design Tokens——「輕盈高級感」（Lightweight Elegance / Minimalist
+   Luxury）配色改版，取代原本的 60-30-10 暖奶油＋深棕方案：
+   - 背景／卡片層：--bg 換成更淺、更中性的亞麻米色，--surface 維持純白，
+     兩者對比比舊版更收斂（高級感靠留白跟細節分層，不是靠深色底色堆份量）。
+     --surface-alt 是卡片內部次要區塊／hover 底色，同一色相比 --bg 略深一階。
+   - 文字層：--text 改用深石墨棕，刻意避開純黑（純黑在大面積留白裡看起來
+     生硬、缺乏溫度），--text-muted 是次要文字／備註／Placeholder 統一用的
+     「質感灰」。
+   - 按鈕層：這一版首次讓 --primary 脫離 --text——主按鈕改用單獨一支「深可可
+     灰」，跟主要文字的石墨棕故意拉開一點色相差異，按鈕才不會被大段內文文字
+     「吃掉」份量感；--primary-hover 是它的深一階衍生色，--primary-soft 是
+     次要按鈕 hover 墊底用的淺色版本。
+   - 邊框層：--border／--border-soft 維持原本同色相低透明度的做法，用在頁面
+     內文的分隔線／表格／輸入框；--border-hairline 是完全中性、幾乎看不見的
+     髮絲級邊框，這版起正式升級成「卡片」統一使用的邊框語彙（取代舊版純靠
+     陰影撐出邊界的做法），跟前兩者分工不互相取代。
+   --accent 系列（Flamingo Plume 柔粉，標籤／星星／愛心／頁籤用）、
+   --accent-green／--danger／--gold 這些既有的語意色跟這次改版無關，維持不動。 */
 :root {
-  /* 濃度比 #FAF6F0 更深一階的奶油色，讓純白卡片跟底色的對比更明顯，
-     「卡片浮在背景上」的層次感才看得出來——底色跟卡片色太接近時，
-     再怎麼加陰影視覺上都還是會糊在一起。 */
-  --bg: #f2ead9;
+  --bg: #f8f6f0;
   --surface: #ffffff;
-  --surface-alt: #f0ece1;
+  --surface-alt: #f1eee8;
   --border: rgba(140, 122, 112, 0.35);
   --border-soft: rgba(140, 122, 112, 0.2);
-  --text: #4a2e2b;
-  --text-muted: #8c7a70;
-  --primary: #4a2e2b;
-  --primary-hover: #3f2725;
+  --text: #2c2a29;
+  --text-muted: #8c857b;
+  --primary: #4a3e3d;
+  --primary-hover: #3b3231;
   --primary-soft: #e4e0df;
   --accent: #e38b97;
   --accent-hover: #d97787;
@@ -38,22 +35,23 @@
   --danger: #b3492f;
   --danger-soft: #f5e2d9;
   --gold: #d9973f;
-  /* 卡片陰影統一從 --text 這個色相取，陰影是「材質」不是裝飾色，跟品牌色系
-     脫節的灰黑陰影會讓卡片看起來像貼上去的，不是真的立體浮起來。resting 用
-     很淡的 5% 不透明度；hover/互動時用稍微明顯一點的 10%，兩者都不夠深到
-     搶走卡片內容本身的注意力。 */
-  --shadow-card: 0 4px 12px rgba(74, 46, 43, 0.05);
-  --shadow-card-hover: 0 6px 16px rgba(74, 46, 43, 0.1);
-  /* 磨砂玻璃面板（願望清單抽屜／側邊欄卡片）專用的加大、更柔的陰影——比
-     --shadow-card 擴散範圍更廣、不透明度略高一點點，浮起的感覺才夠明顯，
+  /* 「輕盈」的核心就在這裡：陰影份量比舊版再收斂一截，卡片的立體感主要靠
+     --border-hairline 那圈細邊框撐出來，陰影只負責補一點點極輕的浮起感，
+     不再是卡片邊界的主要視覺依據——陰影太重跟這次要的「高級感」互相矛盾，
+     厚重陰影是比較廉價、比較「App 感」的材質語言。resting 狀態幾乎看不出
+     陰影，hover／互動時才稍微明顯一點點，作為互動回饋而不是裝飾。 */
+  --shadow-card: 0 1px 4px rgba(44, 42, 41, 0.04);
+  --shadow-card-hover: 0 4px 10px rgba(44, 42, 41, 0.07);
+  /* 磨砂玻璃面板（願望清單抽屜／側邊欄卡片／Modal）專用的加大、更柔的陰影——
      半透明底＋backdrop-filter 本身已經比實色卡片「輕」，陰影太淡會整個面板
-     顯得沒有重量、像貼紙飄在畫面上。 */
-  --shadow-glass: 0 10px 32px rgba(74, 46, 43, 0.1);
+     顯得沒有重量、像貼紙飄在畫面上，所以比 --shadow-card 擴散範圍更廣一點。 */
+  --shadow-glass: 0 8px 28px rgba(44, 42, 41, 0.08);
   --font-heading: "Yuanti TC", "PingFang TC", sans-serif;
-  /* 中性髮絲級邊框色，刻意跟 --border／--border-soft 的暖棕色調分開——header
-     跟浮起的面板（Modal／Drawer）需要「幾乎看不見、只求切出一條界線」的邊框，
-     用中性黑的極低不透明度，才不會跟同色相的卡片陰影疊加出混濁髒污的邊緣；
-     --border-soft 維持給頁面內文的分隔線／表格用，兩者分工不互相取代。 */
+  /* 中性髮絲級邊框色，刻意跟 --border／--border-soft 的暖棕色調分開——卡片、
+     header、浮起的面板（Modal／Drawer）都改用這條「幾乎看不見、只求切出一條
+     界線」的邊框，中性黑的極低不透明度才不會跟同色相的卡片陰影疊加出混濁
+     髒污的邊緣；--border-soft 維持給頁面內文的分隔線／表格用，兩者分工
+     不互相取代。 */
   --border-hairline: rgba(0, 0, 0, 0.06);
 }
 
@@ -74,8 +72,22 @@ body {
   color: var(--text);
 }
 
+/* 全站輸入框的 Placeholder 統一用 --text-muted 這支「質感灰」，不靠各瀏覽器
+   自己的預設淡灰色——不同瀏覽器的預設 Placeholder 顏色深淺不一致，統一
+   收斂成同一支色票才是真正的「全站一致」。Firefox 預設會把 Placeholder
+   顏色的不透明度打折（大約 54%），這裡明講 opacity:1 蓋掉那個預設行為，
+   不然同一個色碼在 Firefox 裡看起來會比 Chrome/Safari 更淡一階。 */
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* 大標題適度拉開字距，是「精緻感」很直接的視覺訊號——中文字距原本就比
+   拉丁字母寬鬆，0.03em 的幅度刻意壓得很小，感覺得到但不會讀起來斷斷續續。 */
 h1, h2, h3, h4, .section-heading {
   font-family: var(--font-heading);
+  letter-spacing: 0.03em;
 }
 
 header {
@@ -376,14 +388,14 @@ header h1 a {
 .btn {
   display: inline-block;
   padding: 0.45rem 0.9rem;
-  border-radius: 6px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   text-decoration: none;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* 一般次要按鈕平常維持素雅的白底/暖米 hover，滑過或聚焦時才「亮」成粉紅底，
@@ -448,9 +460,14 @@ header h1 a {
   color: #fff;
 }
 
+/* 主按鈕（新增書籍／加入願望清單／登入……）hover 時極微小地浮升一點點，
+   搭配一圈同色相的淡陰影——幅度刻意壓得很小（1px 位移），這是「有質感的
+   回饋」跟「浮誇的動畫」之間的分寸，浮太多在密集的表單/工具列裡反而顯得躁動。 */
 .btn-primary:hover {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(44, 42, 41, 0.18);
 }
 
 .btn-danger {
@@ -920,17 +937,18 @@ header h1 a {
   }
 }
 
-/* 白卡片靠陰影跟底色的明暗差自己浮出來，拿掉原本的實線邊框——邊框+陰影
-   兩種立體暗示疊在一起在雜誌排版裡反而顯得雜，純陰影更乾淨（這個決定不變，
-   下面只是加了磨砂玻璃質感，不是重新加回邊框）。底色從實色 --surface 換成
-   半透明版本＋backdrop-filter，陰影也從 --shadow-card 換成擴散範圍更大、
-   更柔和的 --shadow-glass，玻璃質感的卡片份量感比實色卡片輕，陰影要跟著
-   放大一點才不會看起來像貼紙飄浮著。 */
+/* 「輕盈高級感」改版明確要求卡片改回加邊框——蓋掉先前「純陰影、不加邊框」
+   的決定：陰影份量現在收得比以前更淡（--shadow-glass 也已經跟著新色票變輕），
+   單靠陰影已經不夠清楚切出卡片邊界，改用幾乎看不見的 --border-hairline
+   髮絲線頂上，邊框+極淡陰影兩者現在的份量都很輕，疊在一起不會顯得雜。
+   底色維持半透明＋backdrop-filter 的磨砂玻璃處理，圓角統一收斂成全站卡片
+   共用的 10px。 */
 .sidebar-panel {
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(14px) saturate(150%);
   -webkit-backdrop-filter: blur(14px) saturate(150%);
-  border-radius: 12px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
   box-shadow: var(--shadow-glass);
   padding: 1rem 1.1rem;
 }
@@ -1131,7 +1149,8 @@ header h1 a {
   width: 100%;
   border-collapse: collapse;
   background: var(--surface);
-  border-radius: 12px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
   overflow: hidden;
   box-shadow: var(--shadow-card);
 }
@@ -1249,9 +1268,18 @@ header h1 a {
     width: 100%;
   }
 
+  /* 手機版每一列 <tr> 各自變成一張獨立卡片，桌面版套在整張 <table> 外層的
+     邊框／陰影這時候會變成一個多餘的外框包住整疊卡片，這裡重設掉，讓
+     邊框跟陰影都只出現在每張獨立的 <tr> 卡片上。 */
+  .book-table {
+    border: none;
+    box-shadow: none;
+  }
+
   .book-table tr {
     margin-bottom: 0.9rem;
     padding: 0.9rem 1rem;
+    border: 1px solid var(--border-hairline);
     border-radius: 10px;
     box-shadow: var(--shadow-card);
   }
@@ -1661,7 +1689,8 @@ header h1 a {
   flex-direction: column;
   gap: 1rem;
   background: var(--surface);
-  border-radius: 12px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
   box-shadow: var(--shadow-card);
   padding: 1rem 1.25rem;
   margin-bottom: 1.5rem;
@@ -2094,11 +2123,18 @@ header h1 a {
   padding: 1rem;
 }
 
+/* Modal 卡片跟願望清單抽屜同一套「磨砂玻璃」處理：底色從全不透明的 --surface
+   換成半透明版本＋backdrop-filter，透明度刻意留得比抽屜高（0.9 而不是 0.82），
+   Modal 通常裝著登入表單這類需要專注閱讀的內容，玻璃感要夠、但不能犧牲
+   文字對比度。陰影也從原本偏重、色相跟品牌色系脫節的深色陰影，換成同一套
+   --shadow-glass 語言，跟卡片改版後「輕盈」的整體調性一致。 */
 .modal-card {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
   border: 1px solid var(--border-hairline);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(35, 27, 20, 0.25);
+  box-shadow: var(--shadow-glass);
   padding: 1.5rem;
   width: 360px;
   max-width: 100%;
@@ -2264,8 +2300,8 @@ header h1 a {
 
 .output-item {
   background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
   padding: 0.75rem 1rem;
   position: relative;
 }
@@ -2565,9 +2601,9 @@ header h1 a {
 
 .quote-card {
   background: var(--surface);
-  border: 1px solid var(--border-soft);
+  border: 1px solid var(--border-hairline);
   border-left: 3px solid var(--primary);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.85rem 0.95rem;
   display: flex;
   flex-direction: column;
@@ -3430,7 +3466,8 @@ header h1 a {
 
 .graph-panel {
   background: var(--surface);
-  border-radius: 12px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
   box-shadow: var(--shadow-card);
   padding: 1rem 1.1rem;
   margin-bottom: 1rem;
@@ -3598,7 +3635,7 @@ header h1 a {
      的半透明版本，玻璃感才有東西可以「透」，光靠 backdrop-filter 疊在完全不透明
      的底色上不會有任何視覺效果。saturate 稍微拉高一點點，補回半透明本身會讓
      顏色看起來變「淡」的份量，不加的話玻璃感容易變成單純的霧灰。 */
-  background: rgba(242, 234, 217, 0.82);
+  background: rgba(248, 246, 240, 0.82);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   border-left: 1px solid var(--border-hairline);
@@ -3606,7 +3643,7 @@ header h1 a {
      --shadow-glass 同一套柔和、取自 --text 色相的陰影語言，但保留原本的
      負值水平位移跟較大的擴散半徑，單純用 --shadow-glass（純垂直陰影）
      會讓一個貼齊右邊界、佔滿 100vh 高度的面板看起來完全沒有陰影。 */
-  box-shadow: -8px 0 32px rgba(74, 46, 43, 0.12);
+  box-shadow: -8px 0 32px rgba(44, 42, 41, 0.1);
   transform: translateX(100%);
   transition: transform 0.28s ease;
   z-index: 151;
@@ -3749,7 +3786,7 @@ header h1 a {
   cursor: pointer;
   font-size: 0.88rem;
   padding: 0.3rem 0.5rem;
-  border-radius: 8px;
+  border-radius: 10px;
   line-height: 1;
   transition: background-color 0.15s ease;
 }
@@ -3884,12 +3921,13 @@ header h1 a {
   text-decoration: none;
   color: var(--text);
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
-  /* 這裡跟其他單張卡片（sidebar-panel／book-header-panel／graph-panel）不同，
-     保留一圈很淡的邊框：格狀排列時很多張卡片緊挨在一起，純靠陰影不容易分清楚
-     每張卡片的邊界，邊框+陰影一起才夠清楚。 */
-  border: 1px solid var(--border-soft);
+  /* 格狀排列時很多張卡片緊挨在一起，純靠陰影不容易分清楚每張卡片的邊界，
+     邊框+陰影一起才夠清楚——現在全站卡片統一改用 --border-hairline 這條
+     幾乎看不見的髮絲線，跟 sidebar-panel／book-header-panel／graph-panel
+     用同一套邊框語彙，不再是這張卡片獨有的例外處理。 */
+  border: 1px solid var(--border-hairline);
   box-shadow: var(--shadow-card);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   /* 讓下面的類型標籤可以用「這張卡片本身量到的寬度」決定要不要顯示，
