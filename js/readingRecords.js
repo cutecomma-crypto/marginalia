@@ -48,7 +48,7 @@ export async function renderReadingSection(container, bookId, book, options = {}
             </label>
             <label>閱讀次數<input type="number" name="readCount" min="0" value="${escapeHtml(record ? record.readCount || 0 : 0)}"></label>
           </div>
-          <label>評分
+          <label class="rating-field">評分
             <span class="star-rating" id="star-rating">${starButtons(record && record.rating)}</span>
             <input type="hidden" name="rating" value="${record && record.rating ? record.rating : 0}">
           </label>

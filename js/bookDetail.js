@@ -49,14 +49,21 @@ export async function renderBookDetail(container, rawId) {
   // Toast 文案兩邊不會各自維護一份、久了長出落差。
   const quickAction = QUICK_RETENTION_ACTIONS[book.retentionStatus];
 
+  // 手機版詳情頁整套重構（封面置中放大、資訊改直式排列、進度卡單欄化……）
+  // 只鎖定書籍詳情頁這一種頁面，其他頁面共用的 main／.toolbar 都不該被連帶
+  // 影響——沿用跟 bookList.js 的「藏書統計」抽屜按鈕一樣的手法：掛一個
+  // body class 當 CSS 的範圍限定旗標，app.js 的 route() 在每次換頁最前面
+  // 會先移除掉，只有真的執行到這裡才會重新加回來，離開這頁就自動失效。
+  document.body.classList.add('is-book-detail-page');
+
   container.innerHTML = `
-    <div class="toolbar">
-      <a href="#/books">← 回列表</a>
+    <div class="toolbar detail-toolbar">
+      <a href="#/books" class="detail-back-link">← 回列表</a>
       <div class="toolbar-actions">
         ${quickAction ? `<button type="button" class="btn quick-action-btn" id="quick-action-btn">${escapeHtml(quickAction.label)}</button>` : ''}
-        <a class="btn" href="#/books/${bookId}/graph">🕸️ 關係圖譜</a>
-        <a class="btn" href="#/books/${bookId}/edit">編輯</a>
-        <button type="button" class="btn btn-danger" id="delete-book">刪除</button>
+        <a class="btn detail-action-btn" href="#/books/${bookId}/graph" title="關係圖譜">🕸️<span class="btn-label"> 關係圖譜</span></a>
+        <a class="btn detail-action-btn" href="#/books/${bookId}/edit" title="編輯">✏️<span class="btn-label"> 編輯</span></a>
+        <button type="button" class="btn btn-danger detail-action-btn" id="delete-book" title="刪除">🗑️<span class="btn-label"> 刪除</span></button>
       </div>
     </div>
     <div class="book-header-panel">

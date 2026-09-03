@@ -2385,6 +2385,153 @@ header h1 a {
   font-size: 1.2rem;
 }
 
+/* 手機版書籍詳情頁整套重構：body.is-book-detail-page 是只有這一頁會掛上的
+   範圍限定旗標（見 bookDetail.js renderBookDetail() 開頭的說明、app.js 的
+   route() 重置邏輯），底下所有規則都靠這個字首限定只在書籍詳情頁生效，
+   不會波及書籍列表／表單／圖譜等其他也會用到 .toolbar／main 的頁面。 */
+@media (max-width: 640px) {
+  /* main 的 padding 全站共用（見前面 @media(max-width:1024px) 的
+     main{padding:80px 16px 24px 16px} 規則），這裡只在有 body class 限定的
+     情況下才覆蓋成這一頁專屬的數值，其他頁面完全不受影響。 */
+  body.is-book-detail-page main {
+    padding: 70px 16px 32px 16px !important;
+  }
+
+  /* 「← 回列表」原本是裸的文字連結，改成一顆淡底圓角的簡潔按鈕，跟右側
+     一排 Icon 按鈕的份量感更接近，也更明確傳達「這是可以點的操作」。 */
+  .detail-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  /* 關係圖譜／編輯／刪除三顆按鈕在窄螢幕縮成只剩 Emoji 的極簡 Icon 按鈕，
+     文字用 .btn-label 包起來直接藏掉——按鈕本身還是 <a>/<button>，可點擊
+     範圍、title 提示文字都還在，只是視覺上不再擠佔導覽列的寬度。「一鍵
+     歸還／已收回」那顆快捷按鈕文字通常很短、狀態相關資訊比較重要，維持
+     原樣不縮成 Icon。 */
+  .detail-toolbar .btn-label {
+    display: none;
+  }
+
+  .detail-action-btn {
+    padding: 0.5rem 0.65rem;
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  /* 封面＋書名＋資訊欄原本是「封面在左、文字擠在右邊」的橫式排列，窄螢幕
+     兩邊都被壓縮；改成封面置中放大、書名／標籤跟著置中排在下方的直式
+     優雅佈局，資訊網格則維持靠左（閱讀方向一致，只有標題區塊置中）。 */
+  .book-header-top {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .book-header-info {
+    width: 100%;
+  }
+
+  /* 110x156 的桌機縮圖尺寸在這裡放大到 130x182（維持 5:7 書封比例），
+     box-shadow 沿用 .book-cover-image 基礎規則本來就有的立體陰影，不用
+     另外加一份——封面本身已經是視覺焦點，不需要疊加更誇張的陰影。
+     !important：<img> 同時掛 .book-cover-image／.book-cover-image-sm 兩個
+     class，兩條規則選擇器優先度相同，但 .book-cover-image 的尺寸規則寫在
+     這個檔案更後面（書籍表單封面上傳預覽那一區），沒有媒體查詢限制、
+     原始碼順序又比較後面，會蓋掉這裡——同一種「優先度相同、純粹比原始碼
+     順序」的坑，這個檔案已經跌倒過好幾次，直接用 !important 排除。 */
+  .book-cover-image-sm {
+    width: 130px !important;
+    height: 182px !important;
+  }
+
+  .book-header-info h2 {
+    font-size: 1.4rem;
+    text-align: center;
+  }
+
+  .detail-tags {
+    justify-content: center;
+  }
+
+  /* 6 個欄位資料改成 2 欄的微型卡片、不再是裸文字左右分欄——每一格自己有
+     淡底色跟圓角，資訊彼此之間的邊界更清楚，也比純文字堆疊更有「卡片」的
+     精緻感。內容本身（作者名稱、日期……）維持靠左，跟上面置中的書名／
+     標籤區塊形成清楚的視覺層次（標題置中吸睛，內文靠左方便閱讀）。 */
+  .detail-grid-compact {
+    grid-template-columns: 1fr 1fr;
+    text-align: left;
+    width: 100%;
+  }
+
+  .detail-row {
+    background: var(--surface-alt);
+    border-radius: 8px;
+    padding: 0.5rem 0.65rem;
+  }
+
+  /* 閱讀進度設定卡片單欄化：狀態／開始日期／完成日期／閱讀進度／閱讀
+     次數全部直向堆疊、各自滿版寬——.progress-pair-row 原本強制「閱讀進度
+     ／閱讀次數」並排成一行對半分，這裡也一併打散成單欄，不再是這張卡片
+     裡唯一的例外。 */
+  .progress-form-grid,
+  .progress-pair-row {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-pair-row {
+    grid-column: span 1;
+  }
+
+  /* 表單控制項統一給明確的 42px 高度（這次「單欄化」明確指定的數字），
+     取代 select／date/number 三種原生表單元件天生高度對不齊的問題。
+     .book-form input/select 另外有一條全站共用的 min-height:44px（見前面
+     ≤768px 觸控下限那個區塊），跟 height 是兩個獨立屬性、互不衝突，但
+     min-height 永遠是一條「不能再矮」的下限，同時設 height:42px 也蓋不掉
+     它，量出來還是 44px 不是要求的 42px——這個檔案已經在同一個坑跌倒過
+     好幾次（見前面 .search-input／.sort-select 那條同類註解），這裡一併
+     覆蓋 min-height 才會真的量出 42px。 */
+  .reading-progress-form select,
+  .reading-progress-form input {
+    width: 100%;
+    height: 42px !important;
+    min-height: 42px !important;
+    box-sizing: border-box;
+  }
+
+  /* 閱讀進度／閱讀次數的數字輸入框在單欄化之後不用再讓 .page-input 維持
+     桌機版那個刻意縮窄的 4.5rem 寬度。 */
+  .page-input {
+    width: 100%;
+  }
+
+  .page-progress {
+    width: 100%;
+  }
+
+  /* 評分星級獨立成單獨一行、整行置中——跟上面幾個「輸入框滿版寬、靠左」
+     的欄位刻意做出區隔：星星本身是點擊互動，置中比較符合「這是一個獨立
+     的評分動作」的直覺，不需要跟其他輸入框對齊同一條左邊界。 */
+  .rating-field {
+    text-align: center;
+  }
+
+  .rating-field .star-rating {
+    display: flex;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+}
+
 .author-cell {
   display: flex;
   align-items: baseline;

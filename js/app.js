@@ -43,6 +43,9 @@ async function route() {
   // 顯示開關，每次換頁先重設掉，只有 renderBookList() 真的執行時才會重新
   // 加回來，離開書籍列表頁按鈕就會自動隱藏，不會留著一顆按下去沒反應的按鈕。
   document.body.classList.remove('has-sidebar-drawer');
+  // 書籍詳情頁手機版重構專用的範圍限定旗標，見 bookDetail.js 開頭的說明——
+  // 每次換頁先移除，只有真的渲染到書籍詳情頁才會重新加回來。
+  document.body.classList.remove('is-book-detail-page');
   app.innerHTML = skeletonHtml();
   try {
     if (parts[0] === 'backup') {
