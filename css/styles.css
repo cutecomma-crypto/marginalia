@@ -888,10 +888,12 @@ header h1 a {
   min-width: 0;
 }
 
-/* 860px 這個門檻比平板直立寬度（iPad 768px 上下）還寬，導致平板直立、甚至部分平板
-   橫向都被算進「窄螢幕」，硬是被推成單欄、側邊欄掉到最下面。改成 640px，只有真正的
-   手機寬度才會收成單欄，平板不管直立橫向都維持左右雙欄。 */
-@media (max-width: 640px) {
+/* 這個門檻跟 Header／書籍表格的手機版斷點（768px）統一，「我的藏書概況」側邊欄
+   在手機寬度下改成單欄、寬度滿版（100%）呈現，裡面的統計卡片（閱讀中／尚未閱讀／
+   已讀完）才會跟著撐開到全螢幕寬，不會被硬壓在原本 27% 寬的側欄裡擠成一團。
+   （這裡原本用 640px 是為了讓平板維持雙欄，但這次手機版整體排版調整優先統一
+   斷點，平板直立也一併收成單欄，換取跟其他手機版修正一致的行為。） */
+@media (max-width: 768px) {
   .dashboard-layout {
     grid-template-columns: 1fr;
   }
@@ -900,9 +902,11 @@ header h1 a {
     order: 2;
     max-height: none;
     overflow-y: visible;
+    width: 100%;
   }
   .dashboard-main {
     order: 1;
+    width: 100%;
   }
 }
 
@@ -1208,6 +1212,94 @@ header h1 a {
 
 .book-table tbody tr:hover a {
   color: var(--primary-hover);
+}
+
+/* 手機版把整張表格轉成一疊卡片，不要硬擠成一張橫向捲動、字都被壓扁的迷你表格——
+   五個欄位（書名／作者／類型／完成日期／書籍歸還）在窄螢幕上完全放不下，逐格
+   橫向捲動在手指操作下也不好滑。做法是拿掉 <table> 的表格語意（thead 直接藏起來，
+   每個元素都改成 block／flex），每一列 <tr> 變成一張獨立卡片，每個 <td> 用
+   data-label 屬性（見 bookList.js 的 bookRow()）配 ::before 補上欄位名稱，
+   讀起來像「書名：〇〇〇」「作者：〇〇〇」一行行列出來，不用另外寫一套完全
+   不同的手機版 HTML 樣板。 */
+@media (max-width: 768px) {
+  .book-table thead {
+    display: none;
+  }
+
+  .book-table,
+  .book-table tbody,
+  .book-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .book-table tr {
+    margin-bottom: 0.9rem;
+    padding: 0.9rem 1rem;
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .book-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .book-table tbody tr:nth-child(even) {
+    background: var(--surface);
+  }
+
+  .book-table td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--border-soft);
+    text-align: right;
+    white-space: normal;
+  }
+
+  .book-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* 桌面版「書籍類型／完成日期／書籍歸還」三欄有專屬的置中＋左右內距規則
+     （.book-table td:nth-child(3)/(4)/(5)，見上面），選擇器比這裡的 .book-table td
+     更精細，手機版卡片化之後如果不重設，那三行會比「書名」「作者」多一段
+     左內距，卡片裡的標籤看起來歪一邊對不齊。這裡用同樣的 nth-child 選擇器
+     蓋回去，跟其餘欄位保持同一套間距與靠右對齊。 */
+  .book-table td:nth-child(3),
+  .book-table td:nth-child(4),
+  .book-table td:nth-child(5) {
+    padding-left: 0;
+    padding-right: 0;
+    text-align: right;
+  }
+
+  /* 「書籍歸還」欄位大多數書都是空的（沒有快捷按鈕），卡片版不想每張卡片都
+     多留一行空白的「書籍歸還：」——整格沒內容時直接不佔版面。 */
+  .book-table td.action-cell:empty {
+    display: none;
+  }
+
+  .book-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* 作者欄除了「作者」標籤，實際內容是愛心圖示＋作者名稱兩個節點，用一個
+     wrapper span 包起來（見 bookList.js 的 bookRow()），這樣 <td> 底下永遠
+     只有「標籤 ::before ＋ 一個內容節點」兩個 flex 子項，space-between 才會
+     正確把標籤推左、內容整組推右，不會因為愛心跟名稱是兩個獨立節點而被
+     space-between 拆開、卡在標籤跟名稱中間變成一個奇怪的空隙。 */
+  .author-cell-value {
+    display: inline-flex;
+    align-items: baseline;
+  }
 }
 
 .book-list-count {

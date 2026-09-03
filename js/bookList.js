@@ -85,13 +85,16 @@ function quickActionBtnHtmlInline(book) {
 function bookRow(book, favoriteAuthors, recordMap) {
   const record = recordMap.get(book.id);
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
+  // data-label：手機版把表格轉成一張張卡片時（見 styles.css 的 @media (max-width: 768px)
+  // .book-table 區塊），每個 <td> 用 CSS ::before 讀這個屬性當左側欄位名稱標籤，
+  // 不用另外為手機版寫一套完全不同的卡片 HTML 樣板。
   return `
     <tr>
-      <td><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a></td>
-      <td class="author-cell"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</td>
-      <td>${escapeHtml(book.category)}</td>
-      <td>${completedDateCell(record)}</td>
-      <td class="action-cell">${quickActionBtnHtml(book)}</td>
+      <td data-label="書名"><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a></td>
+      <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
+      <td data-label="書籍類型">${escapeHtml(book.category)}</td>
+      <td data-label="完成日期">${completedDateCell(record)}</td>
+      <td class="action-cell" data-label="書籍歸還">${quickActionBtnHtml(book)}</td>
     </tr>
   `;
 }
