@@ -3654,8 +3654,17 @@ header h1 a {
   transform: translateX(100%);
   transition: transform 0.28s ease;
   z-index: 151;
-  overflow-y: auto;
   padding: 1.5rem 1.25rem;
+  /* 版面改成 flex 直排＋讓清單自己 flex:1 撐滿剩餘空間（見 .wishlist-list），
+     標題／新增區塊維持內容多高就多高，清單自然分到「扣掉那些之後剩下的全部
+     空間」——不用去硬算、硬寫一個 80% 的高度數字，表單展開/收合時清單的
+     可用高度也會跟著自動增減，不會因為表單變高就被切掉一塊看不到。
+     overflow-y:auto 留在最外層當一個保險：正常情況下只有 .wishlist-list
+     內部會捲動，但如果哪天標題／表單本身撐得比視窗還高（例如極矮的
+     橫向手機），外層還能整個捲動，內容不會直接被裁掉看不到。 */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 
 .wishlist-drawer.is-open {
@@ -3664,6 +3673,7 @@ header h1 a {
 
 .wishlist-drawer-close {
   display: block;
+  flex-shrink: 0;
   margin: 0 0 1rem auto;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -3680,35 +3690,85 @@ header h1 a {
   border-color: var(--danger);
 }
 
-.wishlist-drawer h3 {
-  margin: 0 0 0.4rem;
+.wishlist-drawer-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
 }
 
-.wishlist-drawer-hint {
-  margin: 0 0 1rem;
-  font-size: 0.82rem;
+.wishlist-drawer-head h3 {
+  margin: 0;
+}
+
+.wishlist-count {
+  font-size: 0.8rem;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
-.wishlist-drawer-divider {
-  border-top: 1px solid var(--border-soft);
-  margin: 1.25rem 0 1rem;
+/* 表單區塊（新增按鈕＋收合的表單）本身不隨清單捲動，用一條極淡的分隔線
+   跟下面的清單切開來，份量比表單展開時的視覺重量小很多，收合狀態下
+   幾乎感覺不到它的存在。 */
+.wishlist-form-area {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.wishlist-add-toggle-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+/* 表單展開／收合用 CSS Grid 的 0fr→1fr 技巧（不是 max-height 或 JS 量測高度）：
+   grid-template-rows 動畫到 auto 大小天生就抓得準確，不用像 max-height 那樣
+   自己猜一個「應該夠大」的數字，也不用每次表單欄位增減時跟著回頭調整。
+   .wishlist-form-collapse-inner 的 overflow:hidden 是這個技巧的必要條件——
+   收合時那一列的高度是 0，裡面的表單內容要真的被裁掉看不見，不能溢出來。
+   padding-top 特意放在 inner 而不是外層，這樣收合時會跟著一起被裁成 0，
+   不用另外對 margin/padding 做一次沒辦法跟著這個 transition 一起動畫的切換。 */
+.wishlist-form-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.wishlist-form-collapse.is-open {
+  grid-template-rows: 1fr;
+}
+
+.wishlist-form-collapse-inner {
+  overflow: hidden;
+  min-height: 0;
+  padding-top: 0.9rem;
 }
 
 .wishlist-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  /* 清單是抽屜裡唯一會撐滿剩餘空間、自己捲動的區塊，見上面 .wishlist-drawer
+     的說明——flex:1 讓它自動吃掉標題／表單以外的所有高度，min-height:0
+     是讓 flex 子項目真的能夠比它「自然內容高度」更矮、進而觸發內部捲動
+     所必須的設定（沒有這行，flex 子項目預設不會縮小到比內容還矮）。 */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .wishlist-list li {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 0.65rem;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-alt);
@@ -3725,34 +3785,39 @@ header h1 a {
 .wishlist-item-main {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.1rem;
   margin-right: auto;
   min-width: 0;
 }
 
-/* 書名／作者／備註三層字級與顏色刻意拉開層次：書名是清單裡唯一「深色＋加粗」
-   的內容，作者次一階（一般字重、莫蘭迪灰棕），備註是最安靜的輔助資訊，額外用
-   斜體跟稍淺一階的字級把它跟「作者」這種事實性資料視覺上區分開——同樣都是
-   text-muted 色階，斜體才是備註「附加說明、非必要」語意的視覺標記。 */
+/* 書名／作者／備註原本各自獨立一行，現在作者＋備註合併成同一行「中介資訊」
+   （中間用「·」分隔，見 wishlist.js 的 itemMetaLine），書名跟這一行都強制
+   單行＋超出省略號——每張卡片固定最多兩行，才能真正達到「一次瀏覽多本書」
+   的密度目標，不會被少數幾筆備註特別長的項目拉高整份清單。字級／顏色的
+   兩層階層還在：書名深色加粗，中介資訊統一 text-muted，備註的部分再疊一層
+   斜體（.wishlist-item-note-text）維持它是「附加說明、非必要」的視覺標記。 */
 .wishlist-item-title {
+  display: block;
   font-size: 0.92rem;
   color: var(--text);
   font-weight: 600;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.wishlist-item-author {
-  font-size: 0.8rem;
+.wishlist-item-meta {
+  display: block;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.wishlist-item-note {
-  font-size: 0.74rem;
-  color: var(--text-muted);
+.wishlist-item-note-text {
   font-style: italic;
   opacity: 0.85;
-  overflow-wrap: anywhere;
 }
 
 .wishlist-item-actions {
@@ -3762,14 +3827,14 @@ header h1 a {
   flex-shrink: 0;
 }
 
-/* 「轉為藏書」「取消編輯」是清單裡的次要動作（真正的主要動作是表單頂端的
-   「＋ 加入願望清單」／「儲存修改」，維持 .btn-primary 的實心深棕），改成
-   Outline 框線風格：平常只有一圈細框跟文字，不搶主要按鈕的視覺份量，
+/* 「轉為藏書」「取消」是清單／表單裡的次要動作（真正的主要動作是「＋ 新增
+   願望」／「＋ 加入願望清單」／「儲存修改」，維持 .btn-primary 的實心深棕），
+   改成 Outline 框線風格：平常只有一圈細框跟文字，不搶主要按鈕的視覺份量，
    hover 時才用 --primary-soft 淺淺地墊出底色，是「輕觸即有回饋」而不是
-   一開始就一整塊實色杵在清單裡。同一組規則套用到 #wishlist-cancel-edit-btn，
+   一開始就一整塊實色杵在清單裡。同一組規則套用到 #wishlist-form-cancel-btn，
    兩顆按鈕語意上都是「次要、可能被忽略也沒關係」的動作。 */
 .wishlist-convert-btn,
-#wishlist-cancel-edit-btn {
+#wishlist-form-cancel-btn {
   background: transparent;
   border: 1px solid var(--primary);
   color: var(--primary);
@@ -3777,7 +3842,7 @@ header h1 a {
 }
 
 .wishlist-convert-btn:hover,
-#wishlist-cancel-edit-btn:hover {
+#wishlist-form-cancel-btn:hover {
   background: var(--primary-soft);
   border-color: var(--primary-hover);
   color: var(--primary-hover);
