@@ -44,7 +44,17 @@
      搶走卡片內容本身的注意力。 */
   --shadow-card: 0 4px 12px rgba(74, 46, 43, 0.05);
   --shadow-card-hover: 0 6px 16px rgba(74, 46, 43, 0.1);
+  /* 磨砂玻璃面板（願望清單抽屜／側邊欄卡片）專用的加大、更柔的陰影——比
+     --shadow-card 擴散範圍更廣、不透明度略高一點點，浮起的感覺才夠明顯，
+     半透明底＋backdrop-filter 本身已經比實色卡片「輕」，陰影太淡會整個面板
+     顯得沒有重量、像貼紙飄在畫面上。 */
+  --shadow-glass: 0 10px 32px rgba(74, 46, 43, 0.1);
   --font-heading: "Yuanti TC", "PingFang TC", sans-serif;
+  /* 中性髮絲級邊框色，刻意跟 --border／--border-soft 的暖棕色調分開——header
+     跟浮起的面板（Modal／Drawer）需要「幾乎看不見、只求切出一條界線」的邊框，
+     用中性黑的極低不透明度，才不會跟同色相的卡片陰影疊加出混濁髒污的邊緣；
+     --border-soft 維持給頁面內文的分隔線／表格用，兩者分工不互相取代。 */
+  --border-hairline: rgba(0, 0, 0, 0.06);
 }
 
 * {
@@ -70,7 +80,7 @@ h1, h2, h3, h4, .section-heading {
 
 header {
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-hairline);
   background: var(--surface);
   display: flex;
   align-items: center;
@@ -911,11 +921,17 @@ header h1 a {
 }
 
 /* 白卡片靠陰影跟底色的明暗差自己浮出來，拿掉原本的實線邊框——邊框+陰影
-   兩種立體暗示疊在一起在雜誌排版裡反而顯得雜，純陰影更乾淨。 */
+   兩種立體暗示疊在一起在雜誌排版裡反而顯得雜，純陰影更乾淨（這個決定不變，
+   下面只是加了磨砂玻璃質感，不是重新加回邊框）。底色從實色 --surface 換成
+   半透明版本＋backdrop-filter，陰影也從 --shadow-card 換成擴散範圍更大、
+   更柔和的 --shadow-glass，玻璃質感的卡片份量感比實色卡片輕，陰影要跟著
+   放大一點才不會看起來像貼紙飄浮著。 */
 .sidebar-panel {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
   border-radius: 12px;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-glass);
   padding: 1rem 1.1rem;
 }
 
@@ -1562,12 +1578,23 @@ header h1 a {
 .book-form textarea {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.95rem;
   background: var(--surface);
   color: var(--text);
   font-family: inherit;
   resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* focus 時用同一套暖棕色相的柔光外框取代瀏覽器預設的藍色外框，跟卡片陰影
+   （同樣取自 --text 色相）呼應成同一套材質語言，而不是憑空冒出一圈不相干的藍。 */
+.book-form input:focus,
+.book-form select:focus,
+.book-form textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 46, 43, 0.14);
 }
 
 .form-actions {
@@ -2069,6 +2096,7 @@ header h1 a {
 
 .modal-card {
   background: var(--surface);
+  border: 1px solid var(--border-hairline);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(35, 27, 20, 0.25);
   padding: 1.5rem;
@@ -2094,11 +2122,19 @@ header h1 a {
 .modal-card select {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.95rem;
   background: var(--surface);
   color: var(--text);
   font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modal-card input:focus,
+.modal-card select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 46, 43, 0.14);
 }
 
 .modal-actions {
@@ -3558,8 +3594,19 @@ header h1 a {
   height: 100vh;
   width: 380px;
   max-width: 90vw;
-  background: var(--bg);
-  box-shadow: -10px 0 28px rgba(35, 27, 20, 0.22);
+  /* 半透明底＋backdrop-filter 做出磨砂玻璃質感：底色從實色 --bg 換成同一個顏色
+     的半透明版本，玻璃感才有東西可以「透」，光靠 backdrop-filter 疊在完全不透明
+     的底色上不會有任何視覺效果。saturate 稍微拉高一點點，補回半透明本身會讓
+     顏色看起來變「淡」的份量，不加的話玻璃感容易變成單純的霧灰。 */
+  background: rgba(242, 234, 217, 0.82);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border-left: 1px solid var(--border-hairline);
+  /* 抽屜從右側滑出，陰影要往左邊「投」才會有懸浮在內容上方的感覺——沿用
+     --shadow-glass 同一套柔和、取自 --text 色相的陰影語言，但保留原本的
+     負值水平位移跟較大的擴散半徑，單純用 --shadow-glass（純垂直陰影）
+     會讓一個貼齊右邊界、佔滿 100vh 高度的面板看起來完全沒有陰影。 */
+  box-shadow: -8px 0 32px rgba(74, 46, 43, 0.12);
   transform: translateX(100%);
   transition: transform 0.28s ease;
   z-index: 151;
@@ -3639,8 +3686,12 @@ header h1 a {
   min-width: 0;
 }
 
+/* 書名／作者／備註三層字級與顏色刻意拉開層次：書名是清單裡唯一「深色＋加粗」
+   的內容，作者次一階（一般字重、莫蘭迪灰棕），備註是最安靜的輔助資訊，額外用
+   斜體跟稍淺一階的字級把它跟「作者」這種事實性資料視覺上區分開——同樣都是
+   text-muted 色階，斜體才是備註「附加說明、非必要」語意的視覺標記。 */
 .wishlist-item-title {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--text);
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -3653,8 +3704,10 @@ header h1 a {
 }
 
 .wishlist-item-note {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.85;
   overflow-wrap: anywhere;
 }
 
@@ -3665,22 +3718,44 @@ header h1 a {
   flex-shrink: 0;
 }
 
-.wishlist-convert-btn {
+/* 「轉為藏書」「取消編輯」是清單裡的次要動作（真正的主要動作是表單頂端的
+   「＋ 加入願望清單」／「儲存修改」，維持 .btn-primary 的實心深棕），改成
+   Outline 框線風格：平常只有一圈細框跟文字，不搶主要按鈕的視覺份量，
+   hover 時才用 --primary-soft 淺淺地墊出底色，是「輕觸即有回饋」而不是
+   一開始就一整塊實色杵在清單裡。同一組規則套用到 #wishlist-cancel-edit-btn，
+   兩顆按鈕語意上都是「次要、可能被忽略也沒關係」的動作。 */
+.wishlist-convert-btn,
+#wishlist-cancel-edit-btn {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
   white-space: nowrap;
 }
 
+.wishlist-convert-btn:hover,
+#wishlist-cancel-edit-btn:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary-hover);
+  color: var(--primary-hover);
+}
+
+/* ✏️／🗑️ 兩顆圖示按鈕原本完全透明、只有 hover 時才浮出一塊灰底，平常跟
+   背景融在一起到近乎看不見。改成隨時都墊著一層極淺的柔和底色（同一份
+   --surface-alt，跟側邊欄卡片內部次要區塊同色），變成清楚可辨識的「按鈕」
+   而不是容易被忽略的裸文字圖示，hover 再加深一階到 --primary-soft。 */
 .wishlist-icon-btn {
   border: none;
-  background: none;
+  background: var(--surface-alt);
   cursor: pointer;
-  font-size: 0.95rem;
-  padding: 0.1rem 0.3rem;
-  border-radius: 4px;
+  font-size: 0.88rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
   line-height: 1;
+  transition: background-color 0.15s ease;
 }
 
 .wishlist-icon-btn:hover {
-  background: var(--surface);
+  background: var(--primary-soft);
 }
 
 @media (max-width: 768px) {
