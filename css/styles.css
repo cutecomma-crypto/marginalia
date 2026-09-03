@@ -351,10 +351,13 @@ main {
    padding-top/right/bottom/left 四個方向），跟這裡單獨設定的 padding-top
    選擇器優先度相同，寫在前面的媒體查詢會被寫在後面的桌面版簡寫規則蓋掉，
    不管螢幕寬度符不符合媒體查詢條件都一樣（跟前面 .book-table 的 white-space
-   是同一種踩雷方式，這裡一併修正、就近擺放避免以後又分離開來重蹈覆轍）。 */
+   是同一種踩雷方式，這裡一併修正、就近擺放避免以後又分離開來重蹈覆轍）。
+   額外加上 !important：這裡的 padding-top 是「手機版絕對不能跟 Header 疊在
+   一起」這條硬性規則，不希望之後任何地方（包含這個檔案以外、還沒被檢查過的
+   規則）用同樣選擇器的 padding／padding-top 意外蓋掉它。 */
 @media (max-width: 768px) {
   main {
-    padding-top: 70px;
+    padding-top: 80px !important;
   }
 }
 
@@ -1005,20 +1008,32 @@ header h1 a {
    接著才是搜尋列／新增按鈕／書籍列表本身——這是這次改版明確要求的頁面
    閱讀順序，跟之前「先看書籍列表、統計退到後面」的舊決定相反，以這次的
    指示為準。 */
+/* 這裡改用 !important，是刻意為了讓這組規則在「平板直立／手機」這兩個斷點
+   下贏過任何其他同選擇器規則，不管日後這個檔案裡其他地方新增了什麼樣的
+   .dashboard-layout／.dashboard-sidebar／.dashboard-main 規則、寫在檔案的
+   哪個位置，都不會有「後面新加的規則不小心蓋掉小螢幕版面」這種情況再發生
+   （這正是上一輪 white-space／padding-top 踩到的坑：兩條規則優先度相同，
+   純粹靠「誰寫在後面」決勝負，非常容易不小心被之後新增的規則蓋掉）。
+   grid 也直接換成 flex：two-column 的 grid-template-columns 完全不出現在
+   這個斷點的計算裡，不會有任何殘留的欄寬設定跟 flex 版面互相干擾。 */
 @media (max-width: 1024px) {
   .dashboard-layout {
-    grid-template-columns: 1fr;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
   }
   .dashboard-sidebar {
-    position: static;
-    order: 1;
-    max-height: none;
-    overflow-y: visible;
-    width: 100%;
+    position: static !important;
+    order: 1 !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   .dashboard-main {
-    order: 2;
-    width: 100%;
+    order: 2 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 
@@ -1382,15 +1397,18 @@ header h1 a {
    改成標籤在上、內容在下的直式排列（原本是標籤靠左、內容靠右的橫式），
    兩欄變窄之後橫式會放不下，直式在半張卡寬度裡才讀得舒服。 */
 @media (max-width: 768px) {
+  /* thead 用 !important：這是「表格轉卡片」整套手法的第一步，一定要贏過
+     任何其他地方對 .book-table thead 的顯示設定，不然 thead 一旦露出來，
+     底下每一列 <tr> 卡片上面就會多一條殘留的表頭列，版面直接跑掉。 */
   .book-table thead {
-    display: none;
+    display: none !important;
   }
 
   .book-table,
   .book-table tbody,
   .book-table tr {
     display: block;
-    width: 100%;
+    width: 100% !important;
   }
 
   /* 手機版每一列 <tr> 各自變成一張獨立卡片，桌面版套在整張 <table> 外層的
@@ -1401,11 +1419,18 @@ header h1 a {
     box-shadow: none;
   }
 
+  /* width/margin-bottom/box-sizing 都加 !important：這三個屬性直接決定
+     「每張卡片會不會超出螢幕邊界」，不能容許任何其他規則、任何原始碼順序
+     的意外蓋掉，box-sizing 雖然全站已經在 * 選擇器統一設成 border-box，
+     這裡還是明講一次，確保 padding／border 一定算進 100% 寬度裡面，不會
+     另外把卡片撐寬超出容器。 */
   .book-table tr {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.7rem 0.9rem;
-    margin-bottom: 0.9rem;
+    width: 100% !important;
+    margin-bottom: 12px !important;
+    box-sizing: border-box !important;
     padding: 1rem 1.1rem;
     border: 1px solid var(--border-hairline);
     border-radius: 10px;
@@ -1413,7 +1438,7 @@ header h1 a {
   }
 
   .book-table tr:last-child {
-    margin-bottom: 0;
+    margin-bottom: 0 !important;
   }
 
   .book-table tbody tr:nth-child(even) {
