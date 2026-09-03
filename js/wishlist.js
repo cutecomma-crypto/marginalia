@@ -93,10 +93,15 @@ async function refreshList() {
       const item = cachedItems.find((i) => i.id === id);
       if (!item) return;
       if (!window.confirm(`確定要從願望清單刪除「${item.title || '（未命名）'}」嗎？`)) return;
-      await DB.remove(STORE, id);
-      if (editingId === id) enterAddMode();
-      showToast('已從願望清單刪除');
-      await refreshList();
+      try {
+        await DB.remove(STORE, id);
+        if (editingId === id) enterAddMode();
+        showToast('已從願望清單刪除');
+        await refreshList();
+      } catch (error) {
+        console.error('[Marginalia 願望清單] 刪除失敗：', error);
+        showToast(`刪除失敗：${error.message || String(error)}`);
+      }
     });
   });
 }
@@ -126,16 +131,21 @@ function wireForm() {
       return;
     }
     const note = noteInput.value.trim();
-    if (editingId) {
-      const existing = cachedItems.find((i) => i.id === editingId);
-      await DB.update(STORE, { ...existing, id: editingId, title, note });
-      showToast('已更新願望清單項目');
-    } else {
-      await DB.add(STORE, { title, note });
-      showToast('已加入願望清單');
+    try {
+      if (editingId) {
+        const existing = cachedItems.find((i) => i.id === editingId);
+        await DB.update(STORE, { ...existing, id: editingId, title, note });
+        showToast('已更新願望清單項目');
+      } else {
+        await DB.add(STORE, { title, note });
+        showToast('已加入願望清單');
+      }
+      enterAddMode();
+      await refreshList();
+    } catch (error) {
+      console.error('[Marginalia 願望清單] 新增／更新失敗：', error);
+      showToast(`操作失敗：${error.message || String(error)}`);
     }
-    enterAddMode();
-    await refreshList();
   });
   cancelEditBtn.addEventListener('click', enterAddMode);
 }
@@ -190,11 +200,23 @@ function ensureDrawerBuilt() {
   wireForm();
 }
 
+// 抽屜「一定要先打開」再去載入清單，不能反過來——原本的寫法是 await refreshList()
+// 成功之後才加上 is-open，一旦讀取失敗（例如登入雲端帳號後，Supabase 那邊還沒
+// 執行 wishlist 資料表的建表 SQL，getAll() 會直接 throw），await 整個中斷，
+// 後面加 is-open 的兩行永遠不會執行到——使用者點下按鈕會像完全沒反應一樣，
+// 連 Console 都要主動打開才看得到那個被吃掉的 rejection。現在無論讀取成不成功，
+// 抽屜都保證會滑出來；讀取失敗就把真正的錯誤訊息印在清單區域，不會又是一次
+// 「看起來什麼都沒發生」的靜默失敗。
 export async function openWishlistDrawer() {
   ensureDrawerBuilt();
   enterAddMode();
-  await refreshList();
   drawerEl.classList.add('is-open');
   backdropEl.classList.add('is-open');
   titleInput.focus();
+  try {
+    await refreshList();
+  } catch (error) {
+    console.error('[Marginalia 願望清單] 讀取清單失敗：', error);
+    listEl.innerHTML = `<li class="empty">讀取失敗：${escapeHtml(error.message || String(error))}</li>`;
+  }
 }
