@@ -1671,6 +1671,92 @@ header h1 a {
   }
 }
 
+/* 更窄的手機專用斷點（640px，不是 768px）：上面 768px 那個區塊負責「表格轉
+   卡片」的基本機制（thead 隱藏、每列變成獨立卡片、邊框陰影、書名＋類型左欄
+   /作者＋完成日期右欄的兩欄式排版），641～768px 這段（例如小尺寸平板橫向、
+   放大字級的手機）維持那一版就已經夠好讀。真正窄的手機（≤640px）版面更
+   緊迫，改成三行式垂直排列：書名獨佔一行、類型獨佔一行、作者/完成日期在
+   第三行左右分佔——比兩欄式在窄螢幕上更緊湊、也更好讀。
+   桌機／平板完全不受影響：這裡的選擇器全部只在 ≤640px 生效，641px 以上
+   （含平板直立、桌機）連進到這個 media query 的機會都沒有。
+   這個區塊刻意寫在上面 768px 那個區塊「之後」——大部分選擇器優先度都
+   跟上面那組規則一樣，同優先度時原始碼順序決定勝負，寫在後面才會正確
+   蓋掉上面的兩欄式設定；跟 768px 衝到的屬性（padding）額外加 !important，
+   因為上面那條 padding 本身就已經是 !important，只有 !important 才蓋得過
+   !important。 */
+@media (max-width: 640px) {
+  /* 用 grid-template-areas 而不是單純的兩欄自動排列：書名／作者／類型／
+     完成日期／書籍歸還在 HTML 裡的順序是固定的（見 bookList.js 的
+     bookRow()：書名、作者、類型、完成日期、書籍歸還），但這次要的視覺
+     順序是「書名獨佔一行→類型獨佔一行→作者跟完成日期並排在第三行」，
+     類型要跳到作者前面，單純兩欄自動流沒辦法做「跳過去」的重新排列，
+     一定要用具名區域明確指定每一格該落在哪裡，不受 DOM 順序限制。 */
+  .book-table tr {
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-areas:
+      "title title"
+      "category category"
+      "author date"
+      "action action" !important;
+    gap: 4px !important;
+    padding: 10px 14px !important;
+  }
+
+  .book-table td:nth-child(1) {
+    grid-area: title;
+  }
+
+  .book-table td:nth-child(2) {
+    grid-area: author;
+    text-align: left !important;
+  }
+
+  .book-table td:nth-child(3) {
+    grid-area: category;
+  }
+
+  .book-table td:nth-child(4) {
+    grid-area: date;
+    text-align: right !important;
+  }
+
+  .book-table td.action-cell {
+    grid-area: action;
+  }
+
+  /* 隱藏作者／完成日期／書籍歸還的欄位小標題（書名的標籤在上面 768px 那個
+     區塊已經先藏起來了）——這個斷點夠窄，直接呈現內容本身就夠直覺，不需要
+     「作者：」「完成日期：」這種說明文字，反而佔位置、拖慢閱讀速度。 */
+  .book-table td:nth-child(2)::before,
+  .book-table td:nth-child(4)::before,
+  .book-table td.action-cell::before {
+    display: none !important;
+  }
+
+  /* 書籍類型改成低飽和度的膠囊標籤：拿掉「書籍類型」文字標籤，換成一個
+     🏷️ emoji 當作「這是分類」的視覺提示，字級縮小、顏色轉成 muted，整體
+     收在一個淡底的膠囊裡、寬度只吃內容需要的份量（不撐滿整行）——分類
+     本來就是輔助資訊，跟書名同一個視覺重量反而搶戲，膠囊標籤的份量感
+     明顯比書名／作者這種直接呈現的內文更輕。 */
+  .book-table td:nth-child(3) {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.25rem;
+    width: fit-content;
+    padding: 0.15rem 0.6rem !important;
+    background: var(--surface-alt);
+    border-radius: 999px;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .book-table td:nth-child(3)::before {
+    content: "🏷️";
+    font-size: 0.7rem;
+  }
+}
+
 .book-list-count {
   font-size: 0.82rem;
   color: var(--text-muted);
