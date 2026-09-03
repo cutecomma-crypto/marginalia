@@ -1477,6 +1477,102 @@ header h1 a {
   text-align: center;
 }
 
+/* 書名下方的書籍類型小標籤：只在平板直向（見下面 641～1024px 區塊）才會
+   顯示，桌機版跟手機卡片版本身各自已經有獨立的「書籍類型」欄位/膠囊，
+   這裡預設藏起來，不要三個地方同時重複顯示同一個分類。 */
+.book-table-category-badge {
+  display: none;
+}
+
+/* 平板直向／中型螢幕（641～1024px）：這個寬度維持真正的 <table>（不像
+   ≤640px 那樣轉成卡片），但桌機版「短欄位給 1% 寬度、書名/作者自然撐開」
+   那套演算法在這裡會出問題——nowrap 底下，1% 等於「只吃內容需要的最小
+   寬度」，中文沒有空白可以斷詞，「書籍類型」這種短詞彙就會被逼到一個字
+   一個字往下疊成直排（「心/理/學/理/論」），這正是這次要修的問題。
+   解法是不要再讓欄寬取決於內容多寡：直接用固定的百分比欄寬（書名 45%／
+   作者 30%／完成日期 25%，三欄加總 100%），並把 <table> 切成
+   table-layout:fixed——auto（預設值）的表格，百分比欄寬只是「參考值」，
+   瀏覽器仍會為了 nowrap 內容硬撐超過設定的寬度；fixed 才會強制每一欄
+   剛好卡在設定的百分比寬度，nowrap 配上 overflow:hidden+text-overflow:
+   ellipsis 才吃得到效果（單行裁切成「…」，不會再撐開或斷字直排）。
+   書籍類型／書籍歸還這兩欄在這個寬度直接讓位（見下面 nth-child(3)/(5)
+   display:none）：書籍類型改成貼在書名下方的小標籤（.book-table-category-badge，
+   HTML 由 bookList.js 的 bookRow() 準備好，平常預設隱藏，只在這裡顯示），
+   書籍歸還整欄隱藏——書名 45%＋作者 30%＋完成日期 25% 已經吃滿 100%，
+   沒有多餘寬度再留給第四、五欄，硬塞只會回到欄位擠壓的老問題；需要操作
+   書籍歸還的話，點進書籍詳情頁一樣找得到。 */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .book-table {
+    table-layout: fixed !important;
+  }
+
+  /* 欄寬直接設在 <th>（表頭列＝表格的「第一列」）而不是設在 <colgroup> 的
+     <col> 上——實測發現兩者在這裡不等價：這張表格另外兩欄（書籍類型／書籍
+     歸還）被下面的規則 display:none 藏起來，這個情境下 Chrome 對「<col>
+     的百分比寬度」算出來的欄寬雖然 getComputedStyle() 讀起來數字正確，
+     卻沒有真的套用到對應那欄的 <th>/<td> 上（該欄的實際渲染寬度變成 0，
+     書名/作者兩欄反而各自撐到跟自己的 <col> 寬度一致，完成日期整欄消失、
+     內容跑到看不見的地方）——是實測抓到的真實瀏覽器行為，不是預防性猜測。
+     改成直接設在表頭 <th> 上（table-layout:fixed 演算法本來就會優先採用
+     「第一列儲存格」的顯式寬度），三欄的欄寬就會正確生效、加總剛好 100%。 */
+  .book-table th:nth-child(1),
+  .book-table td:nth-child(1) {
+    width: 45% !important;
+  }
+
+  .book-table th:nth-child(2),
+  .book-table td:nth-child(2) {
+    width: 30% !important;
+  }
+
+  .book-table th:nth-child(4),
+  .book-table td:nth-child(4) {
+    width: 25% !important;
+  }
+
+  .book-table th:nth-child(3),
+  .book-table td:nth-child(3),
+  .book-table th:nth-child(5),
+  .book-table td:nth-child(5) {
+    display: none !important;
+  }
+
+  /* 統一列高與邊距：書名／作者／完成日期三欄都用同一組 padding，維持
+     整體俐落、一致的高級感，不再各欄各吃一套內距。 */
+  .book-table th,
+  .book-table td {
+    padding: 12px 16px !important;
+  }
+
+  .book-table th:nth-child(1),
+  .book-table td:nth-child(1),
+  .book-table th:nth-child(2),
+  .book-table td:nth-child(2),
+  .book-table th:nth-child(4),
+  .book-table td:nth-child(4) {
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left !important;
+  }
+
+  .book-table-category-badge {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 0.3rem;
+    padding: 0.1rem 0.55rem;
+    background: var(--surface-alt);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+}
+
 .book-table a {
   text-decoration: none;
   font-weight: 600;
@@ -1552,8 +1648,13 @@ header h1 a {
    書名＋作者、第二行：類型＋完成日期、第三行（有的話）：書籍歸還」，不用
    額外寫 grid-template-areas 手動指定每個欄位要落在哪一格。每個 <td> 內部
    改成標籤在上、內容在下的直式排列（原本是標籤靠左、內容靠右的橫式），
-   兩欄變窄之後橫式會放不下，直式在半張卡寬度裡才讀得舒服。 */
-@media (max-width: 768px) {
+   兩欄變窄之後橫式會放不下，直式在半張卡寬度裡才讀得舒服。
+   斷點刻意是 640px（不是原本的 768px）：641～1024px（平板直向／中型螢幕）
+   改走下面新增的「真正的 <table> ＋百分比欄寬」處理方式，不再轉成卡片——
+   卡片模式一欄只有半張卡寬，書名稍長就會被截斷，百分比欄寬的真表格反而
+   更適合平板直向這種「比手機寬很多、但又擠不下桌機版全部五欄」的寬度。
+   只有真正窄的手機（≤640px）才需要卡片這種更緊湊的呈現方式。 */
+@media (max-width: 640px) {
   /* thead 用 !important：這是「表格轉卡片」整套手法的第一步，一定要贏過
      任何其他地方對 .book-table thead 的顯示設定，不然 thead 一旦露出來，
      底下每一列 <tr> 卡片上面就會多一條殘留的表頭列，版面直接跑掉。 */
@@ -1671,19 +1772,18 @@ header h1 a {
   }
 }
 
-/* 更窄的手機專用斷點（640px，不是 768px）：上面 768px 那個區塊負責「表格轉
-   卡片」的基本機制（thead 隱藏、每列變成獨立卡片、邊框陰影、書名＋類型左欄
-   /作者＋完成日期右欄的兩欄式排版），641～768px 這段（例如小尺寸平板橫向、
-   放大字級的手機）維持那一版就已經夠好讀。真正窄的手機（≤640px）版面更
-   緊迫，改成三行式垂直排列：書名獨佔一行、類型獨佔一行、作者/完成日期在
-   第三行左右分佔——比兩欄式在窄螢幕上更緊湊、也更好讀。
-   桌機／平板完全不受影響：這裡的選擇器全部只在 ≤640px 生效，641px 以上
-   （含平板直立、桌機）連進到這個 media query 的機會都沒有。
-   這個區塊刻意寫在上面 768px 那個區塊「之後」——大部分選擇器優先度都
+/* 上面那個區塊（現在也是 max-width:640px）負責「表格轉卡片」的基本機制
+   （thead 隱藏、每列變成獨立卡片、邊框陰影、兩欄式自動排列），這裡在同一個
+   斷點上疊一層，把卡片內部重新排成三行式垂直排列：書名獨佔一行、類型獨佔
+   一行、作者/完成日期在第三行左右分佔——比兩欄式在窄手機上更緊湊、也更
+   好讀。641px 以上（平板直向、桌機）現在都改用真正的 <table>（見上面新增
+   的 @media (min-width:641px) and (max-width:1024px) 區塊），完全不會進到
+   這兩個斷點，也不受這裡任何規則影響。
+   這個區塊刻意寫在上面那個區塊「之後」——大部分選擇器優先度都
    跟上面那組規則一樣，同優先度時原始碼順序決定勝負，寫在後面才會正確
-   蓋掉上面的兩欄式設定；跟 768px 衝到的屬性（padding）額外加 !important，
-   因為上面那條 padding 本身就已經是 !important，只有 !important 才蓋得過
-   !important。 */
+   蓋掉上面的兩欄式設定；跟上面那個區塊衝到的屬性（padding）額外加
+   !important，因為上面那條 padding 本身就已經是 !important，只有
+   !important 才蓋得過 !important。 */
 @media (max-width: 640px) {
   /* 用 grid-template-areas 而不是單純的兩欄自動排列：書名／作者／類型／
      完成日期／書籍歸還在 HTML 裡的順序是固定的（見 bookList.js 的

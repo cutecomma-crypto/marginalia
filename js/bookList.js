@@ -97,12 +97,17 @@ function quickActionBtnHtmlInline(book) {
 function bookRow(book, favoriteAuthors, recordMap) {
   const record = recordMap.get(book.id);
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
-  // data-label：手機版把表格轉成一張張卡片時（見 styles.css 的 @media (max-width: 768px)
+  // data-label：手機版把表格轉成一張張卡片時（見 styles.css 的 @media (max-width: 640px)
   // .book-table 區塊），每個 <td> 用 CSS ::before 讀這個屬性當左側欄位名稱標籤，
   // 不用另外為手機版寫一套完全不同的卡片 HTML 樣板。
+  // .book-table-category-badge：平常（桌機／手機卡片）預設 display:none，只有平板
+  // 直向（見 styles.css 的 @media (min-width:641px) and (max-width:1024px) 區塊）
+  // 才會顯示——那個寬度書籍類型改成貼在書名下方的小標籤，不再獨立佔一整欄，
+  // 直接把內容寫進書名 <td> 裡（跟獨立的「書籍類型」<td> 並存），比起用純 CSS
+  // 去「借」另一個 <td> 的文字內容（辦不到）簡單可靠得多。
   return `
     <tr>
-      <td data-label="書名"><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a></td>
+      <td data-label="書名"><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a>${book.category ? `<span class="book-table-category-badge">${escapeHtml(book.category)}</span>` : ''}</td>
       <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
       <td data-label="書籍類型">${escapeHtml(book.category)}</td>
       <td data-label="完成日期">${completedDateCell(record)}</td>
