@@ -155,6 +155,22 @@ function wireCoverUpload(form) {
 // 圖書館借閱細節（借閱管道／圖書館名稱）跟著「來源」欄位展開／收起，「借給誰」
 // 則跟著「存留狀態」欄位——來源與存留狀態解耦之後，這兩組細節欄位分別依附在
 // 各自真正相關的欄位上，不再都綁在存留狀態一個欄位切換。
+// 從願望清單「轉為藏書」點過來時，用跟 bookList.js 作者篩選同一種手法（hash 帶
+// 查詢字串，見該檔案 readAndClearAuthorFilterFromHash 開頭註解）把書名／推薦來源／
+// 願望清單項目 id 帶進新增書籍表單直接預填，讀完立刻用 replaceState 把網址清乾淨，
+// 避免重新整理或再次造訪 #/books/new 時殘留上一次轉換的資料。
+function readAndClearWishlistPrefillFromHash() {
+  const hash = window.location.hash;
+  const qIndex = hash.indexOf('?');
+  if (qIndex === -1) return null;
+  const params = new URLSearchParams(hash.slice(qIndex + 1));
+  const title = params.get('title') || '';
+  const note = params.get('note') || '';
+  const wishlistId = params.get('wishlistId');
+  history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/books/new`);
+  return { title, note, wishlistId: wishlistId ? Number(wishlistId) : null };
+}
+
 function wireSourceAndRetentionToggles(form) {
   const formatSelect = form.elements.format;
   const retentionSelect = form.elements.retentionStatus;
@@ -272,8 +288,9 @@ export async function renderBookForm(container, rawId) {
     container.innerHTML = '<p class="empty">找不到這本書。</p>';
     return;
   }
-  const book = existing || {};
   const isNew = !bookId;
+  const wishlistPrefill = isNew ? readAndClearWishlistPrefillFromHash() : null;
+  const book = existing || (wishlistPrefill?.title ? { title: wishlistPrefill.title } : {});
   let favoriteAuthors = await getFavoriteAuthorMap();
 
   container.innerHTML = `
@@ -352,6 +369,16 @@ export async function renderBookForm(container, rawId) {
       });
       if (motivationTags.length > 0 || motivationText) {
         await DB.add('outputs', { bookId: targetBookId, kind: 'motivation', tags: motivationTags, text: motivationText });
+      }
+      // 從願望清單「轉為藏書」轉過來的新書：推薦來源／備註原本只是願望清單自己的
+      // 欄位，books 表沒有對應欄位可以存，改成順手存成一則快速筆記，資訊不會憑空
+      // 消失；願望清單裡的這筆項目也才真的移除——特意等到書籍「確定送出成功」才刪，
+      // 使用者半路按「取消」不會平白弄丟這筆願望清單資料（見 wishlist.js 開頭註解）。
+      if (wishlistPrefill?.wishlistId) {
+        if (wishlistPrefill.note) {
+          await DB.add('notes', { bookId: targetBookId, text: `推薦來源／備註：${wishlistPrefill.note}` });
+        }
+        await DB.remove('wishlist', wishlistPrefill.wishlistId);
       }
     }
     window.location.hash = `#/books/${targetBookId}`;

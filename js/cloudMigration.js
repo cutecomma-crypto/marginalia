@@ -223,16 +223,27 @@ function sanitizeFavoriteAuthorPayload(favorite) {
   return { name: favorite.name, createdAt: favorite.createdAt };
 }
 
+function sanitizeWishlistPayload(item) {
+  return { title: item.title, note: item.note, createdAt: item.createdAt };
+}
+
+// wishlist 沒有外鍵、也不屬於任何一本書，指紋邏輯跟 bookFingerprint 同一套精神
+// （書名＋備註＋建立時間），可以放心重複執行 migrateLocalToCloud() 而不會重複插入。
+function wishlistFingerprint(item) {
+  return `${(item.title || '').trim()} ${(item.note || '').trim()} ${normalizeTimestamp(item.createdAt)}`;
+}
+
 // 把這次執行的結果完整印到主控台：先印一行總覽（略過幾本／嘗試幾本／成功幾本／
 // 失敗幾本），有失敗的話再用 console.table 把「哪張表、哪本書、Postgres 實際
 // 錯誤訊息」攤開來，不用使用者自己一筆一筆去猜壞在哪裡、也不用重新執行一次
 // 才看得到明細——這個函式在成功與失敗時都會被呼叫，永遠看得到完整結果。
 function logMigrationResult(result) {
   console.log(
-    `[Marginalia 雲端同步] 本機共 ${result.totalLocalBooks} 本，`
+    `[Marginalia 雲端同步] 本機共 ${result.totalLocalBooks} 本書，`
     + `${result.alreadyInCloudCount} 本雲端已有（略過），`
     + `${result.attemptedCount} 本嘗試搬移，`
-    + `${result.migratedBookCount} 本成功，`
+    + `${result.migratedBookCount} 本成功；`
+    + `願望清單本機共 ${result.totalLocalWishlist} 筆，${result.migratedWishlistCount} 筆成功搬移；`
     + `${result.failures.length} 筆失敗。`,
   );
   if (result.failures.length > 0) {
@@ -252,7 +263,7 @@ function logMigrationResult(result) {
 // （以及掛在它名下的閱讀紀錄、心得、筆記、佳句、關係圖譜）被跳過，不會讓
 // 後面還沒搬到的書全部卡住、整個遷移一次全部失敗。
 export async function migrateLocalToCloud() {
-  const [books, cloudBooks, allGroups, allNodes, allEdges, allReadingRecords, allOutputs, allNotes, allQuotes] = await Promise.all([
+  const [books, cloudBooks, allGroups, allNodes, allEdges, allReadingRecords, allOutputs, allNotes, allQuotes, wishlistItems, cloudWishlistItems] = await Promise.all([
     LocalDB.getAll('books'),
     CloudDB.getAll('books'),
     LocalDB.getAll('groups'),
@@ -262,6 +273,8 @@ export async function migrateLocalToCloud() {
     LocalDB.getAll('outputs'),
     LocalDB.getAll('notes'),
     LocalDB.getAll('quotes'),
+    LocalDB.getAll('wishlist'),
+    CloudDB.getAll('wishlist'),
   ]);
 
   const existingFingerprints = new Set(cloudBooks.map(bookFingerprint));
@@ -346,11 +359,27 @@ export async function migrateLocalToCloud() {
     }
   }
 
+  // 願望清單跟書籍是各自獨立的指紋比對、各自的成功/失敗計數，不會因為某一本書
+  // 搬移失敗就連帶跳過願望清單，兩者互不影響。
+  const existingWishlistFingerprints = new Set(cloudWishlistItems.map(wishlistFingerprint));
+  const wishlistToMigrate = wishlistItems.filter((w) => !existingWishlistFingerprints.has(wishlistFingerprint(w)));
+  let migratedWishlistCount = 0;
+  for (const item of wishlistToMigrate) {
+    try {
+      await CloudDB.add('wishlist', sanitizeWishlistPayload(item));
+      migratedWishlistCount++;
+    } catch (error) {
+      failures.push({ store: 'wishlist', title: item.title || '（未命名）', error });
+    }
+  }
+
   const result = {
     totalLocalBooks: books.length,
     alreadyInCloudCount: books.length - booksToMigrate.length,
     attemptedCount: booksToMigrate.length,
     migratedBookCount,
+    totalLocalWishlist: wishlistItems.length,
+    migratedWishlistCount,
     failures,
   };
   logMigrationResult(result);
@@ -361,14 +390,27 @@ export async function maybeOfferCloudMigration() {
   const user = getCurrentUser();
   if (!user) return;
 
-  const [localBooks, cloudBooks] = await Promise.all([LocalDB.getAll('books'), CloudDB.getAll('books')]);
+  const [localBooks, cloudBooks, localWishlist, cloudWishlist] = await Promise.all([
+    LocalDB.getAll('books'),
+    CloudDB.getAll('books'),
+    LocalDB.getAll('wishlist'),
+    CloudDB.getAll('wishlist'),
+  ]);
   const existingFingerprints = new Set(cloudBooks.map(bookFingerprint));
-  const missingCount = localBooks.filter((b) => !existingFingerprints.has(bookFingerprint(b))).length;
-  if (missingCount === 0) return; // 本機每一本書雲端都已經有了，不用提示
+  const missingBookCount = localBooks.filter((b) => !existingFingerprints.has(bookFingerprint(b))).length;
+  const existingWishlistFingerprints = new Set(cloudWishlist.map(wishlistFingerprint));
+  const missingWishlistCount = localWishlist.filter((w) => !existingWishlistFingerprints.has(wishlistFingerprint(w))).length;
+  if (missingBookCount === 0 && missingWishlistCount === 0) return; // 本機資料雲端都已經有了，不用提示
+
+  // 兩種資料至少有一種缺漏就會提示，文案照實際缺漏的種類組（可能只缺書、只缺
+  // 願望清單，或兩者都缺），不會講出「0 筆」這種沒意義的數字。
+  const parts = [];
+  if (missingBookCount > 0) parts.push(`${missingBookCount} 本書`);
+  if (missingWishlistCount > 0) parts.push(`${missingWishlistCount} 筆願望清單`);
 
   const el = bannerEl();
   el.innerHTML = `
-    <span>偵測到本機有 ${missingCount} 本書尚未同步到雲端帳號，要同步嗎？</span>
+    <span>偵測到本機有${parts.join('、')}尚未同步到雲端帳號，要同步嗎？</span>
     <button type="button" class="btn btn-primary btn-sm" id="cloud-migration-confirm">強制補同步</button>
     <button type="button" class="btn btn-sm" id="cloud-migration-dismiss">暫不同步</button>
   `;
@@ -387,8 +429,14 @@ export async function maybeOfferCloudMigration() {
       // 又包一層 try/catch、萬一還是失敗就退而求其次跳原生 alert()——這樣不管
       // Modal 的 DOM/CSS 有沒有意外出狀況，錯誤明細都保證會有某種形式顯示在
       // 畫面上，不會整個安靜失敗、只留主控台看得到。
+      // 書籍／願望清單各自的成功筆數只在「這次真的有嘗試搬移」時才拼進 Toast 文字，
+      // 避免兩種資料只有一種缺漏時，訊息裡出現一句沒意義的「0 筆願望清單」。
+      const syncedParts = [];
+      if (result.attemptedCount > 0) syncedParts.push(`${result.migratedBookCount}/${result.attemptedCount} 本書`);
+      if (result.totalLocalWishlist > 0 && result.migratedWishlistCount > 0) syncedParts.push(`${result.migratedWishlistCount} 筆願望清單`);
+
       if (result.failures.length > 0) {
-        showToast(`已同步 ${result.migratedBookCount}/${result.attemptedCount} 本書，${result.failures.length} 筆失敗`);
+        showToast(`已同步${syncedParts.length > 0 ? syncedParts.join('、') : '部分資料'}，${result.failures.length} 筆失敗`);
         console.log(`[Marginalia 雲端同步] 準備開啟失敗明細視窗（共 ${result.failures.length} 筆）…`);
         try {
           openMigrationFailuresModal(result.failures);
@@ -396,14 +444,14 @@ export async function maybeOfferCloudMigration() {
         } catch (modalErr) {
           console.error('[Marginalia 雲端同步] 開啟失敗明細視窗時發生例外，改用 alert() 顯示：', modalErr);
           window.alert(
-            `${result.failures.length} 本書同步失敗：\n\n`
+            `${result.failures.length} 筆同步失敗：\n\n`
             + result.failures.map((f) => `《${f.title}》（${f.store}）\n${f.error?.message || String(f.error)}`).join('\n\n'),
           );
         }
-      } else if (result.attemptedCount === 0) {
-        showToast('本機藏書已經全部在雲端帳號裡了');
+      } else if (syncedParts.length === 0) {
+        showToast('本機資料已經全部在雲端帳號裡了');
       } else {
-        showToast(`已補齊 ${result.migratedBookCount} 本書到雲端帳號`);
+        showToast(`已補齊${syncedParts.join('、')}到雲端帳號`);
       }
 
       // hash 沒變，瀏覽器不會自己觸發 hashchange（跟 app.js 裡 Logo 點擊重置用的

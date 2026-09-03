@@ -207,6 +207,29 @@ create policy "favorite_authors_update_own" on favorite_authors for update using
 create policy "favorite_authors_delete_own" on favorite_authors for delete using (auth.uid() = user_id);
 create index favorite_authors_user_id_idx on favorite_authors (user_id);
 
+-- ============ wishlist（願望與推薦清單，對照 js/wishlist.js） ============
+-- 跟 books 完全獨立、沒有外鍵——「轉為藏書」是把書名/備註複製一份到 books
+-- 表新增一筆記錄，不是把這筆 wishlist 資料「搬過去」，兩張表天生不互相參照。
+create table wishlist (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text,
+  note text,
+  "createdAt" timestamptz default now()
+);
+
+alter table wishlist enable row level security;
+create policy "wishlist_select_own" on wishlist for select using (auth.uid() = user_id);
+create policy "wishlist_insert_own" on wishlist for insert with check (auth.uid() = user_id);
+create policy "wishlist_update_own" on wishlist for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "wishlist_delete_own" on wishlist for delete using (auth.uid() = user_id);
+create index wishlist_user_id_idx on wishlist (user_id);
+-- 這張表是在最早那批表格都建立、GRANT 都跑過之後才新增的——檔案最上面那組
+-- `alter default privileges` 理論上會讓同一個角色之後新建的表自動套用同一組權限，
+-- 但這裡还是明講一次 GRANT，不依賴「理論上」：只跑這個區塊也不會漏掉存取權限。
+grant select, insert, update, delete on wishlist to anon, authenticated;
+grant usage, select on sequence wishlist_id_seq to anon, authenticated;
+
 -- ============ quotes（佳句摘錄） ============
 create table quotes (
   id bigint generated always as identity primary key,

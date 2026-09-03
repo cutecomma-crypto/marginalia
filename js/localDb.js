@@ -6,12 +6,14 @@
 // db.js 匯出的 DB，不需要知道也不需要改一行去分辨現在是本機還是雲端。
 
 const DB_NAME = 'ReadingSecondBrainDB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 // 對照 PROJECT_SPEC.md：books(第1節) / reading_records(第2節) / outputs(第4節)
 // / notes(第7節快速筆記) / groups+nodes+edges(第5節本書圖譜，群組卡片版)
 // favorite_authors：喜愛的作者名單，以作者名字比對書籍，不綁定單一 bookId。
 // quotes：佳句摘錄，綁定單一 bookId。
+// wishlist：願望與推薦清單（見 js/wishlist.js），跟 books 完全獨立、沒有外鍵，
+// 「轉為藏書」是把資料複製一份到 books，不是搬移，所以不需要 bookId 索引。
 const STORE_CONFIG = {
   books: { indexes: [] },
   reading_records: { indexes: ['bookId'] },
@@ -22,6 +24,7 @@ const STORE_CONFIG = {
   edges: { indexes: ['bookId'] },
   favorite_authors: { indexes: [] },
   quotes: { indexes: ['bookId'] },
+  wishlist: { indexes: [] },
 };
 
 let dbPromise = null;

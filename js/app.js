@@ -9,7 +9,11 @@ import { renderTagPage } from './tags.js';
 const app = document.getElementById('app');
 
 function parseHash() {
-  const hash = window.location.hash.replace(/^#\/?/, '') || 'books';
+  // 有些頁面會在 hash 後面夾帶一段自訂查詢字串（例如 bookList.js 的作者篩選
+  // #/books?author=X，或願望清單「轉為藏書」帶出的 #/books/new?title=X&note=Y），
+  // 這段查詢字串是各頁面自己讀 window.location.hash 解析的，不是真正的路徑片段，
+  // 路由判斷前一定要先切掉，不然「new?title=X」永遠不會嚴格等於 'new'，比對會失敗。
+  const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0] || 'books';
   return hash.split('/').filter(Boolean);
 }
 

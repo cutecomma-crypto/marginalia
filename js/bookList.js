@@ -5,6 +5,7 @@ import { renderDashboardSidebar } from './dashboardSidebar.js';
 import { patchRetentionCountBadge } from './stats.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
 import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
+import { openWishlistDrawer } from './wishlist.js';
 
 // 借出中／借入未還兩顆快捷篩選按鈕共用同一個 retentionFilter 狀態，這裡統一決定標題上要顯示哪個中文標籤。
 function retentionFilterLabel(retention) {
@@ -269,7 +270,10 @@ export async function renderBookList(container) {
             <h2 id="book-list-title">所有書籍</h2>
             <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" title="切換為封面網格檢視">${GRID_ICON}</button>
           </div>
-          <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
+          <div class="toolbar-actions">
+            <button type="button" class="btn" id="open-wishlist-btn">✨ 願望清單</button>
+            <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
+          </div>
         </div>
         <div class="active-filters-row" id="active-filters-row" hidden>
           <div class="active-filter-badges" id="active-filter-badges"></div>
@@ -290,6 +294,8 @@ export async function renderBookList(container) {
       </div>
     </div>
   `;
+
+  container.querySelector('#open-wishlist-btn').addEventListener('click', () => openWishlistDrawer());
 
   const titleEl = container.querySelector('#book-list-title');
   const activeFiltersRow = container.querySelector('#active-filters-row');

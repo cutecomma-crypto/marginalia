@@ -3531,6 +3531,159 @@ header h1 a {
   border-color: var(--danger);
 }
 
+/* 願望與推薦清單抽屜（js/wishlist.js）：跟上面的 .graph-drawer 同一種「從畫面右側
+   滑出」手法，但這個抽屜是直接掛在 document.body 上（跟登入 Modal、同步失敗 Modal
+   一樣，隨時能從任何頁面打開），不像 .graph-drawer 侷限在關係圖頁面自己的容器裡，
+   所以用一組獨立的 class 名稱，z-index 選在「蓋過一般頁面內容、但低於 Modal(200)／
+   Toast(210)」的 150／151，不需要跟 .graph-drawer 的 90／100 共用同一個疊層算法。 */
+.wishlist-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 27, 20, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 150;
+}
+
+.wishlist-drawer-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.wishlist-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 380px;
+  max-width: 90vw;
+  background: var(--bg);
+  box-shadow: -10px 0 28px rgba(35, 27, 20, 0.22);
+  transform: translateX(100%);
+  transition: transform 0.28s ease;
+  z-index: 151;
+  overflow-y: auto;
+  padding: 1.5rem 1.25rem;
+}
+
+.wishlist-drawer.is-open {
+  transform: translateX(0);
+}
+
+.wishlist-drawer-close {
+  display: block;
+  margin: 0 0 1rem auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.wishlist-drawer-close:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.wishlist-drawer h3 {
+  margin: 0 0 0.4rem;
+}
+
+.wishlist-drawer-hint {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.wishlist-drawer-divider {
+  border-top: 1px solid var(--border-soft);
+  margin: 1.25rem 0 1rem;
+}
+
+.wishlist-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wishlist-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+.wishlist-list li.empty {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  justify-content: center;
+  background: none;
+  border-style: dashed;
+}
+
+.wishlist-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.wishlist-item-title {
+  font-size: 0.9rem;
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.wishlist-item-note {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.wishlist-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.wishlist-convert-btn {
+  white-space: nowrap;
+}
+
+.wishlist-icon-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.wishlist-icon-btn:hover {
+  background: var(--surface);
+}
+
+@media (max-width: 768px) {
+  .wishlist-drawer {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 /* 熱門 #標籤牆：跟 category-progress-item 同一套「可點擊篩選膠囊」語彙，
    用 flex-wrap 排列，標籤數量、寬度都不固定。 */
 .popular-tag-cloud {

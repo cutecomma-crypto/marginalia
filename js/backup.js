@@ -14,6 +14,7 @@ const STORE_LABELS = {
   edges: '圖譜關係',
   favorite_authors: '喜愛作者',
   quotes: '佳句摘錄',
+  wishlist: '願望清單',
 };
 
 async function gatherAllData() {
