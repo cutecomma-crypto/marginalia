@@ -3268,10 +3268,57 @@ header h1 a {
   background: var(--surface-alt);
 }
 
+/* 「編輯」「刪除」（或編輯狀態的「儲存」「取消」）兩顆按鈕包在同一個容器裡
+   一起 float:right，而不是各自分開 float——CSS 多個 float:right 元素會照
+   DOM 順序「先出現的元素排最右邊、後面的往左疊」，兩顆分開浮動的話「編輯」
+   會被擠到「刪除」右邊，跟「編輯在刪除左側」的需求正好相反。改成單一個
+   容器浮動、裡面用 flex 照 DOM 順序（編輯／儲存在左，刪除／取消在右）
+   正常排列，視覺順序、HTML 順序、鍵盤 Tab 順序三者一致，不會互相打架。
+   下面 <p>／<textarea> 沿用既有的 float 文字繞排效果，照樣會自動避開
+   這個容器佔用的右上角空間，不需要另外處理。 */
+.output-item-actions {
+  float: right;
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* .output-delete 也單獨被「閱讀後輸出」重複使用（見 outputs.js），那邊沒有
+   包 .output-item-actions 容器，這裡保留它自己的 float:right 當獨立使用時
+   的後備行為——包在 .output-item-actions（display:flex）裡面時，float 對
+   flex 子項目本來就不生效（CSS 規範明講 float 不影響 flex item），兩邊
+   互不衝突，不需要為了新增快速筆記的編輯功能另外去改 outputs.js。 */
+.output-edit,
 .output-delete {
   float: right;
   padding: 0.2rem 0.6rem;
   font-size: 0.78rem;
+}
+
+/* 行內編輯用的 <textarea> 不在 <form class="book-form"> 裡面（它是卡片本身
+   的一部分，跟唯讀狀態的 <p> 互相替換），拿不到 .book-form textarea 那組
+   邊框／底色樣式，這裡整組重新寫一次、直接對齊同一份視覺語言，不是另外
+   發明一套新樣式。 */
+.output-edit-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.3rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  line-height: 1.35;
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.output-edit-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 46, 43, 0.14);
 }
 
 .notes-section textarea {
