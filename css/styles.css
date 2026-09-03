@@ -1489,19 +1489,41 @@ header h1 a {
    那套演算法在這裡會出問題——nowrap 底下，1% 等於「只吃內容需要的最小
    寬度」，中文沒有空白可以斷詞，「書籍類型」這種短詞彙就會被逼到一個字
    一個字往下疊成直排（「心/理/學/理/論」），這正是這次要修的問題。
-   解法是不要再讓欄寬取決於內容多寡：直接用固定的百分比欄寬（書名 45%／
-   作者 30%／完成日期 25%，三欄加總 100%），並把 <table> 切成
+   解法是不要再讓欄寬取決於內容多寡：直接用固定的百分比欄寬（書名 50%／
+   作者 25%／完成日期 25%，三欄加總 100%），並把 <table> 切成
    table-layout:fixed——auto（預設值）的表格，百分比欄寬只是「參考值」，
-   瀏覽器仍會為了 nowrap 內容硬撐超過設定的寬度；fixed 才會強制每一欄
-   剛好卡在設定的百分比寬度，nowrap 配上 overflow:hidden+text-overflow:
-   ellipsis 才吃得到效果（單行裁切成「…」，不會再撐開或斷字直排）。
+   瀏覽器仍會為了內容硬撐超過設定的寬度；fixed 才會強制每一欄剛好卡在
+   設定的百分比寬度。欄寬固定之後改用 white-space:normal + word-break:
+   break-word（不是先前版本的 nowrap+ellipsis）：長書名／長作者名（例如
+   「大衛·布魯克斯」）自然換行完整顯示，不再犧牲內容裁切成「…」，
+   table-layout:fixed 底下儲存格允許多行不會影響其他欄位的寬度，只會讓
+   那一列的高度自動撐高。
    書籍類型／書籍歸還這兩欄在這個寬度直接讓位（見下面 nth-child(3)/(5)
    display:none）：書籍類型改成貼在書名下方的小標籤（.book-table-category-badge，
    HTML 由 bookList.js 的 bookRow() 準備好，平常預設隱藏，只在這裡顯示），
-   書籍歸還整欄隱藏——書名 45%＋作者 30%＋完成日期 25% 已經吃滿 100%，
+   書籍歸還整欄隱藏——書名 50%＋作者 25%＋完成日期 25% 已經吃滿 100%，
    沒有多餘寬度再留給第四、五欄，硬塞只會回到欄位擠壓的老問題；需要操作
    書籍歸還的話，點進書籍詳情頁一樣找得到。 */
 @media (min-width: 641px) and (max-width: 1024px) {
+  /* main 的左右 padding 是「所有書籍」標題／搜尋框／下拉選單／書籍表格
+     共用的唯一基準線（見上面 ≤1024px 那條 main padding 規則旁的說明）——
+     這裡只覆蓋左右寬度到 24px（其餘斷點維持各自原本的值：手機版仍是
+     16px，桌機版是 main 基礎規則的 clamp()），寬一點的留白在平板直向
+     這個尺寸看起來更從容，不會像手機版那樣寸土寸金。 */
+  main {
+    padding: 80px 24px 24px 24px !important;
+  }
+
+  /* 表格本身跟它的捲動容器都明講一次 100%／max-width:100%，避免任何殘留
+     的最小寬度、或個別儲存格的內容把整張表格撐爆容器寬度、冒出橫向
+     捲動條——這是這次「徹底解決寬度爆框」明確要求的防呆寫法，不只依賴
+     table-layout:fixed 本身的效果。 */
+  .book-list-body,
+  .book-table {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .book-table {
     table-layout: fixed !important;
   }
@@ -1517,12 +1539,12 @@ header h1 a {
      「第一列儲存格」的顯式寬度），三欄的欄寬就會正確生效、加總剛好 100%。 */
   .book-table th:nth-child(1),
   .book-table td:nth-child(1) {
-    width: 45% !important;
+    width: 50% !important;
   }
 
   .book-table th:nth-child(2),
   .book-table td:nth-child(2) {
-    width: 30% !important;
+    width: 25% !important;
   }
 
   .book-table th:nth-child(4),
@@ -1544,16 +1566,40 @@ header h1 a {
     padding: 12px 16px !important;
   }
 
+  /* 書名／作者：允許自然換行、長單字（例如純英文人名）必要時可以在字中
+     斷開，兩者都不會再被裁切成「…」，多出來的行高由 table-layout:fixed
+     自動撐高這一列，不影響其他欄位寬度。 */
   .book-table th:nth-child(1),
   .book-table td:nth-child(1),
   .book-table th:nth-child(2),
-  .book-table td:nth-child(2),
+  .book-table td:nth-child(2) {
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    text-align: left !important;
+  }
+
+  /* .author-cell 全站有一條不分斷點的基礎規則 display:flex（讓 ♥ 圖示跟
+     作者名稱用 baseline 對齊，見該規則旁邊的說明），但實測發現這條規則跟
+     table-layout:fixed 放在一起時會出問題：這一欄的 <td> 本身變成
+     flex 容器之後，瀏覽器會另外生出一個匿名的表格儲存格外層包住它，
+     真正決定「這一欄到底幾 px 寬」的是那個看不到、抓不到的外層匿名
+     儲存格，不是這裡設了 width:25% 的這個 <td> 本身——結果整欄被擠壓到
+     只剩幾十 px（比書籍類型被逼成直排斷字還誇張），是實測抓到的真實
+     瀏覽器行為，不是預防性猜測。星號＋作者名稱的 baseline 對齊其實是
+     內層 .author-cell-value（見 bookList.js 的 bookRow()）自己的
+     inline-flex 在做，外層 <td> 改回真正的 table-cell 不影響對齊效果，
+     卻能讓它重新乖乖參與表格欄寬計算。 */
+  .book-table td.author-cell {
+    display: table-cell !important;
+  }
+
+  /* 完成日期欄位靠右對齊，跟書名／作者的靠左對齊形成清楚的左右分野，
+     內容本身是固定格式的西曆日期，不需要換行，維持 nowrap 即可。 */
   .book-table th:nth-child(4),
   .book-table td:nth-child(4) {
     white-space: nowrap !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: left !important;
+    text-align: right !important;
   }
 
   .book-table-category-badge {
