@@ -4782,22 +4782,21 @@ header h1 a {
   flex-direction: column;
 }
 
-/* 卡片改成上下分層的垂直 Stack：上層書名＋作者/備註，下層操作按鈕靠右——
-   書名／操作按鈕擠在同一橫行的舊版面，書名一長就得截斷成刪節號，代表
-   使用者最在意的資訊反而看不全，改直式排列後書名可以完整換行顯示，
-   操作按鈕退到下面單獨一排，兩者不再互搶同一行的寬度。
-   雜誌質感卡片：暖白底、極淡的邊框、統一的 8px 圓角，margin-bottom 取代
-   上面 .wishlist-list 原本的 gap 負責卡片間距，hover 時浮起一圈輕陰影
-   （精品雜誌卡片常見的互動回饋，不是平時就有的重陰影）。 */
+/* 上一輪改成上下分層的垂直 Stack（書名/作者在上、操作按鈕另起一行在下），
+   這次反過來要「高密度、緊湊」——改回橫向單行：左邊書名+作者兩行資訊，
+   右邊三顆極簡圖示垂直置中，同一張卡片高度壓到 60~70px 左右，一次能看到
+   8~10 本書不用捲動。卡片本身的暖白底／邊框／圓角／hover 陰影維持不變，
+   只調整 padding／margin-bottom 讓卡片更矮更緊實。 */
 .wishlist-list li {
   display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
   background: #faf8f5;
   border: 1px solid #eae5df;
   border-radius: 8px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
   transition: box-shadow 0.15s ease;
 }
 
@@ -4821,29 +4820,38 @@ header h1 a {
 .wishlist-item-main {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 1px;
+  flex: 1;
   min-width: 0;
 }
 
-/* 書名不再截斷成刪節號，允許自然換行完整顯示——這是這次重構最主要的訴求：
-   使用者關心的書名內容不該被犧牲掉。作者／推薦來源／備註合併成同一行
-   「中介資訊」（中間用「·」分隔，見 wishlist.js 的 itemMetaLine）維持
-   text-muted 次要色階，但一樣拿掉單行省略，長一點的推薦來源/備註完整
-   顯示，不再半途被裁切看不到。備註本身再疊一層斜體
-   （.wishlist-item-note-text）維持它是「附加說明、非必要」的視覺標記。 */
+/* 書名 14px 加粗，長度夠短通常單行就顯示完；真的太長才換行，用
+   -webkit-line-clamp 卡住最多兩行、超出的部分裁掉不逐字擠爆卡片高度——
+   跟上一輪「書名絕不截斷、允許無限換行」的方向不同，這次密度優先，兩行
+   內顯示不完的極端情況才會犧牲掉標題尾端。作者/推薦來源/備註合併成同一行
+   「中介資訊」（見 wishlist.js 的 itemMetaLine），縮到 12px 淡灰色、單行
+   超出省略號，才能讓整張卡片緊貼著書名不多佔垂直空間，跟書名之間幾乎
+   不留間距（.wishlist-item-main 的 1px gap），符合「不佔用額外垂直空間」
+   的要求。 */
 .wishlist-item-title {
-  display: block;
-  font-size: 0.95rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 14px;
   color: #2c2c2c;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .wishlist-item-meta {
   display: block;
-  font-size: 0.8rem;
+  font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wishlist-item-note-text {
@@ -4851,13 +4859,14 @@ header h1 a {
   opacity: 0.85;
 }
 
-/* 下層操作按鈕列：靠右對齊，跟上層滿版寬的書名/作者資訊區隔出明確的
-   「主資訊 vs. 功能操作」兩層。 */
+/* 卡片右側的操作按鈕群：三顆都是 24x24px 的極簡圖示按鈕，垂直置中、
+   靠右對齊，flex-shrink:0 確保書名再長也不會擠壓/縮小到這幾顆按鈕。 */
 .wishlist-item-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.3rem;
+  gap: 0.15rem;
+  flex-shrink: 0;
 }
 
 /* 「取消」是新增/編輯表單裡的次要動作（真正的主要動作是「＋ 加入願望清單」
@@ -4876,36 +4885,27 @@ header h1 a {
   color: var(--primary-hover);
 }
 
-/* 「轉為藏書」是卡片下層裡份量最重的一顆（真的會把這本書搬進正式藏書庫），
-   維持一顆看得清楚的實體小按鈕，但改成暖灰底＋玫瑰棕字，跟卡片本身的
-   暖白調性更貼合，不是原本借用 --primary 深棕的 Outline 樣式。 */
-.wishlist-convert-btn {
-  background: var(--tag-inactive-bg);
-  border: 1px solid transparent;
-  color: var(--icon-rose);
-  white-space: nowrap;
-}
-
-.wishlist-convert-btn:hover {
-  background: var(--icon-rose-soft);
-  border-color: var(--icon-rose);
-}
-
-/* 編輯／刪除退成極簡的裸圖示按鈕：預設低透明度、不點的時候幾乎融入卡片、
-   不搶「轉為藏書」或書名本身的視覺焦點，hover 才浮出底色＋提高到完全
-   不透明，維持「這裡可以點」的回饋，只是不需要一直杵在畫面上搶戲。 */
+/* 「轉為藏書」原本是份量最重的實色小按鈕，這次高密度佈局要求「取消大型
+   實色按鈕」，退成跟編輯／刪除同一顆 24x24px 極簡圖示按鈕——三顆放在一起
+   靠圖示本身（書本／鉛筆／垃圾桶）分辨用途，不再靠色塊份量區分主副。
+   統一 24x24px 固定尺寸＋padding:0，圖示置中；預設低透明度、不點的時候
+   幾乎融入卡片，不搶書名本身的視覺焦點，hover 才浮出底色＋提高到完全
+   不透明，維持「這裡可以點」的回饋。 */
 .wishlist-icon-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   border: none;
   background: none;
   color: var(--text-muted);
   opacity: 0.55;
   cursor: pointer;
-  font-size: 0.88rem;
-  padding: 0.3rem 0.4rem;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 6px;
   line-height: 1;
+  flex-shrink: 0;
   transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
@@ -4915,9 +4915,9 @@ header h1 a {
   color: var(--icon-rose);
 }
 
-/* 刪除這顆跟編輯共用同一個 .wishlist-icon-btn 底盤，hover 時另外疊一層
-   危險色（跟全站 .btn-danger 同一支低飽和灰紅），一眼就能跟編輯區分開來，
-   平常兩顆一樣低調、不會有一顆紅通通的按鈕搶眼跳出來。 */
+/* 刪除這顆跟編輯／轉為藏書共用同一個 .wishlist-icon-btn 底盤，hover 時
+   另外疊一層危險色（跟全站 .btn-danger 同一支低飽和灰紅），一眼就能跟
+   其他兩顆區分開來，平常三顆一樣低調、不會有一顆紅通通的按鈕搶眼跳出來。 */
 .wishlist-delete-btn:hover {
   color: var(--btn-danger-text);
 }
