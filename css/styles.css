@@ -3794,26 +3794,49 @@ header h1 a {
   }
 }
 
+/* 精簡過後只剩搜尋框＋排序選單兩個控制項（原本還有「複製全部」「匯出文字檔」
+   「匯出為 Markdown」三顆按鈕，已整組移除，見 quotes.js 的說明）——版面不用
+   再遷就四五個元件擠成一排，改成搜尋框吃滿剩餘寬度、排序選單固定寬度靠右，
+   兩者統一給 40px 高度，視覺上乾淨對齊成一排，跟書籍列表頁「搜尋＋排序」
+   那排的高度基準一致。 */
 .quotes-toolbar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  flex-wrap: wrap;
   margin-bottom: 0.5rem;
 }
 
 .quotes-toolbar .search-input {
   flex: 1;
-  min-width: 180px;
+  max-width: none;
+  height: 40px;
+  box-sizing: border-box;
 }
 
 .quote-sort-select {
+  flex-shrink: 0;
+  width: 160px;
+  height: 40px;
+  box-sizing: border-box;
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.85rem;
   background: var(--surface);
   color: var(--text);
+}
+
+/* 窄螢幕（手機）兩個控制項改成上下堆疊、各自滿版寬——並排在手機寬度會被
+   壓得太窄，搜尋框打字空間不夠、排序選單的文字也容易被截斷。 */
+@media (max-width: 640px) {
+  .quotes-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .quote-sort-select {
+    width: 100%;
+  }
 }
 
 .graph-layout {

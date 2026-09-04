@@ -1,6 +1,5 @@
 import { DB } from './db.js';
 import { escapeHtml, renderTextWithHashtags } from './utils.js';
-import { renderMarkdownExportButton } from './services/exportService.js';
 
 // 頁碼欄位是自由文字（例如「45-47」），排序時只抓第一串數字當排序依據。
 function parsePageNumber(page) {
@@ -28,22 +27,6 @@ async function getQuotesByBook(bookId) {
   return DB.getByIndex('quotes', 'bookId', bookId);
 }
 
-function downloadText(text, filename) {
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function formatQuoteForExport(quote) {
-  return quote.page ? `「${quote.content}」（P. ${quote.page}）` : `「${quote.content}」`;
-}
-
 async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -54,7 +37,7 @@ async function copyText(text) {
   }
 }
 
-// ---------- 佳句工作區（新增／搜尋／排序／複製／匯出／列表）----------
+// ---------- 佳句工作區（新增／搜尋／排序／列表）----------
 // 獨立佳句頁面（/books/:id/quotes）跟書籍詳情頁的「佳句摘錄」Tab 共用同一份邏輯，
 // 差別只在外層有沒有包一層「回列表」的 toolbar，所以拆成這個函式讓兩邊都能呼叫。
 
@@ -93,7 +76,9 @@ function quoteEditFormHtml(quote) {
 
 // options.onCountChange(total)：每次重繪清單都會回報目前總條數，
 // 書籍詳情頁的「佳句摘錄」Tab 用這個把數字同步更新到分頁按鈕上的「(X 條)」。
-export async function renderQuotesWorkspace(container, bookId, book, options = {}) {
+// 不吃 book 這個參數——原本只有「匯出文字檔／Markdown」需要書名，兩個匯出
+// 按鈕都拿掉之後，這個函式只需要 bookId 就能運作。
+export async function renderQuotesWorkspace(container, bookId, options = {}) {
   const onCountChange = options.onCountChange || (() => {});
   let editingId = null;
   let searchQuery = '';
@@ -122,9 +107,6 @@ export async function renderQuotesWorkspace(container, bookId, book, options = {
             <option value="page">依頁碼排序</option>
             <option value="newest">依新增時間排序</option>
           </select>
-          <button type="button" class="btn" id="copy-all-btn">複製全部</button>
-          <button type="button" class="btn" id="export-quotes-btn">匯出文字檔</button>
-          <span id="export-md-container"></span>
         </div>
         <p class="graph-hint" id="quote-count-hint"></p>
         <div class="quote-list" id="quote-list"></div>
@@ -247,36 +229,6 @@ export async function renderQuotesWorkspace(container, bookId, book, options = {
     redrawList();
   });
 
-  container.querySelector('#copy-all-btn').addEventListener('click', async () => {
-    const quotes = sortByPage(await getQuotesByBook(bookId));
-    if (quotes.length === 0) {
-      window.alert('目前還沒有佳句可以複製。');
-      return;
-    }
-    await copyText(quotes.map(formatQuoteForExport).join('\n\n'));
-  });
-
-  container.querySelector('#export-quotes-btn').addEventListener('click', async () => {
-    const quotes = sortByPage(await getQuotesByBook(bookId));
-    if (quotes.length === 0) {
-      window.alert('目前還沒有佳句可以匯出。');
-      return;
-    }
-    const text = `${book.title || '未命名'}｜佳句摘錄\n\n${quotes.map(formatQuoteForExport).join('\n\n')}`;
-    downloadText(text, `${book.title || '佳句摘錄'}-quotes.txt`);
-  });
-
-  // 新增：匯出成標準 Markdown（含 YAML frontmatter、劃線用 Obsidian Callout 語法），
-  // 跟上面兩顆既有的按鈕並排，不影響「複製全部」「匯出文字檔」原本的行為。
-  renderMarkdownExportButton(container.querySelector('#export-md-container'), {
-    fetchExportData: async () => ({
-      book,
-      quotes: await getQuotesByBook(bookId),
-      notes: await DB.getByIndex('notes', 'bookId', bookId),
-      reflections: (await DB.getByIndex('outputs', 'bookId', bookId)).filter((o) => o.kind === 'reflection'),
-    }),
-  });
-
   await redrawList();
 }
 
@@ -298,5 +250,5 @@ export async function renderQuotesPage(container, rawBookId) {
     <div id="quotes-workspace"></div>
   `;
 
-  await renderQuotesWorkspace(container.querySelector('#quotes-workspace'), bookId, book);
+  await renderQuotesWorkspace(container.querySelector('#quotes-workspace'), bookId);
 }

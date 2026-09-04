@@ -182,7 +182,7 @@ export async function renderBookDetail(container, rawId) {
   await renderMotivation(container.querySelector('#motivation-container'), bookId);
   await renderReflections(container.querySelector('#reflection-container'), bookId);
   await renderNotesSection(container.querySelector('#notes-section'), bookId);
-  await renderQuotesWorkspace(container.querySelector('#quotes-container'), bookId, book, {
+  await renderQuotesWorkspace(container.querySelector('#quotes-container'), bookId, {
     onCountChange: (count) => {
       container.querySelector('#quotes-tab-count').textContent = count;
     },
