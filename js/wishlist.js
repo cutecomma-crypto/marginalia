@@ -21,6 +21,7 @@
 import { DB } from './db.js';
 import { escapeHtml, showToast } from './utils.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
+import { ICON_BOOK_OPEN, ICON_EDIT, ICON_DELETE, ICON_SPARKLES } from './icons.js';
 
 const STORE = 'wishlist';
 
@@ -102,9 +103,9 @@ function itemRowHtml(item) {
         ${itemMetaLine(item)}
       </div>
       <div class="wishlist-item-actions">
-        <button type="button" class="btn btn-sm wishlist-convert-btn" title="轉為藏書">📖 轉為藏書</button>
-        <button type="button" class="wishlist-icon-btn wishlist-edit-btn" title="編輯「${escapeHtml(item.title || '')}」">✏️</button>
-        <button type="button" class="wishlist-icon-btn wishlist-delete-btn" title="刪除「${escapeHtml(item.title || '')}」">🗑️</button>
+        <button type="button" class="btn btn-sm wishlist-convert-btn" title="轉為藏書">${ICON_BOOK_OPEN}轉為藏書</button>
+        <button type="button" class="wishlist-icon-btn wishlist-edit-btn" title="編輯「${escapeHtml(item.title || '')}」">${ICON_EDIT}</button>
+        <button type="button" class="wishlist-icon-btn wishlist-delete-btn" title="刪除「${escapeHtml(item.title || '')}」">${ICON_DELETE}</button>
       </div>
     </li>
   `;
@@ -214,7 +215,7 @@ function ensureDrawerBuilt() {
   drawerEl.innerHTML = `
     <button type="button" class="wishlist-drawer-close" id="wishlist-drawer-close" title="關閉面板">✕ 關閉</button>
     <div class="wishlist-drawer-head">
-      <h3>✨ 願望與推薦清單</h3>
+      <h3 class="icon-heading">${ICON_SPARKLES}願望與推薦清單</h3>
       <span class="wishlist-count" id="wishlist-count">共 0 本</span>
     </div>
     <div class="wishlist-form-area">

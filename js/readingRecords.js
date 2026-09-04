@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml, showToast } from './utils.js';
+import { ICON_BOOK_OPEN } from './icons.js';
 import { LIBRARY_SOURCE_FORMAT, BORROWED_RETENTION_STATUS, RETURNED_RETENTION_STATUS } from './bookForm.js';
 
 // 對照 PROJECT_SPEC.md 第 2 節。頁數不重複存一份，直接沿用書籍資料的「頁數」欄位當分母。
@@ -28,7 +29,7 @@ export async function renderReadingSection(container, bookId, book, options = {}
 
   container.innerHTML = `
     <div class="reading-progress-module">
-      <h4 class="progress-module-heading">📖 閱讀進度設定</h4>
+      <h4 class="progress-module-heading icon-heading">${ICON_BOOK_OPEN}閱讀進度設定</h4>
       <form id="reading-form" class="book-form reading-progress-form">
         <div class="progress-form-grid">
           <label>狀態

@@ -1,6 +1,7 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
+import { ICON_LINK } from './icons.js';
 
 // 對照 PROJECT_SPEC.md 第 5 節（階層式群組卡片版）：群組容器裝人物卡片，
 // 人物跨群組連線標註關係。範圍限單一書籍。
@@ -470,7 +471,7 @@ export async function renderGraphPage(container, rawBookId) {
             <button type="button" class="canvas-tool-btn" id="zoom-in-btn" title="放大">＋</button>
             <button type="button" class="canvas-tool-btn" id="zoom-reset-btn" title="重設縮放">重設</button>
           </div>
-          <button type="button" class="btn graph-toolbar-secondary-btn drawer-toggle-btn" id="drawer-toggle-btn">🔗 關係／編輯面板</button>
+          <button type="button" class="btn graph-toolbar-secondary-btn drawer-toggle-btn" id="drawer-toggle-btn">${ICON_LINK}關係／編輯面板</button>
           <button type="button" class="btn graph-toolbar-secondary-btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
           <button type="button" class="btn btn-primary" id="add-group-btn">＋ 新增群組</button>
         </div>

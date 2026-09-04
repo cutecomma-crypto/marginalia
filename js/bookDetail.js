@@ -6,6 +6,7 @@ import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml, renderTagChip, showToast, confirmModal } from './utils.js';
 import { DEFAULT_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
+import { ICON_GRAPH, ICON_EDIT, ICON_DELETE, ICON_LIGHTBULB, ICON_PEN_LINE, ICON_NOTEBOOK, ICON_QUOTE } from './icons.js';
 
 // rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
 // 的欄位可以傳這個代替純文字 value，呼叫端要自己先 escapeHtml() 過使用者輸入的部分。
@@ -61,9 +62,9 @@ export async function renderBookDetail(container, rawId) {
       <a href="#/books" class="detail-back-link">← 回列表</a>
       <div class="toolbar-actions">
         ${quickAction ? `<button type="button" class="btn quick-action-btn" id="quick-action-btn">${escapeHtml(quickAction.label)}</button>` : ''}
-        <a class="btn detail-action-btn" href="#/books/${bookId}/graph" title="關係圖譜">🕸️<span class="btn-label"> 關係圖譜</span></a>
-        <a class="btn detail-action-btn" href="#/books/${bookId}/edit" title="編輯">✏️<span class="btn-label"> 編輯</span></a>
-        <button type="button" class="btn btn-danger detail-action-btn" id="delete-book" title="刪除">🗑️<span class="btn-label"> 刪除</span></button>
+        <a class="btn detail-action-btn" href="#/books/${bookId}/graph" title="關係圖譜">${ICON_GRAPH}<span class="btn-label">關係圖譜</span></a>
+        <a class="btn detail-action-btn" href="#/books/${bookId}/edit" title="編輯">${ICON_EDIT}<span class="btn-label">編輯</span></a>
+        <button type="button" class="btn btn-danger detail-action-btn" id="delete-book" title="刪除">${ICON_DELETE}<span class="btn-label">刪除</span></button>
       </div>
     </div>
     <div class="book-header-panel">
@@ -95,10 +96,10 @@ export async function renderBookDetail(container, rawId) {
 
     <div class="main-tabs">
       <div class="main-tab-buttons">
-        <button type="button" class="main-tab-btn is-active" data-tab="motivation">💡 閱讀動機</button>
-        <button type="button" class="main-tab-btn" data-tab="reflection">✍️ 閱讀後輸出</button>
-        <button type="button" class="main-tab-btn" data-tab="notes">📝 快速筆記</button>
-        <button type="button" class="main-tab-btn" data-tab="quotes">💬 佳句摘錄（<span id="quotes-tab-count">0</span> 條）</button>
+        <button type="button" class="main-tab-btn is-active" data-tab="motivation">${ICON_LIGHTBULB}閱讀動機</button>
+        <button type="button" class="main-tab-btn" data-tab="reflection">${ICON_PEN_LINE}閱讀後輸出</button>
+        <button type="button" class="main-tab-btn" data-tab="notes">${ICON_NOTEBOOK}快速筆記</button>
+        <button type="button" class="main-tab-btn" data-tab="quotes">${ICON_QUOTE}佳句摘錄（<span id="quotes-tab-count">0</span> 條）</button>
       </div>
       <div class="main-tab-panel" data-tab-panel="motivation">
         <div id="motivation-container"></div>

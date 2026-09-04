@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
+import { ICON_EDIT, ICON_DELETE } from './icons.js';
 import { getCurrentUser } from './services/authService.js';
 import { getSupabaseClient } from './services/supabaseClient.js';
 
@@ -268,8 +269,8 @@ function openCustomCategoryModal() {
           <li data-name="${escapeHtml(c.name)}">
             <span class="cm-item-name">${escapeHtml(c.name)}</span>
             <span class="cm-item-group">${escapeHtml(c.group || '未分組')}</span>
-            <button type="button" class="cm-icon-btn cm-edit-btn" title="編輯「${escapeHtml(c.name)}」">✏️</button>
-            <button type="button" class="cm-icon-btn cm-delete-btn" title="刪除「${escapeHtml(c.name)}」">🗑️</button>
+            <button type="button" class="cm-icon-btn cm-edit-btn" title="編輯「${escapeHtml(c.name)}」">${ICON_EDIT}</button>
+            <button type="button" class="cm-icon-btn cm-delete-btn" title="刪除「${escapeHtml(c.name)}」">${ICON_DELETE}</button>
           </li>
         `).join('');
 

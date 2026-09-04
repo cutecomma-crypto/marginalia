@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml, renderTextWithHashtags, showToast } from './utils.js';
+import { ICON_NOTEBOOK, ICON_LIGHTBULB } from './icons.js';
 
 // 對照 PROJECT_SPEC.md 第 7 節：儲存當下不要求分類／標籤／關聯，之後才由系統協助辨識（P1 以後）。
 async function getNotesForBook(bookId) {
@@ -48,12 +49,12 @@ export async function renderNotesSection(container, bookId, { editingId = null }
 
   container.innerHTML = `
     <div class="notes-section">
-      <h4 class="section-heading">📝 快速筆記</h4>
+      <h4 class="section-heading icon-heading">${ICON_NOTEBOOK}快速筆記</h4>
       <form id="note-form" class="book-form">
         <label>想到什麼就先寫下來，之後再整理
           <textarea name="text" rows="2" placeholder="例如：這裡提到榮格，感覺跟之前看的那本書有關"></textarea>
         </label>
-        <p class="hashtag-hint">💡 提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
+        <p class="hashtag-hint">${ICON_LIGHTBULB}提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">儲存</button>
         </div>

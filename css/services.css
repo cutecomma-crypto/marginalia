@@ -12,6 +12,12 @@
   font-size: 0.85rem;
 }
 
+.persistence-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .persistence-status.is-persisted { color: var(--accent-green, #4a7c59); }
 .persistence-status.is-not-persisted { color: var(--danger); }
 
@@ -58,6 +64,9 @@
 }
 
 .selection-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   background: transparent;
   border: none;
   color: inherit;
@@ -94,8 +103,12 @@
 }
 
 .speech-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border-soft);
   background: var(--surface);
+  color: var(--icon-rose);
   border-radius: 6px;
   width: 1.9rem;
   height: 1.9rem;

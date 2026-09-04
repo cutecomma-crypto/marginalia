@@ -3,6 +3,7 @@
 // class（跟 categories.js 的自訂分類管理彈窗同一套），沒有新增任何顏色變數——
 // 配色完全繼承現有的奶油米＋深紅棕＋靈魂粉紅設計系統。
 import { escapeHtml, showToast, initPasswordToggles } from './utils.js';
+import { ICON_SPARKLES } from './icons.js';
 import { isSupabaseConfigured } from './config.js';
 import {
   signUp, signIn, signOut, resetPasswordForEmail, updatePassword,
@@ -30,7 +31,7 @@ function renderLoggedIn(slot, user) {
   slot.innerHTML = `
     <div class="auth-status">
       <span class="auth-avatar" title="${escapeHtml(user.email || '')}">${escapeHtml(initialOf(user))}</span>
-      <span class="auth-nickname">👤 ${escapeHtml(nicknameOf(user))}</span>
+      <span class="auth-nickname"><span class="emoji-tint">👤</span> ${escapeHtml(nicknameOf(user))}</span>
       <button type="button" class="auth-logout-btn" id="auth-logout-btn">登出</button>
     </div>
   `;
@@ -61,7 +62,7 @@ function showRegisterSuccessModal(hasSession) {
   backdrop.className = 'modal-backdrop';
   backdrop.innerHTML = `
     <div class="modal-card auth-info-modal" role="alertdialog" aria-modal="true" aria-labelledby="auth-info-title">
-      <div class="auth-info-icon">🎉</div>
+      <div class="auth-info-icon">${ICON_SPARKLES}</div>
       <h3 id="auth-info-title">註冊成功！</h3>
       <p class="auth-info-message">${hasSession ? '已自動登入，開始使用 Marginalia 記錄你的閱讀吧。' : '請至信箱收取驗證信，完成驗證後即可登入。'}</p>
       <div class="modal-actions">
@@ -98,7 +99,7 @@ function openAuthModal(initialMode = 'login') {
         <label for="auth-password-input" id="auth-password-label">密碼
           <div class="password-field">
             <input type="password" id="auth-password-input" required autocomplete="current-password" minlength="6">
-            <button type="button" class="password-toggle-btn" data-target="auth-password-input" aria-label="顯示密碼">👁️</button>
+            <button type="button" class="password-toggle-btn" data-target="auth-password-input" aria-label="顯示密碼"></button>
           </div>
         </label>
         <div class="modal-actions">

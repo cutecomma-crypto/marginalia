@@ -204,7 +204,7 @@ export function renderWebDavSettingsPanel(container, service, { gatherLocalData,
       <label>密碼
         <div class="password-field">
           <input type="password" id="webdav-password" value="${config.password || ''}" autocomplete="current-password">
-          <button type="button" class="password-toggle-btn" data-target="webdav-password" aria-label="顯示密碼">👁️</button>
+          <button type="button" class="password-toggle-btn" data-target="webdav-password" aria-label="顯示密碼"></button>
         </div>
       </label>
       <div class="form-actions">

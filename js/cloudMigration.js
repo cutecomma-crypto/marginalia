@@ -27,6 +27,7 @@ import { LocalDB } from './localDb.js';
 import { CloudDB } from './cloudDb.js';
 import { getCurrentUser } from './services/authService.js';
 import { showToast, escapeHtml } from './utils.js';
+import { ICON_ALERT } from './icons.js';
 
 function bannerEl() {
   let el = document.getElementById('cloud-migration-banner');
@@ -52,7 +53,7 @@ function openMigrationFailuresModal(failures) {
   backdrop.className = 'modal-backdrop';
   backdrop.innerHTML = `
     <div class="modal-card migration-failures-card" role="dialog" aria-modal="true" aria-labelledby="migration-failures-title">
-      <h3 id="migration-failures-title">⚠️ ${failures.length} 本書同步失敗</h3>
+      <h3 id="migration-failures-title" class="icon-heading icon-heading-warning">${ICON_ALERT}${failures.length} 本書同步失敗</h3>
       <p class="migration-failures-hint">本機資料完全沒有受影響，以下是搬移到雲端時發生錯誤的項目，可以之後再重試「立即同步」補齊。</p>
       <ul class="migration-failures-list">
         ${failures.map((f) => `

@@ -3,6 +3,7 @@ import { STATUS_OPTIONS } from './readingRecords.js';
 import { MOTIVATION_TAGS, MOTIVATION_TAG_GROUPS } from './outputs.js';
 import { getFavoriteAuthorMap, toggleFavoriteAuthor } from './authors.js';
 import { escapeHtml } from './utils.js';
+import { ICON_BOOK_OPEN, ICON_CART, ICON_BOOK, ICON_IMAGE, ICON_DELETE } from './icons.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 
 // 「書籍形式／來源」跟「存留狀態」解耦：來源只回答「這本書從哪裡來」（買的、圖書館借的…），
@@ -189,7 +190,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
   return `
     <form id="book-form" class="book-form" novalidate>
       <fieldset class="form-section book-basic-grid">
-        <legend>📖 書籍基本資料</legend>
+        <legend class="icon-heading">${ICON_BOOK_OPEN}書籍基本資料</legend>
         <div class="basic-fields-col">
           <label class="field-required" for="field-title">書名 *<input id="field-title" name="title" required value="${escapeHtml(book.title)}" placeholder="這本書叫什麼名字？"></label>
           <div class="basic-fields-row">
@@ -218,8 +219,8 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
           </div>
           <div class="cover-upload-actions">
             <button type="button" id="cover-upload-btn" class="cover-action-btn cover-upload-btn" ${book.coverImage ? 'hidden' : ''}>＋ 上傳封面</button>
-            <button type="button" id="cover-change-btn" class="cover-action-btn cover-change-btn" ${book.coverImage ? '' : 'hidden'}>📷 更換</button>
-            <button type="button" id="cover-remove-btn" class="cover-action-btn cover-remove-btn" ${book.coverImage ? '' : 'hidden'}>🗑️ 移除</button>
+            <button type="button" id="cover-change-btn" class="cover-action-btn cover-change-btn" ${book.coverImage ? '' : 'hidden'}>${ICON_IMAGE}更換</button>
+            <button type="button" id="cover-remove-btn" class="cover-action-btn cover-remove-btn" ${book.coverImage ? '' : 'hidden'}>${ICON_DELETE}移除</button>
           </div>
           <input type="file" accept="image/*" id="cover-file-input" class="cover-file-input-hidden">
           <input type="hidden" name="coverImage" id="cover-image-value" value="${escapeHtml(book.coverImage || '')}">
@@ -227,7 +228,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
       </fieldset>
 
       <fieldset class="form-section form-section-quiet book-purchase-grid">
-        <legend>🛒 擁有／購買資料</legend>
+        <legend class="icon-heading">${ICON_CART}擁有／購買資料</legend>
         <label for="field-purchase-date">購買日期<input id="field-purchase-date" type="date" name="purchaseDate" value="${escapeHtml(book.purchaseDate)}"></label>
         <label for="field-purchase-price">購買價格<input id="field-purchase-price" type="number" name="purchasePrice" min="0" value="${escapeHtml(book.purchasePrice)}"></label>
         <label for="field-format">書籍形式／來源
@@ -259,7 +260,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
 
       ${isNew ? `
       <fieldset class="form-section">
-        <legend>📚 我的閱讀</legend>
+        <legend class="icon-heading">${ICON_BOOK}我的閱讀</legend>
         <label for="field-status">閱讀狀態
           <select id="field-status" name="status">
             ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${s === '尚未閱讀' ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}

@@ -7,6 +7,7 @@ import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, f
 import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
+import { ICON_SPARKLES, ICON_BOOK_OPEN } from './icons.js';
 
 // 雲端快取背景刷新（見 cloudDb.js／services/cloudCache.js 的 Stale-While-Revalidate
 // 說明）如果發現書籍資料真的變了，會發出這個事件——這裡只負責跳一個不打擾的
@@ -177,7 +178,7 @@ function bookGalleryCard(book, favoriteAuthors, recordMap) {
   return `
     <a class="book-gallery-card" href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">
       <div class="book-gallery-cover">
-        ${book.coverImage ? `<img src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : '<span class="book-gallery-cover-placeholder">📖</span>'}
+        ${book.coverImage ? `<img src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : `<span class="book-gallery-cover-placeholder">${ICON_BOOK_OPEN}</span>`}
       </div>
       <div class="book-gallery-info">
         <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
@@ -299,7 +300,7 @@ export async function renderBookList(container) {
             <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" title="切換為封面網格檢視">${GRID_ICON}</button>
           </div>
           <div class="toolbar-actions">
-            <button type="button" class="btn" id="open-wishlist-btn">✨ 願望清單</button>
+            <button type="button" class="btn" id="open-wishlist-btn">${ICON_SPARKLES}願望清單</button>
             <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
           </div>
         </div>
@@ -398,7 +399,7 @@ export async function renderBookList(container) {
     }
     if (authorFilter) {
       const authorBookCount = books.filter((b) => (b.author || '').trim() === authorFilter).length;
-      entries.push({ key: 'author', label: `👤 作者：${authorFilter}（共 ${authorBookCount} 本）`, remove: () => {
+      entries.push({ key: 'author', label: `作者：${authorFilter}（共 ${authorBookCount} 本）`, remove: () => {
         authorFilter = null;
         currentPage = 1;
         renderList();

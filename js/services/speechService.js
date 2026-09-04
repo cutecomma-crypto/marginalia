@@ -2,6 +2,8 @@
 // window.speechSynthesis。跟 Marginalia 其餘 local-first 的原則完全一致——
 // 不會把任何文字送出裝置。
 
+import { ICON_VOLUME } from '../icons.js';
+
 export function isSpeechSupported() {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }
@@ -50,7 +52,7 @@ export function speakElement(el, options = {}) {
 export function renderSpeechControls(container, { getText }) {
   container.innerHTML = `
     <div class="speech-controls">
-      <button type="button" id="speech-play-btn" aria-label="朗讀">🔊</button>
+      <button type="button" id="speech-play-btn" aria-label="朗讀">${ICON_VOLUME}</button>
       <input type="range" id="speech-rate-input" min="0.8" max="1.5" step="0.1" value="1" aria-label="朗讀速度">
       <span id="speech-rate-label">1.0x</span>
       <button type="button" id="speech-stop-btn" aria-label="停止朗讀">⏹️</button>

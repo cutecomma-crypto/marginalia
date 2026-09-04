@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml, applyHashtagLinks, showToast, renderTagChip } from './utils.js';
+import { ICON_LIGHTBULB, ICON_PEN_LINE } from './icons.js';
 import { attachSelectionToolbar } from './services/selectionToolbarService.js';
 
 // 對照 PROJECT_SPEC.md 第 4 節：低壓力、選填，不要求填完。
@@ -324,7 +325,7 @@ export async function renderMotivation(container, bookId) {
   const existing = (await getOutputsByKind(bookId, 'motivation'))[0] || null;
 
   container.innerHTML = `
-    <h4 class="section-heading">💡 閱讀動機</h4>
+    <h4 class="section-heading icon-heading">${ICON_LIGHTBULB}閱讀動機</h4>
     <form id="motivation-form" class="book-form">
       <label>可以選擇（可複選）
         <span class="tag-checkboxes motivation-tags">${tagCheckboxes('motivationTags', MOTIVATION_TAGS, existing && existing.tags, MOTIVATION_TAG_GROUPS)}</span>
@@ -373,7 +374,7 @@ export async function renderReflections(container, bookId) {
   items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
   container.innerHTML = `
-    <h4 class="section-heading">✍️ 閱讀後輸出</h4>
+    <h4 class="section-heading icon-heading">${ICON_PEN_LINE}閱讀後輸出</h4>
     <form id="reflection-form" class="book-form">
       <label>可以自由選擇（可複選，不用填完）
         <span class="tag-checkboxes">${tagCheckboxes('reflectionTags', REFLECTION_TAGS)}</span>
@@ -382,7 +383,7 @@ export async function renderReflections(container, bookId) {
         ${mdToolbarHtml()}
         <div class="reflection-editor is-empty" id="reflection-editor" contenteditable="true" data-placeholder="寫下你的心得..."><p><br></p></div>
       </div>
-      <p class="hashtag-hint">💡 提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
+      <p class="hashtag-hint">${ICON_LIGHTBULB}提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">新增</button>
       </div>

@@ -1,7 +1,8 @@
 import { DB } from './db.js';
 import { escapeHtml, extractHashtags, renderTextWithHashtags } from './utils.js';
+import { ICON_QUOTE, ICON_PEN_LINE, ICON_NOTEBOOK } from './icons.js';
 
-const KIND_LABEL = { quote: '💬 佳句摘錄', reflection: '✍️ 閱讀後輸出', note: '📝 快速筆記' };
+const KIND_LABEL = { quote: `${ICON_QUOTE}佳句摘錄`, reflection: `${ICON_PEN_LINE}閱讀後輸出`, note: `${ICON_NOTEBOOK}快速筆記` };
 
 function resultItemHtml(kind, text, bookId, extraHtml) {
   const href = kind === 'quote' ? `#/books/${bookId}/quotes` : `#/books/${bookId}`;

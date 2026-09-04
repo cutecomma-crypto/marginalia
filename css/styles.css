@@ -35,13 +35,21 @@
   --danger: #b3492f;
   --danger-soft: #f5e2d9;
   --gold: #d9973f;
-  /* Favicon（見 favicon.png／favicon.ico）用的品牌識別色：低飽和度的霧面
-     玫瑰棕，跟 --accent 的 Flamingo Plume 柔粉是不同色相——這支色票目前只
-     綁定在圖示本身，沒有另外套進站內任何色塊，避免多開一條沒有明確語意的
-     裝飾色線；--icon-rose-soft 是它的極淺底色版本，保留給以後真的需要在
-     頁面裡呼應圖示色（例如品牌相關的空狀態插圖）時使用。 */
+  /* 低飽和度的霧面玫瑰棕，原本只綁在 Favicon／Header 圖示本身；「全站 Emoji
+     色調統一與極簡 Icon 化」這次重構把它擴大成一般按鈕（.btn）與作用中頁籤
+     （.main-tab-btn.is-active）的文字／Icon 顏色，取代原本的深棕／粉紅，
+     讓「按鈕」「頁籤」「圖示」共用同一個品牌色相，不再各自為政。
+     --icon-rose-soft 是極淺底色版本，套在這些按鈕/頁籤的底色上。 */
   --icon-rose: #a67c74;
   --icon-rose-soft: #f3e9e7;
+  /* 一般按鈕的暖白底，跟卡片用的純白 --surface 區隔開——按鈕刻意帶一點點
+     暖調，不是死白，跟玫瑰棕文字/Icon 搭起來才不會太冷。危險按鈕（刪除）
+     另外給一組更低飽和度的灰紅，只套用在按鈕這個特定情境，其餘用到
+     --danger／--danger-soft 的地方（表單驗證錯誤訊息之類）維持原本清楚的
+     警示紅，不連帶跟著變淡。 */
+  --btn-bg: #fbf9f7;
+  --btn-danger-bg: #f8ecea;
+  --btn-danger-text: #b05c5c;
   /* 「輕盈」的核心就在這裡：陰影份量比舊版再收斂一截，卡片的立體感主要靠
      --border-hairline 那圈細邊框撐出來，陰影只負責補一點點極輕的浮起感，
      不再是卡片邊界的主要視覺依據——陰影太重跟這次要的「高級感」互相矛盾，
@@ -463,17 +471,61 @@ header h1 a {
   gap: 0.5rem;
 }
 
+/* display 改成 inline-flex + gap（原本是 inline-block）：純文字按鈕視覺上
+   完全沒差別，差別只在「Icon SVG + 文字」這種組合終於有地方可以放間距，
+   不用每個有 Icon 的按鈕各自寫一份 inline-flex 覆蓋規則——全站所有 .btn
+   共用同一份排版基礎。 */
 .btn {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.45rem 0.9rem;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  background: var(--btn-bg);
+  color: var(--icon-rose);
   text-decoration: none;
   font-size: 0.9rem;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* 全站共用的極簡線條 Icon（見 js/icons.js）統一大小／不被文字擠壓變形，
+   顏色永遠跟隨外層文字色（stroke="currentColor"），不需要另外指定。 */
+.ui-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+/* 備案：極少數還沒換成專屬 SVG（多半是深藏在提示文字、Toast 訊息裡偶爾
+   出現的原生 Emoji），沒必要為了個位數的出現次數各自畫一顆新 Icon，套這個
+   class 去彩＋壓暗，讓它們融入整體低飽和的莫蘭迪色調，不會在畫面上以
+   高彩度色塊的姿態跳出來，跟其餘全部换成 Icon 的地方視覺上還是和諧的。 */
+.emoji-tint {
+  filter: grayscale(100%) opacity(0.7);
+}
+
+/* 標題／Legend 前面掛一顆 Icon 的共用寫法：<h3>/<h4>/<legend> 各自本來就有
+   自己的字級/字重/邊距規則，這裡不去動那些，只額外疊 inline-flex+gap 讓
+   Icon 跟文字對齊、留一點間距，Icon 本身統一用玫瑰棕（跟按鈕/頁籤同一支
+   品牌色），標題文字維持原本的顏色不受影響——避免每個用到「Icon+標題」
+   這個組合的地方各自重複寫一份幾乎一樣的排版規則。 */
+.icon-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.icon-heading .ui-icon {
+  color: var(--icon-rose);
+}
+
+/* 警示語境（同步失敗、尚未啟用持久化儲存……）換成跟 .btn-danger 同一支
+   低飽和灰紅，不是品牌玫瑰棕——這裡的 Icon 帶有「請注意」的語意，跟純
+   裝飾性的標題 Icon 不是同一件事，用不同顏色才分得出來。 */
+.icon-heading-warning .ui-icon {
+  color: var(--btn-danger-text);
 }
 
 /* 一般次要按鈕平常維持素雅的白底/暖米 hover，滑過或聚焦時才「亮」成粉紅底，
@@ -589,9 +641,14 @@ header h1 a {
   box-shadow: 0 4px 10px rgba(44, 42, 41, 0.18);
 }
 
+/* 危險按鈕（刪除……）不再是刺眼的亮紅：淡粉灰底＋低飽和灰紅文字/邊框/Icon，
+   跟一般按鈕的暖白/玫瑰棕同一份「安靜」語感，只是換一個更低調的警示色相，
+   不是全站語意色 --danger 本身（那個仍然保留給表單驗證錯誤訊息這類
+   真正需要「醒目」的場合，兩者刻意分開，見 --btn-danger-* 定義旁的說明）。 */
 .btn-danger {
-  border-color: var(--danger);
-  color: var(--danger);
+  background: var(--btn-danger-bg);
+  border-color: var(--btn-danger-text);
+  color: var(--btn-danger-text);
 }
 
 /* 明確重申三個屬性（不只 background）：.btn:hover 現在會把 hover 狀態的
@@ -607,9 +664,9 @@ header h1 a {
 }
 
 .btn-danger:hover {
-  background: var(--danger-soft);
-  border-color: var(--danger);
-  color: var(--danger);
+  background: var(--btn-danger-text);
+  border-color: var(--btn-danger-text);
+  color: #fff;
 }
 
 /* 「清除篩選」按鈕：跟動態篩選標籤同一列，一次清空所有篩選條件（含搜尋框）。 */
@@ -2234,6 +2291,9 @@ header h1 a {
 }
 
 .main-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.55rem 0.9rem;
   border: none;
   border-bottom: 2px solid transparent;
@@ -2249,13 +2309,14 @@ header h1 a {
   transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
-/* 四個主題頁籤原本各自一組莫蘭迪色做區分，這次統一改成單一的柔粉 Accent 語彙
-   （輕柔粉底 + 粉紅底線），讓「選中」這件事本身的視覺語言全站一致，不再讓每個
-   頁籤自己帶一種顏色身份。 */
+/* 四個主題頁籤原本各自一組莫蘭迪色做區分，後來統一改成柔粉 Accent，這次
+   「全站 Emoji／按鈕色調統一」再改一次：換成跟一般按鈕、Header 圖示同一個
+   玫瑰棕（--icon-rose），讓「選中」的視覺語言跟全站按鈕/Icon 共用同一支
+   品牌色，不再是另一組獨立的粉紅色語彙。 */
 .main-tab-btn.is-active {
-  color: var(--accent-hover);
-  background: var(--accent-soft);
-  border-bottom-color: var(--accent);
+  color: var(--icon-rose);
+  background: var(--icon-rose-soft);
+  border-bottom-color: var(--icon-rose);
 }
 
 .main-tab-panel {
@@ -2823,9 +2884,9 @@ header h1 a {
 
 .cover-upload-btn,
 .cover-change-btn {
-  background: var(--surface);
+  background: var(--btn-bg);
   border: 1px solid var(--border);
-  color: var(--text);
+  color: var(--icon-rose);
 }
 
 .cover-upload-btn:hover,
@@ -2834,13 +2895,13 @@ header h1 a {
 }
 
 .cover-remove-btn {
-  background: var(--danger-soft);
-  border: 1px solid var(--danger);
-  color: var(--danger);
+  background: var(--btn-danger-bg);
+  border: 1px solid var(--btn-danger-text);
+  color: var(--btn-danger-text);
 }
 
 .cover-remove-btn:hover {
-  background: var(--danger);
+  background: var(--btn-danger-text);
   color: #fff;
 }
 
@@ -2957,9 +3018,14 @@ header h1 a {
 }
 
 .auth-info-icon {
-  font-size: 2.2rem;
   line-height: 1;
   margin-bottom: 0.6rem;
+}
+
+.auth-info-icon .ui-icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  color: var(--icon-rose);
 }
 
 .auth-info-modal h3 {
@@ -3088,6 +3154,7 @@ header h1 a {
 .cm-icon-btn {
   border: none;
   background: none;
+  color: var(--icon-rose);
   cursor: pointer;
   font-size: 0.95rem;
   padding: 0.1rem 0.3rem;
@@ -3097,6 +3164,10 @@ header h1 a {
 
 .cm-icon-btn:hover {
   background: var(--surface);
+}
+
+.cm-delete-btn {
+  color: var(--btn-danger-text);
 }
 
 .output-list {
@@ -3161,6 +3232,14 @@ header h1 a {
   font-size: 0.72rem;
   color: var(--text-muted);
   margin: -0.3rem 0 0.8rem;
+}
+
+.hashtag-hint .ui-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  vertical-align: -0.1em;
+  margin-right: 0.15rem;
+  color: var(--icon-rose);
 }
 
 /* 心得輸入框上方的極簡工具列：小小一排圓角按鈕，份量刻意做輕，不搶輸入框本身的焦點。
@@ -3662,9 +3741,16 @@ header h1 a {
 }
 
 .tag-result-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: 600;
+}
+
+.tag-result-kind .ui-icon {
+  color: var(--icon-rose);
 }
 
 .tag-result-jump {
@@ -4723,18 +4809,34 @@ header h1 a {
    --surface-alt，跟側邊欄卡片內部次要區塊同色），變成清楚可辨識的「按鈕」
    而不是容易被忽略的裸文字圖示，hover 再加深一階到 --primary-soft。 */
 .wishlist-icon-btn {
+  display: inline-flex;
+  align-items: center;
   border: none;
-  background: var(--surface-alt);
+  background: var(--icon-rose-soft);
+  color: var(--icon-rose);
   cursor: pointer;
   font-size: 0.88rem;
   padding: 0.3rem 0.5rem;
   border-radius: 10px;
   line-height: 1;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .wishlist-icon-btn:hover {
   background: var(--primary-soft);
+}
+
+/* 刪除這顆跟編輯共用同一個 .wishlist-icon-btn 底盤，另外疊一層危險色——
+   跟全站 .btn-danger 同一套「淡粉灰底＋低飽和灰紅」語彙，一眼就能跟旁邊
+   的編輯按鈕區分開來，不會兩顆看起來一模一樣。 */
+.wishlist-delete-btn {
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
+}
+
+.wishlist-delete-btn:hover {
+  background: var(--btn-danger-text);
+  color: #fff;
 }
 
 @media (max-width: 768px) {
@@ -4869,8 +4971,13 @@ header h1 a {
 }
 
 .book-gallery-cover-placeholder {
-  font-size: 2rem;
   opacity: 0.5;
+  color: var(--icon-rose);
+}
+
+.book-gallery-cover-placeholder .ui-icon {
+  width: 2rem;
+  height: 2rem;
 }
 
 .book-gallery-info {

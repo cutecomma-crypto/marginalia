@@ -2,6 +2,7 @@ import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 import { buildRecordByBookMap, isCompletedInYear } from './bookStats.js';
 import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
+import { ICON_UPLOAD, ICON_DOWNLOAD } from './icons.js';
 
 // 對照 PROJECT_SPEC.md 第 3 節與 B 原則 6：全部自動計算，不可手動輸入。
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -184,8 +185,8 @@ function categoryEntriesForYear(books, recordByBook, year) {
 // 「借出中／借入未還」按鈕的圖示＋中文標籤，初始渲染（retentionButtonsHtml）跟
 // 之後的即時補丁（patchRetentionCountBadge）共用同一份，文案以後要改只用改這裡一處。
 const RETENTION_BADGE_LABELS = {
-  [LENT_OUT_RETENTION_STATUS]: '📤 借出中',
-  [BORROWED_RETENTION_STATUS]: '📥 借入未還',
+  [LENT_OUT_RETENTION_STATUS]: `${ICON_UPLOAD}借出中`,
+  [BORROWED_RETENTION_STATUS]: `${ICON_DOWNLOAD}借入未還`,
 };
 
 function retentionBadgeText(retentionStatus, count) {

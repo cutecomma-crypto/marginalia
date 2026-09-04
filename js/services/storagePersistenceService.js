@@ -2,6 +2,8 @@
 // 主動清掉 IndexedDB 資料的機率。純附加功能：不讀寫應用程式自己的任何資料表，
 // 不 import db.js，不會跟現有程式碼的任何邏輯衝突，刪掉這個檔案也不影響其他功能。
 
+import { ICON_CHECK_CIRCLE, ICON_ALERT } from '../icons.js';
+
 export async function isStoragePersisted() {
   if (!navigator.storage || !navigator.storage.persisted) return false;
   try {
@@ -52,7 +54,7 @@ export async function renderPersistenceStatusWidget(container) {
   container.innerHTML = `
     <div class="persistence-widget">
       <span class="persistence-status ${persisted ? 'is-persisted' : 'is-not-persisted'}">
-        ${persisted ? '✅ 已啟用持久化儲存' : '⚠️ 尚未啟用持久化儲存'}
+        ${persisted ? `${ICON_CHECK_CIRCLE}已啟用持久化儲存` : `${ICON_ALERT}尚未啟用持久化儲存`}
       </span>
       <span class="persistence-usage">${usageText}</span>
       ${!persisted ? '<button type="button" class="btn btn-primary" id="request-persist-btn">請求持久化儲存</button>' : ''}

@@ -11,6 +11,7 @@
 
 import { speak } from './speechService.js';
 import { translateText } from './translateService.js';
+import { ICON_HIGHLIGHTER, ICON_GLOBE, ICON_VOLUME, ICON_CLIPBOARD } from '../icons.js';
 
 const TOOLBAR_ID = 'marginalia-selection-toolbar';
 
@@ -68,10 +69,10 @@ export function attachSelectionToolbar(rootEl, options = {}) {
 
   function renderIdle(selectedText) {
     toolbarEl.innerHTML = `
-      <button type="button" data-action="highlight" aria-label="加入佳句摘錄">🖍️ 佳句摘錄</button>
-      ${enableTranslate ? '<button type="button" data-action="translate" aria-label="劃詞翻譯">🌐 翻譯</button>' : ''}
-      <button type="button" data-action="read" aria-label="朗讀選取文字">🔊 朗讀</button>
-      <button type="button" data-action="copy" aria-label="複製選取文字">📋 複製</button>
+      <button type="button" data-action="highlight" aria-label="加入佳句摘錄">${ICON_HIGHLIGHTER}佳句摘錄</button>
+      ${enableTranslate ? `<button type="button" data-action="translate" aria-label="劃詞翻譯">${ICON_GLOBE}翻譯</button>` : ''}
+      <button type="button" data-action="read" aria-label="朗讀選取文字">${ICON_VOLUME}朗讀</button>
+      <button type="button" data-action="copy" aria-label="複製選取文字">${ICON_CLIPBOARD}複製</button>
     `;
 
     toolbarEl.querySelector('[data-action="highlight"]')?.addEventListener('click', () => {

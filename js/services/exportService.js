@@ -2,6 +2,13 @@
 // 含 YAML Frontmatter，劃線用 Obsidian 認得的 Callout 語法。
 // 只吃純資料物件（book / quotes / notes / reflections），不 import db.js、
 // 不認識任何頁面元件，呼叫端從既有的 DB.getAll(...) 撈完資料後直接傳進來就好。
+//
+// 注意：下面 sections.push('## 📖 劃線與佳句', ...) 這類 Emoji 是「匯出檔案
+// 本身的內容」（使用者存到 Obsidian vault 裡的實際 Markdown 文字），不是這個
+// App 的操作介面——「全站 Emoji 色調統一」這次重構刻意不動這幾行，只換了
+// 下面 renderMarkdownExportButton() 裡兩顆真正的 UI 按鈕。
+
+import { ICON_UPLOAD, ICON_LINK } from '../icons.js';
 
 function yamlEscape(value) {
   if (value === undefined || value === null || value === '') return '""';
@@ -154,8 +161,8 @@ export function buildObsidianNewNoteUri(vaultName, noteName, content) {
 // fetchExportData()：呼叫端提供，回傳 { book, quotes, notes, reflections }。
 export function renderMarkdownExportButton(container, { fetchExportData, obsidianVaultName }) {
   container.innerHTML = `
-    <button type="button" class="btn" id="export-md-btn">📤 匯出為 Markdown</button>
-    ${obsidianVaultName ? '<button type="button" class="btn" id="export-obsidian-btn">🔗 在 Obsidian 開啟</button>' : ''}
+    <button type="button" class="btn" id="export-md-btn">${ICON_UPLOAD}匯出為 Markdown</button>
+    ${obsidianVaultName ? `<button type="button" class="btn" id="export-obsidian-btn">${ICON_LINK}在 Obsidian 開啟</button>` : ''}
   `;
 
   container.querySelector('#export-md-btn').addEventListener('click', async () => {

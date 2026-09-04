@@ -1,3 +1,5 @@
+import { ICON_EYE, ICON_EYE_OFF } from './icons.js';
+
 export function escapeHtml(value) {
   if (value === undefined || value === null) return '';
   return String(value)
@@ -44,17 +46,19 @@ export function renderTagChip(tag) {
 // 密碼欄位右側的「小眼睛」顯示/隱藏切換，全站兩處密碼輸入框（登入 Modal／
 // WebDAV 設定）共用同一份邏輯——呼叫端把 <input type="password"> 包在
 // <div class="password-field">（見 css/styles.css 同名 class 的定位規則）
-// 裡、旁邊放一顆 data-target 指向該 input id 的 .password-toggle-btn，
-// 渲染完 HTML 之後呼叫這個函式一次，自動幫容器內所有這樣的組合綁好切換
-// 邏輯，兩邊不用各自重複寫一份幾乎一樣的程式碼。
+// 裡、旁邊放一顆 data-target 指向該 input id 的空白 .password-toggle-btn
+// （不用在 HTML 樣板裡寫死圖示——初始的「眼睛」圖示也是這裡負責補上，
+// 兩處呼叫端不用各自重複維護一份圖示 HTML），渲染完 HTML 之後呼叫這個
+// 函式一次，自動幫容器內所有這樣的組合補圖示、綁好切換邏輯。
 export function initPasswordToggles(root) {
   root.querySelectorAll('.password-toggle-btn').forEach((btn) => {
     const input = document.getElementById(btn.dataset.target);
     if (!input) return;
+    btn.innerHTML = ICON_EYE;
     btn.addEventListener('click', () => {
       const isPassword = input.type === 'password';
       input.type = isPassword ? 'text' : 'password';
-      btn.textContent = isPassword ? '🙈' : '👁️';
+      btn.innerHTML = isPassword ? ICON_EYE_OFF : ICON_EYE;
       btn.setAttribute('aria-label', isPassword ? '隱藏密碼' : '顯示密碼');
     });
   });
