@@ -2,7 +2,7 @@
 // 沿用既有的 .modal-backdrop／.modal-card／.modal-actions／.btn／.btn-primary
 // class（跟 categories.js 的自訂分類管理彈窗同一套），沒有新增任何顏色變數——
 // 配色完全繼承現有的奶油米＋深紅棕＋靈魂粉紅設計系統。
-import { escapeHtml, showToast } from './utils.js';
+import { escapeHtml, showToast, initPasswordToggles } from './utils.js';
 import { isSupabaseConfigured } from './config.js';
 import {
   signUp, signIn, signOut, resetPasswordForEmail, updatePassword,
@@ -49,6 +49,38 @@ async function renderAuthSlot() {
   else renderLoggedOut(slot);
 }
 
+// 註冊成功的精緻提示：原本跟登入成功一樣只跳一句 Toast，訊息一閃即逝、
+// 份量感也跟「帳號正式建立」這件事不太搭——改成一個獨立的奶油米色系
+// 彈窗（見 css/styles.css 的 .auth-info-modal），文案照 signUp() 實際回傳
+// 的結果分兩種講法：Supabase 專案關掉「Confirm email」要求時 signUp()
+// 當下就直接給一個可用的 session（已經自動登入，不需要再登入一次），
+// 開著的話 session 會是 null（要等使用者點驗證信裡的連結才能登入）——
+// 兩種情況文案不一樣，不要不管實際狀態一律都叫使用者「請登入」。
+function showRegisterSuccessModal(hasSession) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal-card auth-info-modal" role="alertdialog" aria-modal="true" aria-labelledby="auth-info-title">
+      <div class="auth-info-icon">🎉</div>
+      <h3 id="auth-info-title">註冊成功！</h3>
+      <p class="auth-info-message">${hasSession ? '已自動登入，開始使用 Marginalia 記錄你的閱讀吧。' : '請至信箱收取驗證信，完成驗證後即可登入。'}</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="auth-info-ok-btn">${hasSession ? '開始使用' : '好，我知道了'}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  function close() {
+    document.removeEventListener('keydown', onKeydown);
+    backdrop.remove();
+  }
+  function onKeydown(event) { if (event.key === 'Escape') close(); }
+  backdrop.addEventListener('mousedown', (event) => { if (event.target === backdrop) close(); });
+  backdrop.querySelector('#auth-info-ok-btn').addEventListener('click', close);
+  document.addEventListener('keydown', onKeydown);
+  backdrop.querySelector('#auth-info-ok-btn').focus();
+}
+
 // 登入／註冊／忘記密碼共用同一個 Modal，用 mode 切換標題、按鈕文字跟要不要顯示
 // 密碼欄位；「設定新密碼」是第 4 種 mode，只有從忘記密碼信裡的連結點回來才會用到
 // （見檔案最下面的 handlePasswordRecoveryRedirect）。
@@ -64,7 +96,10 @@ function openAuthModal(initialMode = 'login') {
           <input type="email" id="auth-email-input" required autocomplete="email">
         </label>
         <label for="auth-password-input" id="auth-password-label">密碼
-          <input type="password" id="auth-password-input" required autocomplete="current-password" minlength="6">
+          <div class="password-field">
+            <input type="password" id="auth-password-input" required autocomplete="current-password" minlength="6">
+            <button type="button" class="password-toggle-btn" data-target="auth-password-input" aria-label="顯示密碼">👁️</button>
+          </div>
         </label>
         <div class="modal-actions">
           <button type="button" class="btn" id="auth-cancel-btn">取消</button>
@@ -75,6 +110,7 @@ function openAuthModal(initialMode = 'login') {
     </div>
   `;
   document.body.appendChild(backdrop);
+  initPasswordToggles(backdrop);
 
   const titleEl = backdrop.querySelector('#auth-modal-title');
   const errorEl = backdrop.querySelector('#auth-modal-error');
@@ -165,8 +201,8 @@ function openAuthModal(initialMode = 'login') {
         // 要等使用者點信裡的連結才會有）——Toast 文案照實際結果講，不要不管設定
         // 一律都叫使用者去收信，關掉驗證信的情境下根本沒有信可收。
         const { session } = await signUp(email, password);
-        showToast(session ? '註冊成功，已自動登入' : '註冊成功！請至信箱收取驗證信');
         close();
+        showRegisterSuccessModal(Boolean(session));
       } else if (mode === 'forgot') {
         await resetPasswordForEmail(email);
         showToast('已寄出重設密碼信，請至信箱收取');

@@ -41,6 +41,64 @@ export function renderTagChip(tag) {
   return `<span class="output-tag" data-group="${tagColorGroup(tag)}">${escapeHtml(tag)}</span>`;
 }
 
+// 密碼欄位右側的「小眼睛」顯示/隱藏切換，全站兩處密碼輸入框（登入 Modal／
+// WebDAV 設定）共用同一份邏輯——呼叫端把 <input type="password"> 包在
+// <div class="password-field">（見 css/styles.css 同名 class 的定位規則）
+// 裡、旁邊放一顆 data-target 指向該 input id 的 .password-toggle-btn，
+// 渲染完 HTML 之後呼叫這個函式一次，自動幫容器內所有這樣的組合綁好切換
+// 邏輯，兩邊不用各自重複寫一份幾乎一樣的程式碼。
+export function initPasswordToggles(root) {
+  root.querySelectorAll('.password-toggle-btn').forEach((btn) => {
+    const input = document.getElementById(btn.dataset.target);
+    if (!input) return;
+    btn.addEventListener('click', () => {
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      btn.textContent = isPassword ? '🙈' : '👁️';
+      btn.setAttribute('aria-label', isPassword ? '隱藏密碼' : '顯示密碼');
+    });
+  });
+}
+
+// 破壞性操作（刪除書籍……）的自訂二次確認彈窗，取代原生 window.confirm()——
+// 瀏覽器內建的 confirm() 樣式無法客製，使用者看多了「網站說…」這種瀏覽器
+// 系統對話框，容易養成不看內容就習慣性按掉的反射動作；換成跟站上其他
+// Modal（登入／分類管理……）同一套 .modal-backdrop／.modal-card 視覺語言，
+// 至少在「這是這個網站自己的提示、不是瀏覽器雜訊」這件事上更清楚。
+// 回傳 Promise<boolean>（true＝使用者按了確認），跟 window.confirm() 的
+// 同步回傳值型別不一樣，呼叫端要記得 await。
+export function confirmModal({ title = '請確認', message = '', confirmText = '確定', cancelText = '取消', danger = false } = {}) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal-card confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+        <h3 id="confirm-modal-title">${escapeHtml(title)}</h3>
+        <p class="confirm-modal-message">${escapeHtml(message)}</p>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="confirm-modal-cancel-btn">${escapeHtml(cancelText)}</button>
+          <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="confirm-modal-ok-btn">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    function settle(result) {
+      document.removeEventListener('keydown', onKeydown);
+      backdrop.remove();
+      resolve(result);
+    }
+    function onKeydown(event) {
+      if (event.key === 'Escape') settle(false);
+    }
+    backdrop.addEventListener('mousedown', (event) => { if (event.target === backdrop) settle(false); });
+    backdrop.querySelector('#confirm-modal-cancel-btn').addEventListener('click', () => settle(false));
+    backdrop.querySelector('#confirm-modal-ok-btn').addEventListener('click', () => settle(true));
+    document.addEventListener('keydown', onKeydown);
+    backdrop.querySelector('#confirm-modal-ok-btn').focus();
+  });
+}
+
 // 全站共用的一次性提示：目前只有「作者已無書籍，自動更新列表」這類防禦性訊息會用到，
 // 用單一個固定在畫面底部的元素重複利用，不用每個呼叫端各自組一份 DOM。
 export function showToast(message, duration = 2600) {

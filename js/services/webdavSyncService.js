@@ -1,3 +1,5 @@
+import { initPasswordToggles } from '../utils.js';
+
 // 獨立、可插拔模組：WebDAV 雲端同步。
 //
 // 設計上刻意用「依賴注入」而不是直接 import db.js——這個檔案完全不認識
@@ -200,7 +202,10 @@ export function renderWebDavSettingsPanel(container, service, { gatherLocalData,
         <input type="text" id="webdav-username" value="${config.username || ''}" autocomplete="username">
       </label>
       <label>密碼
-        <input type="password" id="webdav-password" value="${config.password || ''}" autocomplete="current-password">
+        <div class="password-field">
+          <input type="password" id="webdav-password" value="${config.password || ''}" autocomplete="current-password">
+          <button type="button" class="password-toggle-btn" data-target="webdav-password" aria-label="顯示密碼">👁️</button>
+        </div>
       </label>
       <div class="form-actions">
         <button type="button" id="webdav-save-btn" class="btn btn-primary">儲存設定</button>
@@ -211,6 +216,8 @@ export function renderWebDavSettingsPanel(container, service, { gatherLocalData,
       <p id="webdav-status" class="graph-hint"></p>
     </div>
   `;
+
+  initPasswordToggles(container);
 
   const statusEl = container.querySelector('#webdav-status');
 

@@ -390,6 +390,22 @@ main {
   margin: 0 auto;
 }
 
+/* PC 大螢幕（≥1440px，例如常見的 1920x1080）下，固定的 max-width:1440px
+   讓內容區塊卡在畫面中央、兩側留白過多，側邊欄＋書籍表格（.dashboard-layout
+   本來就是 minmax(240px,27%) 1fr，會自動吃滿 main 給的寬度，見上面該規則
+   旁的說明）明明可以撐得更寬卻被綁住。改成 width:88vw、上限 1600px，讓內容
+   區塊隨大螢幕流體伸展；用 max() 包一層下限 1440px，而不是單純套用
+   88vw（1440px 時 88vw≈1267px，比原本的 1440px 還窄，切換斷點那一刻畫面
+   會先「縮」一下才反過來變寬，是實際算出來會發生的視覺跳動，不是預防性
+   猜測）——確保剛好在 1440px 這個斷點切換時是無縫的，寬度只會持續變寬，
+   不會先倒退再變寬。 */
+@media (min-width: 1440px) {
+  main {
+    width: max(1440px, min(88vw, 1600px));
+    max-width: 100%;
+  }
+}
+
 #status.ok {
   color: var(--accent-green);
 }
@@ -581,6 +597,15 @@ header h1 a {
 /* 明確重申三個屬性（不只 background）：.btn:hover 現在會把 hover 狀態的
    background/border-color/color 都改成粉紅+白字，這裡要整組蓋回危險色，
    不然刪除按鈕 hover 時文字會被 .btn:hover 的白字蓋過去、變成看不出是危險操作。 */
+/* 書籍詳情頁頂部「刪除」按鈕跟旁邊「編輯」多拉開一點距離（在 .toolbar-actions
+   原本統一的 0.5rem 間距之外，額外加寬這一個位置的間隔）——防止在小螢幕
+   手指誤觸，或滑鼠移動過快時不小心點到破壞性操作；.btn-danger 本身維持
+   既有的外框樣式（邊框＋文字用危險色、底色跟一般按鈕一樣不特別填滿），
+   已經算是「次要外框」的視覺份量，不需要另外改。 */
+#delete-book {
+  margin-left: 0.75rem;
+}
+
 .btn-danger:hover {
   background: var(--danger-soft);
   border-color: var(--danger);
@@ -2680,24 +2705,27 @@ header h1 a {
   content: "✓";
 }
 
-/* 閱讀動機膠囊未選中時的多彩同色系分組（跟上面選中狀態的粉紅不衝突：
-   選擇器多了 [data-group] 屬性，權重比基本的 .tag-checkboxes label 高，
-   同時選中時靠再下面那條 :has(input:checked) 組合規則蓋回粉紅）。
-   a 玫瑰／b 焦糖／c 橄欖，三組色階彼此都是「淺底＋對應深一階的字色」，
-   同一份對比邏輯，只是換色相，放在一起不會顯得雜亂只會顯得豐富。 */
+/* 閱讀動機膠囊未選中時的分組色階（跟上面選中狀態的粉紅不衝突：選擇器多了
+   [data-group] 屬性，權重比基本的 .tag-checkboxes label 高，同時選中時靠
+   再下面那條 :has(input:checked) 組合規則蓋回粉紅）。原本是三組高飽和的
+   玫瑰粉／焦糖橘／檸檬黃，跟全站「Light Luxury」低飽和莫蘭迪調性不一致，
+   改成統一的莫蘭迪色系：a 沿用既有的 --icon-rose／--icon-rose-soft 玫瑰棕
+   token（跟 Header 那顆書籤 Icon 同一組顏色，不是另外發明新色），b 暖灰、
+   c 柔和奶茶色，三組一樣是「淺底＋對應深一階的字色」同一份對比邏輯，只是
+   彩度整體壓低、更貼近奶油米背景的调性。 */
 .tag-checkboxes.motivation-tags label[data-group="a"] {
-  background: #fce4e8;
-  color: #c85a6e;
+  background: var(--icon-rose-soft);
+  color: var(--icon-rose);
 }
 
 .tag-checkboxes.motivation-tags label[data-group="b"] {
-  background: #fdf0e1;
-  color: #b06030;
+  background: #e8e4dc;
+  color: #7d7568;
 }
 
 .tag-checkboxes.motivation-tags label[data-group="c"] {
-  background: #faf3d1;
-  color: #826e2d;
+  background: #f0e6d6;
+  color: #9c7b52;
 }
 
 .tag-checkboxes.motivation-tags label[data-group]:has(input:checked) {
@@ -2882,6 +2910,82 @@ header h1 a {
   justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.5rem;
+}
+
+/* 密碼欄位右側的「小眼睛」顯示/隱藏切換：全站兩處密碼輸入框（登入 Modal／
+   WebDAV 設定，見 authUI.js／webdavSyncService.js）共用同一個 .password-field
+   包裝＋一份 JS 邏輯（utils.js 的 initPasswordToggles()）。包裝本身不額外
+   加邊框／底色，純粹負責定位，視覺上跟原本裸的 <input> 看起來一樣，只是
+   多了右側可點的眼睛圖示。 */
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 2.3rem !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.2rem;
+  color: var(--text-muted);
+}
+
+.password-toggle-btn:hover {
+  color: var(--text);
+}
+
+/* 註冊成功的精緻提示彈窗：跟一般 .modal-card 的差別只在底色換成不透明的
+   奶油米（--bg，跟全站頁面背景同一色），份量感也刻意做得比表單型 Modal
+   更「輕」——置中的大 Emoji＋標題＋一句話說明＋單一顆按鈕，沒有輸入欄位，
+   一眼就看得出這是「恭喜」而不是「還要填什麼」。 */
+.auth-info-modal {
+  background: var(--bg);
+  text-align: center;
+  padding: 2rem 1.75rem;
+}
+
+.auth-info-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  margin-bottom: 0.6rem;
+}
+
+.auth-info-modal h3 {
+  margin: 0 0 0.6rem;
+}
+
+.auth-info-message {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin: 0 0 1.4rem;
+}
+
+.auth-info-modal .modal-actions {
+  justify-content: center;
+}
+
+/* 破壞性操作（例如刪除書籍）的自訂二次確認彈窗，取代原生 window.confirm()
+   那種瀏覽器預設樣式的對話框——外觀跟站上其他 Modal 同一套語言，使用者
+   比較不會因為「看起來像瀏覽器系統警告」而習慣性快速按掉。見 utils.js 的
+   confirmModal()，回傳 Promise<boolean>，呼叫端要 await。 */
+.confirm-modal-message {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin: 0 0 1.3rem;
 }
 
 .category-manager-card {

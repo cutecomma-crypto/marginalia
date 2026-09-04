@@ -4,7 +4,7 @@ import { renderMotivation, renderReflections } from './outputs.js';
 import { renderNotesSection } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml, renderTagChip, showToast } from './utils.js';
+import { escapeHtml, renderTagChip, showToast, confirmModal } from './utils.js';
 import { DEFAULT_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
 
 // rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
@@ -150,7 +150,14 @@ export async function renderBookDetail(container, rawId) {
   }
 
   container.querySelector('#delete-book').addEventListener('click', async () => {
-    if (!window.confirm(`確定要刪除《${book.title || '（未命名）'}》嗎？此動作無法復原，連同它的閱讀紀錄、輸出、筆記、圖譜一起刪除。`)) return;
+    const confirmed = await confirmModal({
+      title: '確定要刪除這本書嗎？',
+      message: `《${book.title || '（未命名）'}》此動作無法復原，連同它的閱讀紀錄、輸出、筆記、圖譜一起刪除。`,
+      confirmText: '刪除',
+      cancelText: '取消',
+      danger: true,
+    });
+    if (!confirmed) return;
     await DB.removeByIndex('reading_records', 'bookId', bookId);
     await DB.removeByIndex('outputs', 'bookId', bookId);
     await DB.removeByIndex('quotes', 'bookId', bookId);
