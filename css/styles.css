@@ -101,9 +101,11 @@
 }
 
 /* 全站文字都用 rem，所以只要調這個根字級，所有字體就會照比例一起放大，
-   不用一個一個改，也不會破壞既有的排版比例。 */
+   不用一個一個改，也不會破壞既有的排版比例——這次「排版與字體系統」全站
+   響應式優化把根字級從 17px 調回 16px，落在使用者明確要求的 15px-16px
+   基準範圍內（原本 17px 已經超出這個範圍一點點）。 */
 html {
-  font-size: 17px;
+  font-size: 16px;
   /* 手機／平板橫豎屏切換時，viewport 寬度瞬間跳動，任何一個元素只要一時算
      寬算過頭（例如 100vw 沒扣掉捲軸寬度、或某個固定寬度的區塊在窄的那個
      方向放不下），都會冒出一條橫向捲動軸，畫面跟著左右晃動一下才穩定下來。
@@ -120,6 +122,11 @@ body {
   background: var(--bg);
   color: var(--text);
   overflow-x: hidden;
+  /* 正文行高統一 1.6（這次字體系統優化明確要求的數值）——只當作全站
+     預設，不是 !important，任何元件自己已經另外設定行高（標題、緊湊型
+     徽章、單行截斷的欄位……）都還是照自己那份數值，這裡只補到「完全沒
+     特別設定行高」的一般文字段落，避免它們繼承瀏覽器偏緊的預設行高。 */
+  line-height: 1.6;
 }
 
 /* 全站輸入框的 Placeholder 統一用 --text-muted 這支「質感灰」，不靠各瀏覽器
@@ -245,7 +252,7 @@ header nav a {
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent-hover);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -261,7 +268,7 @@ header nav a {
   border: none;
   padding: 0;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   cursor: pointer;
 }
@@ -314,7 +321,7 @@ header nav a {
 
 .auth-modal-switch {
   margin-top: 0.9rem;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   text-align: center;
 }
@@ -398,7 +405,7 @@ header nav a {
 }
 
 .migration-failure-store {
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   background: var(--surface);
   border: 1px solid var(--border-soft);
@@ -410,7 +417,7 @@ header nav a {
 
 .migration-failure-message {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: var(--danger);
   background: var(--danger-soft);
   border-radius: 6px;
@@ -511,7 +518,8 @@ header h1 a {
   background: var(--btn-bg);
   color: var(--icon-rose);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -700,7 +708,7 @@ header h1 a {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
   background: var(--surface-alt);
@@ -753,7 +761,7 @@ header h1 a {
   border-radius: 999px;
   background: var(--primary-soft);
   color: var(--primary-hover);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -884,7 +892,7 @@ header h1 a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   background: var(--surface-alt);
   border-radius: 6px;
@@ -911,7 +919,7 @@ header h1 a {
 }
 
 .stat-card-label {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   margin-bottom: 0.2rem;
 }
@@ -941,7 +949,7 @@ header h1 a {
   background: var(--surface-alt);
   border-radius: 999px;
   padding: 0.28rem 0.75rem;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
 }
 
@@ -1024,7 +1032,7 @@ header h1 a {
   border-top: 1px dashed var(--border-soft);
   margin-top: 0.5rem;
   padding: 0.55rem 0 0.05rem;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   color: var(--primary);
   cursor: pointer;
 }
@@ -1073,12 +1081,12 @@ header h1 a {
 }
 
 .status-count-label {
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
 .home-subtitle {
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   margin: 0.75rem 0 0.4rem;
 }
@@ -1113,7 +1121,7 @@ header h1 a {
 .home-list-meta {
   font-weight: 400;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
 }
 
 .home-list-text {
@@ -1332,7 +1340,7 @@ header h1 a {
 }
 
 .sidebar-year-tag {
-  font-size: 0.7rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--primary-hover);
   background: var(--primary-soft);
@@ -1361,7 +1369,7 @@ header h1 a {
 }
 
 .stat-section-label {
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-muted);
 }
@@ -1370,7 +1378,7 @@ header h1 a {
   padding: 0.2rem 0.4rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   background: var(--surface);
   color: var(--text-muted);
 }
@@ -1420,7 +1428,7 @@ header h1 a {
 }
 
 .sidebar-stat-cell .l {
-  font-size: 0.68rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
@@ -1478,7 +1486,7 @@ header h1 a {
 }
 
 .favorite-author-count {
-  font-size: 0.76rem;
+  font-size: 0.8125rem;
   color: var(--text);
   white-space: nowrap;
 }
@@ -1500,7 +1508,7 @@ header h1 a {
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
   display: block;
   background: var(--surface);
   color: var(--text);
@@ -1720,16 +1728,20 @@ header h1 a {
     padding: 0.1rem 0.55rem;
     background: var(--surface-alt);
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: 0.8125rem;
     font-weight: 500;
     border-radius: 999px;
     white-space: nowrap;
   }
 }
 
+/* 書名是書籍列表裡最重要的資訊，字級單獨拉到「排版與字體系統」規範裡
+   「卡片標題／書籍名稱」的 16-18px 區間（其餘作者/類型/日期等欄位維持
+   表格本身 0.9rem 的一般內文字級即可，不需要一起放大）。 */
 .book-table a {
   text-decoration: none;
   font-weight: 600;
+  font-size: 1rem;
 }
 
 /* 一鍵歸還／已收回：表格／封面網格共用同一顆輕量小按鈕（<button> 或 <span>都套這個
@@ -1745,7 +1757,7 @@ header h1 a {
   border-radius: 999px;
   background: var(--accent-green-soft);
   color: var(--accent-green);
-  font-size: 0.76rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -1902,7 +1914,7 @@ header h1 a {
   .book-table td::before {
     content: attr(data-label);
     font-weight: 600;
-    font-size: 0.72rem;
+    font-size: 0.8125rem;
     color: var(--text-muted);
   }
 
@@ -2001,13 +2013,13 @@ header h1 a {
     padding: 0.15rem 0.6rem !important;
     background: var(--surface-alt);
     border-radius: 999px;
-    font-size: 0.74rem;
+    font-size: 0.8125rem;
     color: var(--text-muted);
   }
 
   .book-table td:nth-child(3)::before {
     content: "🏷️";
-    font-size: 0.7rem;
+    font-size: 0.8125rem;
   }
 }
 
@@ -2071,10 +2083,13 @@ header h1 a {
 }
 
 /* 目前頁碼跟「已選中的標籤／作用中頁籤」是同一種「這個是目前選中的那個」
-   語意，這次系統色彩巡檢一併收進同一套變數，不再是獨立一塊高彩度粉紅。 */
+   語意，收進同一套變數，不再是獨立一塊高彩度粉紅。外框刻意不跟背景同色
+   （不是純色玫瑰棕描邊），改用暖米灰（--tag-inactive-border），玫瑰棕實底
+   本身已經夠醒目，外框同色只會讓邊界糊在一起，暖米灰邊框反而讓色塊邊緣
+   更俐落乾淨。 */
 .pagination-page.is-active {
   background: var(--color-tag-active-bg);
-  border-color: var(--color-tag-active-bg);
+  border-color: var(--tag-inactive-border);
   color: var(--color-tag-active-text);
   font-weight: 600;
   cursor: default;
@@ -2410,7 +2425,7 @@ header h1 a {
 
 .detail-label {
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   margin-bottom: 0.15rem;
 }
@@ -2432,7 +2447,7 @@ header h1 a {
 
 .progress-module-heading {
   margin: 0 0 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -2762,8 +2777,13 @@ header h1 a {
   color: var(--motivation-tag-text) !important;
   border: 1px solid var(--tag-inactive-border) !important;
   border-radius: 12px !important;
-  padding: 2px 8px !important;
-  font-size: 11px !important;
+  /* 字級從 11px 補到「排版與字體系統」全站優化明確要求的 13px 下限——
+     原本的 11px 是更早一輪「動機標籤」單獨微調時定的，跟這次全站字級
+     下限規範衝突，優先照最新、範圍更廣的規範走；padding 順手微調成
+     2px 9px，避免字級變大後貼著膠囊邊緣顯得太擠。 */
+  padding: 2px 9px !important;
+  font-size: 13px !important;
+  font-weight: 500;
   line-height: 1.6;
   white-space: nowrap;
 }
@@ -2822,7 +2842,8 @@ header h1 a {
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   padding: 0.28rem 0.75rem;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--color-tag-text);
   cursor: pointer;
   margin-bottom: 0;
@@ -2898,7 +2919,7 @@ header h1 a {
 }
 
 .cover-preview-empty {
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   text-align: center;
   padding: 0 0.5rem;
@@ -2926,7 +2947,7 @@ header h1 a {
   gap: 0.3rem;
   padding: 0.35rem 0.75rem;
   border-radius: 8px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -3147,7 +3168,7 @@ header h1 a {
 
 .category-manager-error {
   margin: -0.4rem 0 0.8rem;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: var(--danger);
 }
 
@@ -3198,7 +3219,7 @@ header h1 a {
 
 .cm-item-group {
   margin-right: auto;
-  font-size: 0.74rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   background: var(--surface);
   border: 1px solid var(--border-soft);
@@ -3256,7 +3277,7 @@ header h1 a {
   color: var(--primary-hover);
   border-radius: 999px;
   padding: 0.1rem 0.6rem;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
 }
 
 /* 書籍/心得標籤是自由輸入文字，用 utils.js 的 renderTagChip() 依標籤字串
@@ -3284,12 +3305,12 @@ header h1 a {
 
 .output-date {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   margin-top: 0.4rem;
 }
 
 .hashtag-hint {
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   margin: -0.3rem 0 0.8rem;
 }
@@ -3342,7 +3363,7 @@ header h1 a {
   transform: translateX(-50%);
   background: var(--text);
   color: var(--surface);
-  font-size: 0.7rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   white-space: nowrap;
   padding: 0.25rem 0.55rem;
@@ -3496,7 +3517,7 @@ header h1 a {
 
 .output-date-input {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   margin-top: 0.4rem;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -3534,7 +3555,7 @@ header h1 a {
 .output-delete {
   float: right;
   padding: 0.2rem 0.6rem;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
 }
 
 /* 行內編輯用的 <textarea> 不在 <form class="book-form"> 裡面（它是卡片本身
@@ -3640,7 +3661,7 @@ header h1 a {
    跟本文／按鈕的主色區分開來。 */
 .quote-page-badge {
   flex-shrink: 0;
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--accent-hover);
   background: var(--accent-soft);
@@ -3678,7 +3699,7 @@ header h1 a {
   background: none;
   border: none;
   color: var(--primary);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   cursor: pointer;
   padding: 0;
 }
@@ -3697,7 +3718,7 @@ header h1 a {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   cursor: pointer;
   padding: 0;
 }
@@ -3804,7 +3825,7 @@ header h1 a {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -3815,7 +3836,7 @@ header h1 a {
 
 .tag-result-jump {
   margin-left: auto;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   text-decoration: none;
   color: var(--primary);
 }
@@ -3932,7 +3953,7 @@ header h1 a {
 }
 
 .graph-toolbar-back {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   white-space: nowrap;
   transition: color 0.15s ease;
@@ -4038,7 +4059,7 @@ header h1 a {
 #zoom-reset-btn {
   width: auto;
   padding: 0 0.5rem;
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
 }
 
 .canvas-tool-btn:hover {
@@ -4046,7 +4067,7 @@ header h1 a {
 }
 
 .canvas-zoom-level {
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   min-width: 2.6rem;
   text-align: center;
@@ -4238,7 +4259,7 @@ header h1 a {
 .group-subtitle-input {
   border: none;
   background: transparent;
-  font-size: 0.74rem;
+  font-size: 0.8125rem;
   padding: 0 0.15rem 0.05rem;
   color: rgba(255, 255, 255, 0.85);
   width: 100%;
@@ -4320,7 +4341,7 @@ header h1 a {
   transform: translateX(-50%) translateY(3px);
   background: var(--text);
   color: var(--surface);
-  font-size: 0.65rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
   white-space: nowrap;
   padding: 0.15rem 0.45rem;
@@ -4432,7 +4453,7 @@ header h1 a {
 }
 
 .person-title {
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -4441,7 +4462,7 @@ header h1 a {
 }
 
 .person-status-badge {
-  font-size: 0.66rem;
+  font-size: 0.8125rem;
   background: var(--danger-soft);
   color: var(--danger);
   border-radius: 999px;
@@ -4454,7 +4475,7 @@ header h1 a {
   padding: 0.32rem 0.5rem;
   border: 1px dashed var(--border);
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   background: transparent;
   color: var(--text);
 }
@@ -4498,7 +4519,7 @@ header h1 a {
 }
 
 .edge-color-current-label {
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   min-height: 1.1em;
   margin-top: 0.35rem;
@@ -4540,7 +4561,7 @@ header h1 a {
   border-radius: 6px;
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -4565,7 +4586,7 @@ header h1 a {
 
 .compact-form label {
   margin-bottom: 0.45rem !important;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
 }
 
 .compact-form input,
@@ -4743,7 +4764,7 @@ header h1 a {
 }
 
 .wishlist-count {
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -4851,10 +4872,11 @@ header h1 a {
    -webkit-line-clamp 卡住最多兩行、超出的部分裁掉不逐字擠爆卡片高度——
    跟上一輪「書名絕不截斷、允許無限換行」的方向不同，這次密度優先，兩行
    內顯示不完的極端情況才會犧牲掉標題尾端。作者/推薦來源/備註合併成同一行
-   「中介資訊」（見 wishlist.js 的 itemMetaLine），縮到 12px 淡灰色、單行
-   超出省略號，才能讓整張卡片緊貼著書名不多佔垂直空間，跟書名之間幾乎
-   不留間距（.wishlist-item-main 的 1px gap），符合「不佔用額外垂直空間」
-   的要求。 */
+   「中介資訊」（見 wishlist.js 的 itemMetaLine），維持 13px 淡灰色（「排版
+   與字體系統」全站優化明確要求任何文字不得低於 13px，原本壓縮到的 12px
+   在這裡補回來，跟卡片高度只差不到 1px，不影響「一次看 8~10 本」的密度
+   目標）、單行超出省略號，跟書名之間幾乎不留間距
+   （.wishlist-item-main 的 1px gap），符合「不佔用額外垂直空間」的要求。 */
 .wishlist-item-title {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -4868,7 +4890,7 @@ header h1 a {
 
 .wishlist-item-meta {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   line-height: 1.3;
   white-space: nowrap;
@@ -4970,7 +4992,7 @@ header h1 a {
   border-radius: 8px;
   background: var(--surface-alt);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -5089,8 +5111,10 @@ header h1 a {
   padding: 0.6rem 0.65rem 0.7rem;
 }
 
+/* 封面網格卡片的書名，跟表格模式的 .book-table a 用同一個「卡片標題／
+   書籍名稱」16-18px 級距（取下限 1rem），兩種檢視模式的書名份量感一致。 */
 .book-gallery-title {
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.3rem;
   overflow: hidden;
@@ -5099,7 +5123,7 @@ header h1 a {
 }
 
 .book-gallery-author {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text);
   margin-bottom: 0.4rem;
   overflow: hidden;
@@ -5116,7 +5140,7 @@ header h1 a {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.3rem;
-  font-size: 0.7rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
@@ -5127,7 +5151,7 @@ header h1 a {
   border-radius: 999px;
   background: var(--surface-alt);
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
