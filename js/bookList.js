@@ -337,16 +337,14 @@ export async function renderBookList(container) {
   const paginationEl = container.querySelector('#book-pagination');
   const countEl = container.querySelector('#book-list-count');
 
-  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量／借出中／熱門標籤，跟右側書籍列表是同一份狀態，
-  // 六種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
+  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量／借出中，跟右側書籍列表是同一份狀態，
+  // 五種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
   // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書，借出中／借入中只留符合的存留狀態，
-  // 作者只留符合該作者的書（見下面 applyAuthorFilter），
-  // activeTag 是熱門標籤點擊帶出來的搜尋字串（跟使用者自己打字搜尋分開追蹤，才能只有前者顯示成篩選膠囊）。
+  // 作者只留符合該作者的書（見下面 applyAuthorFilter）。
   let yearFilter = null;
   let statusFilter = null;
   let categoryFilter = null;
   let retentionFilter = null;
-  let activeTag = null;
   let authorFilter = readAndClearAuthorFilterFromHash();
   let viewMode = 'table';
   let pageSize = 12;
@@ -396,12 +394,6 @@ export async function renderBookList(container) {
       entries.push({ key: 'retention', label: retentionFilterLabel(retentionFilter), remove: () => {
         const btn = container.querySelector('.retention-filter-btn.is-active');
         if (btn) btn.click();
-      } });
-    }
-    if (activeTag) {
-      entries.push({ key: 'tag', label: `#${activeTag}`, remove: () => {
-        const chip = container.querySelector('.popular-tag-chip.is-active');
-        if (chip) chip.click();
       } });
     }
     if (authorFilter) {
@@ -493,7 +485,6 @@ export async function renderBookList(container) {
     statusFilter = null;
     categoryFilter = null;
     retentionFilter = null;
-    activeTag = null;
     authorFilter = null;
     currentPage = 1;
     searchInput.value = '';
@@ -508,8 +499,6 @@ export async function renderBookList(container) {
     if (activeCategoryItem) activeCategoryItem.click();
     const activeRetentionBtn = container.querySelector('.retention-filter-btn.is-active');
     if (activeRetentionBtn) activeRetentionBtn.click();
-    const activeTagChip = container.querySelector('.popular-tag-chip.is-active');
-    if (activeTagChip) activeTagChip.classList.remove('is-active');
     renderList();
   });
 
@@ -534,12 +523,6 @@ export async function renderBookList(container) {
     },
     onRetentionFilterChange: (retention) => {
       retentionFilter = retention;
-      currentPage = 1;
-      renderList();
-    },
-    onTagClick: (tag) => {
-      activeTag = tag;
-      searchInput.value = tag || '';
       currentPage = 1;
       renderList();
     },
@@ -604,9 +587,6 @@ export async function renderBookList(container) {
   });
 
   searchInput.addEventListener('input', () => {
-    activeTag = null;
-    const activeTagChip = container.querySelector('.popular-tag-chip.is-active');
-    if (activeTagChip) activeTagChip.classList.remove('is-active');
     currentPage = 1;
     renderList();
   });

@@ -612,7 +612,7 @@ header h1 a {
   color: var(--danger);
 }
 
-/* 「清除篩選」按鈕：跟動態篩選標籤同一列，一次清空所有篩選條件（含搜尋框／熱門標籤）。 */
+/* 「清除篩選」按鈕：跟動態篩選標籤同一列，一次清空所有篩選條件（含搜尋框）。 */
 .clear-filters-btn {
   display: inline-flex;
   align-items: center;
@@ -640,7 +640,7 @@ header h1 a {
   flex-shrink: 0;
 }
 
-/* 動態篩選標籤列：每種目前套用中的篩選各自一顆膠囊（分類／熱門標籤／閱讀狀態／借出借入／年份），
+/* 動態篩選標籤列：每種目前套用中的篩選各自一顆膠囊（分類／閱讀狀態／借出借入／年份／作者），
    跟右上角「清除篩選」放同一列，沒有任何篩選時整列隱藏，不佔版面。 */
 .active-filters-row {
   display: flex;
@@ -4742,36 +4742,6 @@ header h1 a {
     width: 100%;
     max-width: 100%;
   }
-}
-
-/* 熱門 #標籤牆：跟 category-progress-item 同一套「可點擊篩選膠囊」語彙，
-   用 flex-wrap 排列，標籤數量、寬度都不固定。 */
-.popular-tag-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.popular-tag-chip {
-  background: var(--surface-alt);
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 0.3rem 0.75rem;
-  font-size: 0.8rem;
-  color: var(--primary-hover);
-  cursor: pointer;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.popular-tag-chip:hover {
-  background: var(--border-soft);
-  transform: translateY(-1px);
-}
-
-.popular-tag-chip.is-active {
-  background: var(--primary-soft);
-  box-shadow: 0 0 0 2px var(--primary);
-  font-weight: 700;
 }
 
 /* 借出中／借入中快捷篩選：放在「各類型書籍數量」正上方，跟分類清單留一點距離區隔開來，
