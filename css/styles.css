@@ -35,12 +35,24 @@
   --danger: #b3492f;
   --danger-soft: #f5e2d9;
   --gold: #d9973f;
-  /* 低飽和度的霧面玫瑰棕，原本只綁在 Favicon／Header 圖示本身；「全站 Emoji
-     色調統一與極簡 Icon 化」這次重構把它擴大成一般按鈕（.btn）與作用中頁籤
-     （.main-tab-btn.is-active）的文字／Icon 顏色，取代原本的深棕／粉紅，
-     讓「按鈕」「頁籤」「圖示」共用同一個品牌色相，不再各自為政。
-     --icon-rose-soft 是極淺底色版本，套在這些按鈕/頁籤的底色上。 */
-  --icon-rose: #a67c74;
+  /* ===== 系統級色彩巡檢：全站統一的標籤／強調色變數（官方指定名稱） =====
+     這 5 個是這次「系統級色彩巡檢與 CSS 變數重構」明確要求的正式變數名稱，
+     以後任何「標籤」「選中狀態」「品牌強調色」相關的新規則都直接引用這幾個
+     名稱，不要再另外發明相近但不同名的 token（這正是過去幾輪個別修正
+     「閱讀動機標籤」「頁籤」時，同一個顏色一路長出 --icon-rose／
+     --tag-inactive-bg／--motivation-tag-text 好幾個不同名字的原因）。
+     下面把那些舊名稱改成引用這幾個新變數（而不是刪掉重複定義一份數值），
+     全站幾十處還在用舊名稱的既有規則會自動跟著更新到同一個數值，不用
+     把每一行都改名，同時確保「單一事實來源」：以後只要改這裡，全站一起變。 */
+  --color-primary-accent: #a67c74;
+  --color-tag-bg: #f3efea;
+  --color-tag-active-bg: var(--color-primary-accent);
+  --color-tag-active-text: #ffffff;
+  --color-tag-text: #6e5a53;
+  /* 舊名稱改成別名，指回上面的新變數——原本只綁在 Favicon／Header 圖示的
+     --icon-rose，後來又被「按鈕／頁籤/動機標籤」好幾輪重構陸續借去用，
+     現在統一收斂回 --color-primary-accent 一個名字。 */
+  --icon-rose: var(--color-primary-accent);
   --icon-rose-soft: #f3e9e7;
   /* 一般按鈕的暖白底，跟卡片用的純白 --surface 區隔開——按鈕刻意帶一點點
      暖調，不是死白，跟玫瑰棕文字/Icon 搭起來才不會太冷。危險按鈕（刪除）
@@ -50,21 +62,20 @@
   --btn-bg: #fbf9f7;
   --btn-danger-bg: #f8ecea;
   --btn-danger-text: #b05c5c;
-  /* 「閱讀動機」分頁與標籤配色微調專用：跟 --surface-alt／--icon-rose-soft
-     長得很像，但這次使用者給的是精確 hex 值（不是「差不多這個色系」），
-     獨立開一組 token 而不是硬套現有的近似色，數值上才會跟需求文件完全對齊。
-     --tag-active-bg 直接沿用 --icon-rose 本身（同一個數值 #a67c74），不用
-     另外重複定義一份。 */
-  --tag-inactive-bg: #f3efea;
-  --tag-inactive-text: #8c827a;
+  /* --tag-inactive-bg 改成別名指回 --color-tag-bg；--tag-inactive-text
+     （原本是 #8c827a）已經沒有任何規則在引用（上一輪動機標籤元件化時
+     全部改吃 --motivation-tag-text 了），直接刪掉，不留死掉的變數在這裡
+     製造「這兩個名字到底哪個才是現在真正生效的」的疑惑。
+     --tag-inactive-border／--tab-active-bg 不在這次官方指定的 5 個變數
+     裡面（分別是邊框色跟頁籤底色，跟「標籤強調色」是不同東西），維持
+     原本的獨立數值。 */
+  --tag-inactive-bg: var(--color-tag-bg);
   --tag-inactive-border: #e5e0da;
   --tab-active-bg: #efe8e1;
-  /* 「動機標籤」共用元件（.motivation-tag，見同名 CSS 規則）專用的文字色——
-     比 --tag-inactive-text 再深一階的「微醺深棕」，是這次「全站動機標籤
-     樣式重構」明確指定的新色號，跟 --icon-rose 品牌色刻意分開：純展示用的
-     標籤文字用這支深棕，--icon-rose 留給真正的互動選中狀態／Icon，兩者
-     語意不同，不要共用同一支色號。 */
-  --motivation-tag-text: #6e5a53;
+  /* 「動機標籤」共用元件（.motivation-tag）的文字色改成別名指回
+     --color-tag-text，跟「閱讀後輸出」標籤（見 .tag-checkboxes label 的
+     說明）等其餘所有標籤共用同一個數值來源。 */
+  --motivation-tag-text: var(--color-tag-text);
   /* 「輕盈」的核心就在這裡：陰影份量比舊版再收斂一截，卡片的立體感主要靠
      --border-hairline 那圈細邊框撐出來，陰影只負責補一點點極輕的浮起感，
      不再是卡片邊界的主要視覺依據——陰影太重跟這次要的「高級感」互相矛盾，
@@ -2059,10 +2070,12 @@ header h1 a {
   cursor: not-allowed;
 }
 
+/* 目前頁碼跟「已選中的標籤／作用中頁籤」是同一種「這個是目前選中的那個」
+   語意，這次系統色彩巡檢一併收進同一套變數，不再是獨立一塊高彩度粉紅。 */
 .pagination-page.is-active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--color-tag-active-bg);
+  border-color: var(--color-tag-active-bg);
+  color: var(--color-tag-active-text);
   font-weight: 600;
   cursor: default;
 }
@@ -2794,35 +2807,41 @@ header h1 a {
   }
 }
 
-/* 未選中膠囊：暖米底（--surface-alt）+ 主要文字色，不是次要文字色——
-   膠囊裡的文字本身就是選項名稱（「好奇」「解決問題」…），需要跟卡片本文
-   同一個閱讀清晰度，不該被當成次要/輔助資訊調淡。 */
+/* 未選中膠囊：全站統一的暖米灰標籤底色/文字色（--color-tag-bg／
+   --color-tag-text，見 :root 開頭「系統級色彩巡檢」的說明）——這條是
+   .tag-checkboxes 的共用基礎規則，「閱讀後輸出」的心得標籤（發現/思考/
+   認同/不認同…）沒有像「閱讀動機」那樣另外套 .motivation-tag 元件，
+   直接吃這裡的顏色，兩者數值來源相同，不會再有一邊莫蘭迪、一邊還停在
+   舊的高彩度配色的情況。 */
 .tag-checkboxes label {
   position: relative;
   flex-direction: row;
   align-items: center;
   gap: 0.3rem;
-  background: var(--surface-alt);
+  background: var(--color-tag-bg);
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   padding: 0.28rem 0.75rem;
   font-size: 0.8rem;
-  color: var(--text);
+  color: var(--color-tag-text);
   cursor: pointer;
   margin-bottom: 0;
   transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .tag-checkboxes label:hover {
-  border-color: var(--accent-soft);
+  border-color: var(--color-primary-accent);
 }
 
-/* 選取後的膠囊按鈕是「標籤」語意，用 Accent 粉杏色而不是 Primary 深紅棕，
-   跟 .btn-primary 這類真正的主要按鈕做出區隔。 */
+/* 選取後：全站統一的品牌強調色實底＋白字（--color-tag-active-bg／
+   --color-tag-active-text）——原本是高彩度的 Accent 粉杏色，「閱讀後
+   輸出」勾選「✓ 認同」「✓ 不認同」這類標籤時最明顯看得到那塊亮粉紅，
+   這是這次系統色彩巡檢明確點名要修正的項目，跟「閱讀動機」的
+   .motivation-tag 選中狀態、跟下面分頁列的作用中頁籤全部共用同一支色號。 */
 .tag-checkboxes label:has(input:checked) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--color-tag-active-bg);
+  border-color: var(--color-tag-active-bg);
+  color: var(--color-tag-active-text);
   font-weight: 600;
 }
 
@@ -3241,23 +3260,26 @@ header h1 a {
 }
 
 /* 書籍/心得標籤是自由輸入文字，用 utils.js 的 renderTagChip() 依標籤字串
-   算出固定的 data-group，套三色階（同一套「淺底+對應深字色」邏輯），讓
-   「最近輸出」跟詳情頁的標籤群組視覺上豐富但和諧——閱讀動機膠囊後來已經
-   改成統一單一色（見 .tag-checkboxes.motivation-tags 的說明），這裡維持
-   原樣不受影響，兩套是各自獨立的系統，不是同一份規則。 */
+   算出固定的 data-group，套三色階區分不同標籤——這套跟「閱讀動機」
+   .motivation-tag 不一樣，不能收斂成單一顏色（自由文字標籤數量不固定，
+   需要靠顏色差異幫使用者快速分辨「這是同一顆標籤還是不同標籤」），但原本
+   三組是高飽和度的玫瑰粉／焦糖橘／檸檬黃，屬於這次「系統級色彩巡檢」要
+   徹底清掉的殘留舊色——改成跟全站其餘 Morandi 色階同一份「淺底+對應深
+   字色」邏輯，只是壓低彩度：a 沿用 --color-primary-accent 玫瑰棕（跟
+   品牌強調色同一支），b 暖灰，c 柔和奶茶色。 */
 .output-tag[data-group="a"] {
-  background: #fce4e8;
-  color: #c85a6e;
+  background: var(--icon-rose-soft);
+  color: var(--color-primary-accent);
 }
 
 .output-tag[data-group="b"] {
-  background: #fdf0e1;
-  color: #b06030;
+  background: #e8e4dc;
+  color: #7d7568;
 }
 
 .output-tag[data-group="c"] {
-  background: #faf3d1;
-  color: #826e2d;
+  background: #f0e6d6;
+  color: #9c7b52;
 }
 
 .output-date {

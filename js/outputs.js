@@ -66,12 +66,16 @@ const WYSIWYG_TOOLS = [
 ];
 
 // 5 色文字顏色色票：都是實心圓點按鈕，點下去對「目前選取的文字」套用 foreColor。
+// 這次「系統級色彩巡檢」把彩度再壓低一階——原本雖然已經取了「莫蘭迪」這種
+// 名字，實際色碼（尤其是紅／藍）飽和度還是偏高，五個圓點排在一起看起來
+// 刺眼，跟全站其餘低飽和的暖色調不搭。橄欖綠直接沿用 --accent-green
+// 這個既有的語意色（同一支色號，不是另外發明一個很像但不同的綠）。
 const TEXT_COLOR_PALETTE = [
   { name: '預設黑', hex: '#2C2C2C' },
-  { name: '莫蘭迪紅', hex: '#C85A54' },
-  { name: '經典藍', hex: '#3B6998' },
-  { name: '橄欖綠', hex: '#5A8262' },
-  { name: '溫暖棕', hex: '#9E6B43' },
+  { name: '莫蘭迪紅', hex: '#B5726C' },
+  { name: '灰藍', hex: '#6E88A0' },
+  { name: '橄欖綠', hex: '#7C9473' },
+  { name: '溫暖棕', hex: '#9C7B52' },
 ];
 
 // 原生 title 屬性靠瀏覽器/作業系統控制顯示時機，Chrome 大概要 hover 快 1 秒才跳出來，
@@ -118,8 +122,11 @@ function restoreSelection(editor) {
 // Range.surroundContents 在選取範圍切到元素邊界中間時會丟例外的邊界情況）。
 // hiliteColor 才是語意正確的指令，但 Safari 一路以來都不支援，backColor 是所有主流
 // 瀏覽器都認得的備援指令。存進資料庫前，sanitizeReflectionHtml 會把這個顏色收斂回
-// 語意化的 <mark> 標籤（不留 inline style），畫面上的顯示樣式跟舊資料共用同一套規則。
-const HIGHLIGHT_COLOR = '#FFF200';
+// 語意化的 <mark> 標籤（不留 inline style），畫面上的顯示樣式跟舊資料共用同一套規則
+// （.reflection-body mark { background: var(--gold) }）——這裡直接用同一支 --gold
+// 色號，編輯當下看到的螢光筆顏色跟存檔後的顯示樣式完全一致，不會像原本的
+// 高彩度螢光黃 #FFF200 那樣，打字時看到刺眼的黃，存檔後卻突然變成別的顏色。 */
+const HIGHLIGHT_COLOR = '#D9973F';
 
 function applyHighlight() {
   const supportsHiliteColor = document.queryCommandSupported && document.queryCommandSupported('hiliteColor');
