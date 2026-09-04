@@ -62,11 +62,11 @@ function quoteCardHtml(quote) {
   return `
     <div class="quote-card" data-id="${quote.id}">
       <div class="quote-card-top">
-        <span class="quote-mark">"</span>
+        <span class="quote-mark" aria-hidden="true">“</span>
         ${quote.page ? `<span class="quote-page-badge">P. ${escapeHtml(quote.page)}</span>` : ''}
       </div>
       <div class="quote-content-wrap">
-        <p class="quote-content is-clamped">${renderTextWithHashtags(quote.content)}</p>
+        <p class="quote-content is-clamped">${renderTextWithHashtags(quote.content)}<span class="quote-mark-close" aria-hidden="true">”</span></p>
         <button type="button" class="quote-expand-btn" style="display:none;">展開全文</button>
       </div>
       <div class="quote-actions">

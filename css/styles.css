@@ -3472,11 +3472,29 @@ header h1 a {
   gap: 0.5rem;
 }
 
+/* 佳句卡片的引號裝飾：原本是一個平淡的直角引號字元 "，改用真正的彎引號
+   （左引號 “／右引號 ”），字級拉大、換成襯線字體，比較有編輯排版裡
+   「大引號、輕份量」的文學感，顏色用莫蘭迪玫瑰棕（跟 Header 書籤圖示、
+   閱讀動機標籤同一組 --icon-rose token，全站裝飾性圖示統一同一個色相），
+   而不是跟按鈕邊框同色的 --primary-soft，讓佳句卡片在視覺上有自己的
+   「文學摘錄」身份，跟一般功能性 UI 區隔開來。 */
 .quote-mark {
-  font-size: 1.5rem;
+  font-size: 2rem;
   line-height: 1;
-  color: var(--primary-soft);
+  font-family: Georgia, "Songti TC", "STSong", serif;
+  color: var(--icon-rose);
+  opacity: 0.55;
   font-weight: 700;
+}
+
+/* 右引號跟著本文一起排版（不是像左引號那樣獨立佔一行），字級只比本文
+   略大一點，份量做輕，純粹當作句子結尾的裝飾收尾，不會喧賓奪主。 */
+.quote-mark-close {
+  font-family: Georgia, "Songti TC", "STSong", serif;
+  font-size: 1.1em;
+  color: var(--icon-rose);
+  opacity: 0.7;
+  margin-left: 0.1em;
 }
 
 /* 頁碼小標籤是「標籤」語意，用 Accent 粉杏色而不是 Primary 深紅棕，
@@ -3498,11 +3516,15 @@ header h1 a {
   gap: 0.35rem;
 }
 
+/* 微斜體：中文字型大多沒有真的傾斜的斜體字形，瀏覽器對中文套用 italic
+   基本上不會有視覺變化，這裡加上主要是為了佳句裡偶爾夾雜的英文字詞／
+   標點會有效果，額外的文學感是「順便」的，不是主要靠這個屬性撐場面。 */
 .quote-content {
   margin: 0;
   font-size: 0.9rem;
-  line-height: 1.55;
+  line-height: 1.6;
   white-space: pre-wrap;
+  font-style: italic;
 }
 
 .quote-content.is-clamped {
