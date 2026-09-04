@@ -267,7 +267,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
           </select>
         </label>
         <label class="field-wide">閱讀動機（可複選，選填）
-          <span class="tag-checkboxes motivation-tags">${MOTIVATION_TAGS.map((m) => `<label><input type="checkbox" name="motivationTags" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('')}</span>
+          <span class="tag-checkboxes motivation-tags">${MOTIVATION_TAGS.map((m) => `<label class="motivation-tag"><input type="checkbox" name="motivationTags" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('')}</span>
         </label>
         <label class="field-wide" for="field-motivation-text">我現在為什麼想讀它？
           <textarea id="field-motivation-text" name="motivationText" rows="2" placeholder="低壓力，想到什麼寫什麼，不寫也沒關係"></textarea>

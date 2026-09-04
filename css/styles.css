@@ -59,6 +59,12 @@
   --tag-inactive-text: #8c827a;
   --tag-inactive-border: #e5e0da;
   --tab-active-bg: #efe8e1;
+  /* 「動機標籤」共用元件（.motivation-tag，見同名 CSS 規則）專用的文字色——
+     比 --tag-inactive-text 再深一階的「微醺深棕」，是這次「全站動機標籤
+     樣式重構」明確指定的新色號，跟 --icon-rose 品牌色刻意分開：純展示用的
+     標籤文字用這支深棕，--icon-rose 留給真正的互動選中狀態／Icon，兩者
+     語意不同，不要共用同一支色號。 */
+  --motivation-tag-text: #6e5a53;
   /* 「輕盈」的核心就在這裡：陰影份量比舊版再收斂一截，卡片的立體感主要靠
      --border-hairline 那圈細邊框撐出來，陰影只負責補一點點極輕的浮起感，
      不再是卡片邊界的主要視覺依據——陰影太重跟這次要的「高級感」互相矛盾，
@@ -2718,34 +2724,58 @@ header h1 a {
   padding-bottom: 0.3rem;
 }
 
-/* 「閱讀動機」標籤配色微調：未選中統一用一個低彩度的淡奶茶灰（不再是三組
-   分色階的莫蘭迪玫瑰粉／暖灰／奶茶色——上一輪的「9 個選項太像，分三組
-   避免單調」用意雖然合理，但使用者這次明確要求「未選中就是同一個顏色」，
-   優先照最新的明確指示做，不是自己又加一層沒被要求的花樣）。 */
 .tag-checkboxes.motivation-tags label {
   flex-shrink: 0;
-  padding: 0.24rem 0.6rem;
-  font-size: 0.76rem;
-  background: var(--tag-inactive-bg);
-  color: var(--tag-inactive-text);
-  border-color: var(--tag-inactive-border);
 }
 
-/* 選取後：品牌核心莫蘭迪玫瑰棕實底＋純白字，「精品皮革標籤」的視覺——
-   選擇器比下面共用的 .tag-checkboxes label:has(input:checked) 多一個
-   .motivation-tags class，優先度更高，只蓋掉閱讀動機這裡的粉紅，「閱讀
-   後輸出」等其他 tag-checkboxes 用途不受影響、維持原本的 Accent 粉杏色。
-   ✓ 對勾（見下面共用的 ::before 規則）沒有另外設色，自動吃这裡的白字。 */
-.tag-checkboxes.motivation-tags label:has(input:checked) {
-  background: var(--icon-rose);
-  border-color: var(--icon-rose);
-  color: #fff;
+/* 動機標籤共用元件：不管是「詳情頁／書籍表單」可勾選的 checkbox 版本
+   （這裡的 <label>），還是「首頁最近輸出」純展示用的唯讀版本（home.js
+   的 renderMotivationTagChip() 產生的 <span>），全部套用同一個
+   .motivation-tag class——顏色/字級/圓角只在這裡定義一份，這正是這次
+   「全站動機標籤樣式重構」要解決的問題：首頁「最近輸出」裡的動機標籤
+   原本走的是 renderTagChip() 那組給「自由文字標籤」用的高彩度粉/橘/黃
+   三色階，跟詳情頁這裡的莫蘭迪配色完全對不上，以後也不會再有兩邊各自
+   維護、不小心兜不起來的風險。
+   全部屬性都掛 !important：.motivation-tag 出現在 .tag-checkboxes label
+   這個情境時，選擇器優先度（1 個 class）比共用的 .tag-checkboxes label
+   規則（1 個 class＋1 個 element）低，沒有 !important 會被那條規則的
+   background/color/padding/font-size 蓋掉——這個檔案已經在同一種「單一
+   class 選擇器打不贏 class+element 選擇器」的坑上跌倒過，這裡直接排除。 */
+.motivation-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--tag-inactive-bg) !important;
+  color: var(--motivation-tag-text) !important;
+  border: 1px solid var(--tag-inactive-border) !important;
+  border-radius: 12px !important;
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+  line-height: 1.6;
+  white-space: nowrap;
 }
 
-/* hover 外框也一併蓋掉共用規則的 --accent-soft 淡粉，徹底不留任何粉紅色調，
-   跟未選中/選中狀態同一支玫瑰棕色相，滑過去只有外框變深、不換色相。 */
-.tag-checkboxes.motivation-tags label:hover {
-  border-color: var(--icon-rose);
+/* 只有「可勾選」的版本（.tag-checkboxes.motivation-tags 裡的 <label>）
+   才需要游標／hover／已選中三種互動狀態——「最近輸出」那個純展示用的
+   <span> 版本不能點，不該有任何暗示「這裡可以互動」的樣式。 */
+.tag-checkboxes.motivation-tags .motivation-tag {
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.tag-checkboxes.motivation-tags .motivation-tag:hover {
+  border-color: var(--icon-rose) !important;
+}
+
+/* 選取後：品牌核心莫蘭迪玫瑰棕實底＋純白字，「精品皮革標籤」的視覺，跟
+   未選中的淡奶茶灰明確區隔開——只有 checkbox 版本的 <label> 會真的包著
+   一顆 <input>，純展示用的 <span> 天生不會命中這條規則，不需要另外排除。
+   ✓ 對勾（見上面共用的 .tag-checkboxes label:has(input:checked)::before
+   規則）沒有另外設色，自動吃這裡的白字。 */
+.motivation-tag:has(input:checked) {
+  background: var(--icon-rose) !important;
+  border-color: var(--icon-rose) !important;
+  color: #fff !important;
 }
 
 /* 這兩條手機斷點覆蓋規則刻意放在上面桌面版規則「之後」：兩者選擇器權重相同，

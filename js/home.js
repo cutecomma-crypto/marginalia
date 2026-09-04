@@ -1,5 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml, renderTagChip } from './utils.js';
+import { renderMotivationTagChip } from './outputs.js';
 
 // 對照 PROJECT_SPEC.md 第 10 節首頁建議區塊。「我的閱讀」數字概覽併進 stats.js 的側邊欄精簡統計，
 // 這裡只負責「最近輸出」，放在首頁側邊欄下半部。
@@ -39,8 +40,14 @@ function buildOutputPreview(item) {
 
 function outputItemHtml(o) {
   const title = o.book ? escapeHtml(o.book.title || '（未命名）') : '（書籍已刪除）';
+  // 「最近輸出」同時混著閱讀動機／閱讀後輸出兩種紀錄，o.tags 的意義不一樣——
+  // 動機紀錄的 tags 是固定詞彙的「動機標籤」，要跟詳情頁/書籍表單同一套
+  // .motivation-tag 莫蘭迪配色（見 outputs.js 的 renderMotivationTagChip()）；
+  // 心得紀錄的 tags 才是原本 renderTagChip() 服務的「自由文字標籤」，維持
+  // 不變，兩者不能共用同一顆渲染函式，不然動機標籤又會變回高彩度三色階。
+  const tagRenderer = o.kind === 'motivation' ? renderMotivationTagChip : renderTagChip;
   const tags = o.tags && o.tags.length
-    ? `<div class="output-tags">${o.tags.map((t) => renderTagChip(t)).join('')}</div>`
+    ? `<div class="output-tags">${o.tags.map((t) => tagRenderer(t)).join('')}</div>`
     : '';
   const preview = buildOutputPreview(o);
   const text = preview ? `<p class="home-list-text">${escapeHtml(preview)}</p>` : '';

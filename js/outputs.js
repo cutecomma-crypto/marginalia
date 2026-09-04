@@ -25,10 +25,13 @@ async function getDefaultReflectionDate(bookId) {
   return (latest && latest.endDate) || todayIso();
 }
 
-function tagCheckboxes(name, options, selected) {
+// labelClass：只有閱讀動機會傳，套用全站共用的 .motivation-tag 樣式元件
+// （見 css/styles.css 同名規則的說明）；閱讀後輸出的心得標籤不屬於「動機
+// 標籤」，呼叫端不傳這個參數，維持原本 .tag-checkboxes 的通用膠囊樣式。
+function tagCheckboxes(name, options, selected, labelClass) {
   const selectedList = selected || [];
   return options.map((tag) => `
-    <label>
+    <label${labelClass ? ` class="${labelClass}"` : ''}>
       <input type="checkbox" name="${name}" value="${escapeHtml(tag)}" ${selectedList.includes(tag) ? 'checked' : ''}>
       ${escapeHtml(tag)}
     </label>
@@ -37,6 +40,16 @@ function tagCheckboxes(name, options, selected) {
 
 function readTags(form, name) {
   return Array.from(form.querySelectorAll(`input[name="${name}"]:checked`)).map((el) => el.value);
+}
+
+// 「唯讀展示」版的動機標籤——跟上面 tagCheckboxes() 產生的可勾選版本共用
+// 同一個 .motivation-tag class（見 css/styles.css 的說明），純粹是沒有
+// <input> 的 <span>，給 home.js 的「最近輸出」清單這種「只是要顯示這本書
+// 選過哪些動機、不能互動」的場合用，不要再套用 utils.js 的 renderTagChip()
+// （那組是給書籍/心得的「自由文字標籤」用的高彩度粉/橘/黃三色階，跟這裡
+// 的莫蘭迪配色是兩回事）。
+export function renderMotivationTagChip(tag) {
+  return `<span class="motivation-tag">${escapeHtml(tag)}</span>`;
 }
 
 // 心得輸入框改成所見即所得（contenteditable + execCommand）：點粗體/斜體/標題，
@@ -319,7 +332,7 @@ export async function renderMotivation(container, bookId) {
     <h4 class="section-heading icon-heading">${ICON_LIGHTBULB}閱讀動機</h4>
     <form id="motivation-form" class="book-form">
       <label>可以選擇（可複選）
-        <span class="tag-checkboxes motivation-tags">${tagCheckboxes('motivationTags', MOTIVATION_TAGS, existing && existing.tags)}</span>
+        <span class="tag-checkboxes motivation-tags">${tagCheckboxes('motivationTags', MOTIVATION_TAGS, existing && existing.tags, 'motivation-tag')}</span>
       </label>
       <label>我為什麼想看這本書？
         <textarea name="text" rows="2">${escapeHtml(existing && existing.text)}</textarea>
