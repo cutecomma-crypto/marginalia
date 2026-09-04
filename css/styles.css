@@ -50,6 +50,15 @@
   --btn-bg: #fbf9f7;
   --btn-danger-bg: #f8ecea;
   --btn-danger-text: #b05c5c;
+  /* 「閱讀動機」分頁與標籤配色微調專用：跟 --surface-alt／--icon-rose-soft
+     長得很像，但這次使用者給的是精確 hex 值（不是「差不多這個色系」），
+     獨立開一組 token 而不是硬套現有的近似色，數值上才會跟需求文件完全對齊。
+     --tag-active-bg 直接沿用 --icon-rose 本身（同一個數值 #a67c74），不用
+     另外重複定義一份。 */
+  --tag-inactive-bg: #f3efea;
+  --tag-inactive-text: #8c827a;
+  --tag-inactive-border: #e5e0da;
+  --tab-active-bg: #efe8e1;
   /* 「輕盈」的核心就在這裡：陰影份量比舊版再收斂一截，卡片的立體感主要靠
      --border-hairline 那圈細邊框撐出來，陰影只負責補一點點極輕的浮起感，
      不再是卡片邊界的主要視覺依據——陰影太重跟這次要的「高級感」互相矛盾，
@@ -2309,13 +2318,14 @@ header h1 a {
   transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
-/* 四個主題頁籤原本各自一組莫蘭迪色做區分，後來統一改成柔粉 Accent，這次
-   「全站 Emoji／按鈕色調統一」再改一次：換成跟一般按鈕、Header 圖示同一個
-   玫瑰棕（--icon-rose），讓「選中」的視覺語言跟全站按鈕/Icon 共用同一支
-   品牌色，不再是另一組獨立的粉紅色語彙。 */
+/* 四個主題頁籤原本各自一組莫蘭迪色做區分，後來統一改成柔粉 Accent，再後來
+   換成跟一般按鈕、Header 圖示同一個玫瑰棕（--icon-rose）——這次「閱讀動機」
+   配色微調再精修一次底色：換成使用者指定的精確「微醺奶茶色」（--tab-active-bg，
+   跟 --icon-rose-soft 很像但不是同一個值），跟下方閱讀動機標籤的莫蘭迪色系
+   形成更細緻的層次，文字/底線顏色不變，仍是同一支 --icon-rose。 */
 .main-tab-btn.is-active {
   color: var(--icon-rose);
-  background: var(--icon-rose-soft);
+  background: var(--tab-active-bg);
   border-bottom-color: var(--icon-rose);
 }
 
@@ -2708,10 +2718,34 @@ header h1 a {
   padding-bottom: 0.3rem;
 }
 
+/* 「閱讀動機」標籤配色微調：未選中統一用一個低彩度的淡奶茶灰（不再是三組
+   分色階的莫蘭迪玫瑰粉／暖灰／奶茶色——上一輪的「9 個選項太像，分三組
+   避免單調」用意雖然合理，但使用者這次明確要求「未選中就是同一個顏色」，
+   優先照最新的明確指示做，不是自己又加一層沒被要求的花樣）。 */
 .tag-checkboxes.motivation-tags label {
   flex-shrink: 0;
   padding: 0.24rem 0.6rem;
   font-size: 0.76rem;
+  background: var(--tag-inactive-bg);
+  color: var(--tag-inactive-text);
+  border-color: var(--tag-inactive-border);
+}
+
+/* 選取後：品牌核心莫蘭迪玫瑰棕實底＋純白字，「精品皮革標籤」的視覺——
+   選擇器比下面共用的 .tag-checkboxes label:has(input:checked) 多一個
+   .motivation-tags class，優先度更高，只蓋掉閱讀動機這裡的粉紅，「閱讀
+   後輸出」等其他 tag-checkboxes 用途不受影響、維持原本的 Accent 粉杏色。
+   ✓ 對勾（見下面共用的 ::before 規則）沒有另外設色，自動吃这裡的白字。 */
+.tag-checkboxes.motivation-tags label:has(input:checked) {
+  background: var(--icon-rose);
+  border-color: var(--icon-rose);
+  color: #fff;
+}
+
+/* hover 外框也一併蓋掉共用規則的 --accent-soft 淡粉，徹底不留任何粉紅色調，
+   跟未選中/選中狀態同一支玫瑰棕色相，滑過去只有外框變深、不換色相。 */
+.tag-checkboxes.motivation-tags label:hover {
+  border-color: var(--icon-rose);
 }
 
 /* 這兩條手機斷點覆蓋規則刻意放在上面桌面版規則「之後」：兩者選擇器權重相同，
@@ -2764,34 +2798,6 @@ header h1 a {
 
 .tag-checkboxes label:has(input:checked)::before {
   content: "✓";
-}
-
-/* 閱讀動機膠囊未選中時的分組色階（跟上面選中狀態的粉紅不衝突：選擇器多了
-   [data-group] 屬性，權重比基本的 .tag-checkboxes label 高，同時選中時靠
-   再下面那條 :has(input:checked) 組合規則蓋回粉紅）。原本是三組高飽和的
-   玫瑰粉／焦糖橘／檸檬黃，跟全站「Light Luxury」低飽和莫蘭迪調性不一致，
-   改成統一的莫蘭迪色系：a 沿用既有的 --icon-rose／--icon-rose-soft 玫瑰棕
-   token（跟 Header 那顆書籤 Icon 同一組顏色，不是另外發明新色），b 暖灰、
-   c 柔和奶茶色，三組一樣是「淺底＋對應深一階的字色」同一份對比邏輯，只是
-   彩度整體壓低、更貼近奶油米背景的调性。 */
-.tag-checkboxes.motivation-tags label[data-group="a"] {
-  background: var(--icon-rose-soft);
-  color: var(--icon-rose);
-}
-
-.tag-checkboxes.motivation-tags label[data-group="b"] {
-  background: #e8e4dc;
-  color: #7d7568;
-}
-
-.tag-checkboxes.motivation-tags label[data-group="c"] {
-  background: #f0e6d6;
-  color: #9c7b52;
-}
-
-.tag-checkboxes.motivation-tags label[data-group]:has(input:checked) {
-  background: var(--accent);
-  color: #fff;
 }
 
 .tag-checkboxes input {
@@ -3205,8 +3211,10 @@ header h1 a {
 }
 
 /* 書籍/心得標籤是自由輸入文字，用 utils.js 的 renderTagChip() 依標籤字串
-   算出固定的 data-group，套用跟閱讀動機膠囊同一份三色階（同一套「淺底+
-   對應深字色」邏輯），讓「最近輸出」跟詳情頁的標籤群組視覺上豐富但和諧。 */
+   算出固定的 data-group，套三色階（同一套「淺底+對應深字色」邏輯），讓
+   「最近輸出」跟詳情頁的標籤群組視覺上豐富但和諧——閱讀動機膠囊後來已經
+   改成統一單一色（見 .tag-checkboxes.motivation-tags 的說明），這裡維持
+   原樣不受影響，兩套是各自獨立的系統，不是同一份規則。 */
 .output-tag[data-group="a"] {
   background: #fce4e8;
   color: #c85a6e;
