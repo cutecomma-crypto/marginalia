@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, showToast } from './utils.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 import { ICON_LINK } from './icons.js';
 
@@ -881,18 +881,29 @@ export async function renderGraphPage(container, rawBookId) {
       const order = groupChanged
         ? nodes.filter((n) => n.id !== person.id && (n.groupId || null) === newGroupId).length
         : person.order;
-      await DB.update('nodes', {
-        id: person.id,
-        bookId,
-        groupId: newGroupId,
-        order,
-        label: data.label.trim(),
-        title: (data.title || '').trim(),
-        status: (data.status || '').trim(),
-        description: (data.description || '').trim(),
-        isProtagonist: form.elements.isProtagonist.checked,
-        createdAt: person.createdAt,
-      });
+      // 存檔失敗（例如雲端資料表缺欄位——這是實際發生過的真實 bug，見
+      // supabase/schema.sql 裡 nodes 表 isProtagonist 欄位旁的說明）不能沒
+      // 有任何提示：不包 try/catch 的話，DB.update() 丟出的例外只會變成
+      // 主控台看不見的 unhandled rejection，畫面上完全沒反應，使用者只會
+      // 覺得「這個功能是不是壞了」，沒有線索可以回報。
+      try {
+        await DB.update('nodes', {
+          id: person.id,
+          bookId,
+          groupId: newGroupId,
+          order,
+          label: data.label.trim(),
+          title: (data.title || '').trim(),
+          status: (data.status || '').trim(),
+          description: (data.description || '').trim(),
+          isProtagonist: form.elements.isProtagonist.checked,
+          createdAt: person.createdAt,
+        });
+      } catch (error) {
+        showToast('儲存失敗，請稍後再試一次');
+        console.error('[Marginalia 關係圖譜] 儲存人物失敗：', error);
+        return;
+      }
       switchTab('add');
       await reload();
     });

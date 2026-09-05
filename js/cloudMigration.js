@@ -165,6 +165,7 @@ function sanitizeNodePayload(node) {
     status: node.status,
     description: node.description,
     order: toNullableNumber(node.order),
+    isProtagonist: Boolean(node.isProtagonist),
     bookId: node.bookId,
     groupId: node.groupId,
     createdAt: node.createdAt,

@@ -149,6 +149,15 @@ create index groups_user_id_idx on groups (user_id);
 create index groups_book_id_idx on groups ("bookId");
 
 -- ============ nodes（人物關係圖譜的人物卡片） ============
+-- isProtagonist（★ 主角／重要角色）欄位是後來才補上的——如果這個 Supabase
+-- 專案是在這一版 schema.sql 之前就先執行過一次的既有專案，直接重貼整份
+-- 檔案會在 create table 卡住（資料表已經存在），改成單獨執行這一行就好：
+--   alter table nodes add column if not exists "isProtagonist" boolean default false;
+-- 這正是使用者實測抓到的真實 bug：node 物件在前端一律帶著 isProtagonist
+-- 欄位送出（見 js/graph.js 的編輯人物表單），但雲端資料表當初建表時沒有
+-- 這個欄位，PostgREST 收到不認識的欄位名稱會直接拒絕整筆 update，導致
+-- 「勾選主角」連同那次編輯的其他欄位（姓名／頭銜／群組……）全部沒有真的
+-- 存進雲端——不是只有星星那個功能單獨壞掉。
 create table nodes (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -159,6 +168,7 @@ create table nodes (
   status text,
   description text,
   "order" integer,
+  "isProtagonist" boolean default false,
   "createdAt" timestamptz default now()
 );
 
