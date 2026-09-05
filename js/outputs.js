@@ -380,7 +380,7 @@ function reflectionItem(item) {
   `;
 }
 
-export async function renderReflections(container, bookId) {
+export async function renderReflections(container, bookId, { onQuoteAdded } = {}) {
   const items = await getOutputsByKind(bookId, 'reflection');
   items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
@@ -454,13 +454,13 @@ export async function renderReflections(container, bookId) {
     // 現在進度模組跟這個表單同一個頁籤，使用者很可能剛改完日期就馬上寫心得。
     const date = await getDefaultReflectionDate(bookId);
     await DB.add('outputs', { bookId, kind: 'reflection', tags, text: plainText ? html : '', format: 'html', date });
-    await renderReflections(container, bookId);
+    await renderReflections(container, bookId, { onQuoteAdded });
   });
 
   container.querySelectorAll('.output-delete').forEach((btn) => {
     btn.addEventListener('click', async () => {
       await DB.remove('outputs', Number(btn.dataset.id));
-      await renderReflections(container, bookId);
+      await renderReflections(container, bookId, { onQuoteAdded });
     });
   });
 
@@ -483,6 +483,9 @@ export async function renderReflections(container, bookId) {
     onHighlight: async (selectedText) => {
       await DB.add('quotes', { bookId, content: selectedText });
       showToast('已加入佳句摘錄');
+      // 存完立刻讓「佳句摘錄」分頁的數量／列表同步更新，不用使用者自己重新整理
+      // 整頁才看得到剛剛存的這句——見 bookDetail.js 的 refreshQuotesTab() 說明。
+      await onQuoteAdded?.();
     },
   });
 }

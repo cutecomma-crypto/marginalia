@@ -178,13 +178,24 @@ export async function renderBookDetail(container, rawId) {
     });
   });
 
+  // 「閱讀後輸出」選取文字存成佳句摘錄（見 outputs.js 的 attachSelectionToolbar
+  // onHighlight）之後，需要一個管道把「佳句摘錄」分頁的數量／列表也一起更新，
+  // 不然那個分頁的內容是頁面一開始載入時就渲染好、之後不會再自己重繪的——使用者
+  // 存了一句新佳句，畫面上完全沒反應，要重新整理整頁才看得到，這是實測抓到的
+  // 真實問題。抽成獨立函式讓 renderReflections() 存完佳句後可以直接呼叫，只重繪
+  // 佳句摘錄那個分頁本身（不是整個 renderBookDetail()／refreshDetail()），不會
+  // 連帶打斷使用者在閱讀後輸出編輯區裡還沒存檔的草稿或游標位置。
+  async function refreshQuotesTab() {
+    await renderQuotesWorkspace(container.querySelector('#quotes-container'), bookId, {
+      onCountChange: (count) => {
+        container.querySelector('#quotes-tab-count').textContent = count;
+      },
+    });
+  }
+
   await renderReadingSection(container.querySelector('#reading-section'), bookId, book, { onReturnedSuggestionAccepted: refreshDetail });
   await renderMotivation(container.querySelector('#motivation-container'), bookId);
-  await renderReflections(container.querySelector('#reflection-container'), bookId);
+  await renderReflections(container.querySelector('#reflection-container'), bookId, { onQuoteAdded: refreshQuotesTab });
   await renderNotesSection(container.querySelector('#notes-section'), bookId);
-  await renderQuotesWorkspace(container.querySelector('#quotes-container'), bookId, {
-    onCountChange: (count) => {
-      container.querySelector('#quotes-tab-count').textContent = count;
-    },
-  });
+  await refreshQuotesTab();
 }
