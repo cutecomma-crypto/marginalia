@@ -14,8 +14,16 @@
      內文的分隔線／表格／輸入框；--border-hairline 是完全中性、幾乎看不見的
      髮絲級邊框，這版起正式升級成「卡片」統一使用的邊框語彙（取代舊版純靠
      陰影撐出邊界的做法），跟前兩者分工不互相取代。
-   --accent 系列（Flamingo Plume 柔粉，標籤／星星／愛心／頁籤用）、
-   --accent-green／--danger／--gold 這些既有的語意色跟這次改版無關，維持不動。 */
+   --accent-green／--danger／--gold 這些既有的語意色跟這次改版無關，維持不動。
+
+   --accent 系列本來是獨立的「Flamingo Plume 柔粉」（標籤／星星／愛心／頁籤／
+   按鈕 hover 用），刻意跟品牌玫瑰棕分開、每一輪色彩巡檢都明確保留不動。
+   使用者這次直接反應「滑鼠移過去點選會變成粉紅色」希望全站色彩徹底統一——
+   不再維持兩套並存的強調色，--accent／--accent-hover／--accent-soft 三個
+   全部改成別名指回上面官方統一的 Morandi 色票，全站幾十處還在引用這三個
+   舊名稱的規則（按鈕 hover、Logo、愛心圖示、星星評分、頁籤徽章、#Hashtag
+   膠囊、分頁列 hover……）自動跟著變成同一支玫瑰棕，不用一一改名或搜尋
+   替換，也不會有漏改的地方。 */
 :root {
   --bg: #f8f6f0;
   --surface: #ffffff;
@@ -27,9 +35,9 @@
   --primary: #4a3e3d;
   --primary-hover: #3b3231;
   --primary-soft: #e4e0df;
-  --accent: #e38b97;
-  --accent-hover: #d97787;
-  --accent-soft: #f8e5e8;
+  --accent: var(--color-primary-accent);
+  --accent-hover: var(--primary);
+  --accent-soft: var(--color-tag-bg);
   --accent-green: #7c9473;
   --accent-green-soft: #e7ede1;
   --danger: #b3492f;
@@ -480,10 +488,12 @@ header h1 a {
 }
 
 /* Logo 本來就是 <a>，原生游標已經是 pointer，這裡明確寫出來只是不想依賴預設行為；
-   品牌名稱固定用 Accent 柔粉點綴色，跟主要文字／內文的深棕分開——全站唯一
+   品牌名稱固定用 Accent 玫瑰棕點綴色，跟主要文字／內文的深棕分開——全站唯一
    一處刻意用點綴色當「本文」而不是背景暈染，讓 Logo 成為視覺焦點。
    （class 選擇器權重比 header h1 a 的 3 個元素高，蓋得過 color: inherit。）
-   hover 加深到 --accent-hover，維持同一個粉色家族，不是換回深棕。 */
+   --accent 系列已經全部改成別名指回官方 Morandi 色票（見 :root），
+   hover 加深到 --accent-hover（現在等於 --primary 深棕），不再是獨立的
+   粉色家族。 */
 .brand-logo {
   color: var(--accent);
   cursor: pointer;
@@ -577,8 +587,12 @@ header h1 a {
   color: var(--btn-danger-text);
 }
 
-/* 一般次要按鈕平常維持素雅的白底/暖米 hover，滑過或聚焦時才「亮」成粉紅底，
-   用互動狀態帶出 Accent 點綴，而不是讓每顆按鈕平常就佔掉一塊 10% 點綴色的預算。
+/* 一般次要按鈕平常維持素雅的白底/暖米，滑過或聚焦時才「亮」成玫瑰棕實底，
+   用互動狀態帶出強調色，而不是讓每顆按鈕平常就佔掉一塊點綴色的預算——
+   --accent 原本是獨立於品牌玫瑰棕之外的柔粉色，使用者反應「滑過去會變
+   粉紅色」希望全站色彩徹底統一，已經在 :root 把 --accent 改成別名指回
+   --color-primary-accent，這裡不用再改（本來就是引用變數，不是寫死顏色），
+   全站所有 hover 到 --accent 的地方自動一起變成同一支玫瑰棕。
    .btn-primary／.btn-danger 各自的 hover 規則寫在後面、選擇器權重相同，
    靠原始碼順序覆蓋回自己的顏色，不會被這條蓋過去。 */
 .btn:hover {
@@ -702,7 +716,7 @@ header h1 a {
 }
 
 /* 明確重申三個屬性（不只 background）：.btn:hover 現在會把 hover 狀態的
-   background/border-color/color 都改成粉紅+白字，這裡要整組蓋回危險色，
+   background/border-color/color 都改成玫瑰棕實底+白字，這裡要整組蓋回危險色，
    不然刪除按鈕 hover 時文字會被 .btn:hover 的白字蓋過去、變成看不出是危險操作。 */
 /* 書籍詳情頁頂部「刪除」按鈕跟旁邊「編輯」多拉開一點距離（在 .toolbar-actions
    原本統一的 0.5rem 間距之外，額外加寬這一個位置的間隔）——防止在小螢幕
@@ -801,11 +815,14 @@ header h1 a {
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* 作者篩選膠囊改用靈魂粉紅色底色，跟其他篩選膠囊（分類／狀態／年份…）的
-   中性配色區隔開——作者篩選可以從很多地方（表格、封面卡片、側邊欄、書籍
-   詳情頁）觸發，用專屬顏色讓使用者一眼看出「目前套用的是作者篩選」。
-   [data-key="author"] 屬性選擇器比純 .filter-badge 類別選擇器更高優先度，
-   不用 !important 就能蓋掉上面的中性底色。 */
+/* 作者篩選膠囊原本用獨立的柔粉色底色，跟其他篩選膠囊（分類／狀態／年份…）
+   的中性配色區隔開，讓使用者一眼看出「目前套用的是作者篩選」——這裡引用的
+   --accent-soft／--accent-hover 現在都是別名指回官方 Morandi 色票（見
+   :root 的說明），視覺上跟中性灰的差異變得比較細緻（暖米 vs. 暖灰），
+   不再是「粉紅 vs. 灰」那麼搶眼的對比，但仍然是兩支不同的色源，不是
+   跟其他篩選膠囊共用同一個值。[data-key="author"] 屬性選擇器比純
+   .filter-badge 類別選擇器更高優先度，不用 !important 就能蓋掉上面的
+   中性底色。 */
 .filter-badge[data-key="author"] {
   background: var(--accent-soft);
   color: var(--accent-hover);
@@ -1371,7 +1388,8 @@ header h1 a {
   padding: 1rem 1.1rem;
 }
 
-/* 側邊欄每個區塊標題（最近輸出／喜愛的作者／閱讀統計…）左邊加一條粉紅指示線，
+/* 側邊欄每個區塊標題（最近輸出／喜愛的作者／閱讀統計…）左邊加一條玫瑰棕指示線
+   （--accent 現在別名指回品牌玫瑰棕，不再是獨立的柔粉色，見 :root 的說明），
    純文字標題在白卡片上很容易跟內文分不清層級，這條色塊一眼就能定位「這是標題」。 */
 .sidebar-panel h4 {
   margin: 0 0 0.7rem;
@@ -1405,7 +1423,7 @@ header h1 a {
 }
 
 /* 「年度閱讀成果」是卡片裡的第二層小標題，不是整張卡片的標題（那個是上面的
-   <h4>我的藏書概況</h4>，已經有粉紅指示線），故意用比較輕的字重/顏色跟第一層
+   <h4>我的藏書概況</h4>，已經有玫瑰棕指示線），故意用比較輕的字重/顏色跟第一層
    的狀態方塊拉開層級，再用上緣一條分隔線＋留白，明確斷開「兩層資料」的視覺。 */
 .sidebar-stat-heading-row--year {
   margin-top: 0.85rem;
@@ -1860,8 +1878,11 @@ header h1 a {
 }
 
 /* 斑馬紋＋整列 hover：純白通篇一列列排下去容易看花眼，隔行淡淡的暖米色
-   幫視線在同一列上對齊；滑過整列（不是只有書名那一格）變成柔粉，比只變
-   書名底色更明顯知道「游標在哪一列」，書名文字同時加深呼應被選中的狀態。 */
+   幫視線在同一列上對齊；滑過整列（不是只有書名那一格）變暖玫瑰色，比只變
+   書名底色更明顯知道「游標在哪一列」，書名文字同時加深呼應被選中的狀態。
+   這裡原本是寫死的粉紅色 hex（不是引用 --accent 系列變數），全站色彩統一
+   成玫瑰棕時差點被漏掉——改成 --icon-rose-soft（品牌玫瑰棕的淡色版本），
+   跟其餘 hover 狀態同一支色源。 */
 .book-table tbody tr {
   transition: background-color 0.15s ease;
 }
@@ -1871,7 +1892,7 @@ header h1 a {
 }
 
 .book-table tbody tr:hover {
-  background: #fdf0f2;
+  background: var(--icon-rose-soft);
 }
 
 .book-table tbody tr:hover a {
@@ -2112,7 +2133,7 @@ header h1 a {
 }
 
 /* 書籍列表分頁列：奶油底（--surface-alt）+ 深棕字，跟頁面上其他「素雅預設、
-   互動時才亮粉紅」的按鈕語言一致（呼應 .btn:hover 的設計），不是另外發明一套配色。 */
+   互動時才亮玫瑰棕」的按鈕語言一致（呼應 .btn:hover 的設計），不是另外發明一套配色。 */
 .pagination-bar {
   display: flex;
   align-items: center;
@@ -2570,7 +2591,8 @@ header h1 a {
 }
 
 /* .star-btn 同時是「評分星星 ★」跟書籍表單裡「標記喜愛作者 ♥」共用的類別，
-   兩者點亮狀態都用 Accent 柔粉點綴。 */
+   兩者點亮狀態都用 Accent 玫瑰棕點綴（--accent 別名指回品牌玫瑰棕，見
+   :root 的說明）。 */
 .star-btn.filled {
   color: var(--accent);
 }
@@ -2779,7 +2801,8 @@ header h1 a {
 /* 全站可點擊的作者名稱（書籍列表表格／封面網格／書籍詳情頁），點下去篩選出
    該作者的所有藏書。表格版是 <button>、封面網格版是 <span>（外層卡片本身
    已經是 <a>，不能再塞 <button>），視覺上統一成同一顆樣式，不分標籤種類。
-   Hover 用底線＋粉紅變色雙重提示，跟純文字（未分類等不可點欄位）明顯區隔開。 */
+   Hover 用底線＋變色（--accent-hover，現在等於品牌深棕）雙重提示，跟純文字
+   （未分類等不可點欄位）明顯區隔開。 */
 .author-name-link {
   display: inline;
   background: none;
@@ -3794,8 +3817,8 @@ header h1 a {
   margin-left: 0.1em;
 }
 
-/* 頁碼小標籤是「標籤」語意，用 Accent 粉杏色而不是 Primary 深紅棕，
-   跟本文／按鈕的主色區分開來。 */
+/* 頁碼小標籤是「標籤」語意，用 Accent 系列（現在別名指回品牌玫瑰棕/深棕，
+   見 :root 的說明，不再是獨立的粉杏色）跟本文／按鈕的主色區分開來。 */
 .quote-page-badge {
   flex-shrink: 0;
   font-size: 0.8125rem;
@@ -3913,7 +3936,8 @@ header h1 a {
 }
 
 /* #Hashtag 膠囊：出現在佳句／輸出／筆記的內文裡，點了直接跳去該標籤的跨書籍總覽頁。
-   跟頁碼標籤同理，用 Accent 粉杏色而不是 Primary 深紅棕。 */
+   跟頁碼標籤同理，用 Accent 系列（別名指回品牌玫瑰棕/深棕，不再是獨立的
+   粉杏色）。 */
 .hashtag-chip {
   display: inline-block;
   background: var(--accent-soft);
