@@ -900,7 +900,11 @@ export async function renderGraphPage(container, rawBookId) {
           createdAt: person.createdAt,
         });
       } catch (error) {
-        showToast('儲存失敗，請稍後再試一次');
+        // 直接把錯誤內容顯示在 Toast 上（不只是「請稍後再試一次」這種空泛的
+        // 訊息）——這類存檔失敗十之八九是雲端資料表欄位對不上，錯誤訊息本身
+        // 就會講清楚是哪個欄位、什麼原因，使用者不用另外打開瀏覽器主控台
+        // 就能直接把這句話回報給開發者，一次到位。
+        showToast(`儲存失敗：${error?.message || String(error)}`, 6000);
         console.error('[Marginalia 關係圖譜] 儲存人物失敗：', error);
         return;
       }
