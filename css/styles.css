@@ -1614,44 +1614,54 @@ header h1 a {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-soft);
   font-size: 0.9rem;
-  white-space: nowrap;
 }
 
-/* 桌面版表格用 white-space: nowrap 讓書名／作者永遠單行不換行，是桌面版夠寬、
-   不需要換行才成立的假設——平板直立（甚至偶爾在手機上）遇到長書名或長作者名，
-   nowrap 會逼著那一格撐出比容器還寬的最小寬度，table-layout 預設的 auto
-   演算法只能眼睜睜看著整張表格被撐寬、超出 100% 容器，.book-list-body 的
-   overflow-x:auto 因此冒出來一條橫向捲軸，「書籍歸還」那一欄常常因此被擠到
-   看不見、要橫向捲動才找得到——這正是這次要修的「表格與文字欄位被擠壓、
-   裁切跑版」。改成 normal 讓瀏覽器在欄寬不夠時自然把文字換到第二行，表格
-   才能真正維持在 100% 容器寬度內，不需要橫向捲動。
-   這條規則刻意寫在「桌面版 nowrap 規則」正下方（而不是隨手放進前面別的斷點
-   區塊裡）——兩者選擇器完全一樣、優先度相同，CSS 层叠在優先度相同時看的是
-   原始碼順序，寫在前面的媒體查詢會被寫在後面的桌面版規則蓋掉，不管螢幕寬度
-   符不符合媒體查詢條件都一樣；這是實測驗證過的真實問題，不是預防性猜測。 */
-@media (max-width: 1024px) {
-  .book-table th,
-  .book-table td {
-    white-space: normal;
-  }
+/* 書名／作者是唯一長度真正不可預期的兩欄——曾經在這裡連同其餘欄位一起用
+   white-space: nowrap，賭「桌面版夠寬，不會需要換行」，這個賭注在資料只有
+   一頁 12 本時大致成立，但使用者把「每頁顯示」切到「全部」（一次顯示全部
+   304 本）時，304 本裡只要有任何一本書名或作者名夠長、又剛好沒有可以自然
+   斷行的空白，nowrap 就會逼著那一欄撐出比整個桌面版視窗還寬的最小寬度，
+   table-layout 預設的 auto 演算法只能眼睜睜看著整張表格被撐寬、超出容器，
+   右側「完成日期」「書籍歸還」被推到視窗外——這正是使用者在「顯示全部」時
+   看到的截斷，資料筆數越多、踩到這種書名的機率越高，才會在切到「全部」
+   之前一直沒發現。只讓這兩欄改成 normal + word-break（不是整張表格），
+   跟下面 3/4/5 欄「維持 nowrap，只給合理 min-width」的做法分開處理——
+   類型／日期／書籍歸還都是短且格式固定的內容，本來就不需要、也不該換行
+   （完成日期換行會變成「202／6/08／18」這種折斷數字的難看樣子，實測
+   「顯示全部」時真的會發生，見下面 min-width 那組規則旁的說明），只有
+   書名/作者這種長度真正不可控的自由文字才需要允許換行來避免撐爆版面。 */
+.book-table th:nth-child(1),
+.book-table td:nth-child(1),
+.book-table th:nth-child(2),
+.book-table td:nth-child(2) {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
 
-  /* 允許換行之後，「書籍類型」「完成日期」「書籍歸還」這幾欄的 col 寬度
-     還是設定成 1%（只吃內容需要的最小寬度），瀏覽器的最小寬度沒有東西可以
-     依據，中文字沒有空白可以斷詞，會被硬擠到一個字一個字往下疊、直排文字
-     那種難看的樣子（例如「書籍類型」四個字疊成一直條）。給這三欄一個合理的
-     最小寬度，讓文字至少能維持橫排、頂多兩行，不會退化成直排單字。 */
-  .book-table th:nth-child(3),
-  .book-table td:nth-child(3) {
-    min-width: 5.2em;
-  }
-  .book-table th:nth-child(4),
-  .book-table td:nth-child(4) {
-    min-width: 4.6em;
-  }
-  .book-table th:nth-child(5),
-  .book-table td:nth-child(5) {
-    min-width: 5.4em;
-  }
+/* 類型／日期／書籍歸還維持單行不換行（格式固定、不需要也不該斷行），但
+   col 寬度是 1%（只吃內容需要的最小寬度）——書名/作者兩欄改成上面的
+   normal 之後，auto 表格演算法在算「內容需要的最小寬度」時，會把這三欄
+   的最小寬度算得極窄（因為書名/作者現在可以無限換行、不再需要為它們讓出
+   固定寬度），逼著這三欄的文字被壓縮到一個字一個字往下疊成直排的難看
+   樣子（例如「書籍類型」四個字疊成一直條，實測「顯示全部」304 本時真的
+   會發生）。加一個合理的 min-width 就能讓這三欄維持橫排單行，不分寬度都
+   生效（這條保護原本只包在 ≤1024px 斷點裡，桌面版現在也有同樣的風險，
+   所以移來這裡當基礎規則）。 */
+.book-table th:nth-child(3),
+.book-table td:nth-child(3) {
+  white-space: nowrap;
+  min-width: 5.2em;
+}
+.book-table th:nth-child(4),
+.book-table td:nth-child(4) {
+  white-space: nowrap;
+  min-width: 4.6em;
+}
+.book-table th:nth-child(5),
+.book-table td:nth-child(5) {
+  white-space: nowrap;
+  min-width: 5.4em;
 }
 
 /* 書名／作者交給欄位自然撐開寬度、單行不換行；類型／完成日期／書籍歸還詞彙固定短，
