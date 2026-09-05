@@ -1561,10 +1561,21 @@ header h1 a {
 
 .book-list-body {
   overflow-x: auto;
+  /* iOS Safari 的表格欄寬計算跟這裡實測過的 Chrome 行為不完全一樣（見下面
+     641～1024px 區塊裡 .author-cell／<col> 那幾條註解，都是抓到的真實瀏覽器
+     差異，不是預防性猜測）——平板直向這個斷點目前用 table-layout:fixed 讓
+     欄寬理論上不會超框，這裡加一層保底：萬一 Safari 哪個版本算出不同的結果
+     導致表格還是撐寬了，至少能在這個容器內橫向捲動看到被推出去的內容，
+     不會直接被裁掉、整頁也不會跟著被撐開冒出頁面級的橫向捲軸。
+     -webkit-overflow-scrolling:touch 讓 iOS 上這段橫向捲動用慣性滑動，
+     不是那種一格一格生硬跳動的捲法。 */
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 .book-table {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   background: var(--surface);
   border: 1px solid var(--border-hairline);
