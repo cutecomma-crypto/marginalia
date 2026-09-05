@@ -1783,21 +1783,6 @@ header h1 a {
     text-align: left !important;
   }
 
-  /* .author-cell 全站有一條不分斷點的基礎規則 display:flex（讓 ♥ 圖示跟
-     作者名稱用 baseline 對齊，見該規則旁邊的說明），但實測發現這條規則跟
-     table-layout:fixed 放在一起時會出問題：這一欄的 <td> 本身變成
-     flex 容器之後，瀏覽器會另外生出一個匿名的表格儲存格外層包住它，
-     真正決定「這一欄到底幾 px 寬」的是那個看不到、抓不到的外層匿名
-     儲存格，不是這裡設了 width:25% 的這個 <td> 本身——結果整欄被擠壓到
-     只剩幾十 px（比書籍類型被逼成直排斷字還誇張），是實測抓到的真實
-     瀏覽器行為，不是預防性猜測。星號＋作者名稱的 baseline 對齊其實是
-     內層 .author-cell-value（見 bookList.js 的 bookRow()）自己的
-     inline-flex 在做，外層 <td> 改回真正的 table-cell 不影響對齊效果，
-     卻能讓它重新乖乖參與表格欄寬計算。 */
-  .book-table td.author-cell {
-    display: table-cell !important;
-  }
-
   /* 完成日期欄位靠右對齊，跟書名／作者的靠左對齊形成清楚的左右分野，
      內容本身是固定格式的西曆日期，不需要換行，維持 nowrap 即可。 */
   .book-table th:nth-child(4),
@@ -2015,14 +2000,6 @@ header h1 a {
 
   .book-table td:nth-child(1) a {
     font-size: 1.02rem;
-  }
-
-  /* 作者欄除了「作者」標籤，實際內容是愛心圖示＋作者名稱兩個節點，用一個
-     wrapper span 包起來（見 bookList.js 的 bookRow()）。 */
-  .author-cell-value {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.2rem;
   }
 }
 
@@ -2752,9 +2729,27 @@ header h1 a {
   }
 }
 
-.author-cell {
-  display: flex;
+/* 桌機版整條列的 border-bottom 斷成好幾截、右邊幾欄跟左邊對不齊的 bug：
+   .author-cell 是 <table> 裡的 <td>，原本這裡直接讓它 display:flex——
+   一個表格儲存格被設成 flex 容器時，瀏覽器會在它外面另外生一個看不到、
+   抓不到的匿名表格儲存格包住它，真正參與這一列「大家共用同一條
+   border-bottom」計算的是那個匿名格子，不是這個 <td> 本身，於是這一欄
+   跟左右兩欄的格線對不上、border-collapse 拼出來的整條列線看起來就斷開
+   一截（平板斷點的 641～1024px 那次改版其實已經抓到同一個根因造成的欄寬
+   壓縮問題，見上面 nth-child(2) 那組規則旁的舊註解，但當時只在那個斷點
+   內用 !important 蓋掉，沒發現桌機版寬度下同一顆 <td> 也在用同一條、
+   完全没有斷點限制的 flex 規則，這裡才是真正一次修好、不分寬度都適用的
+   源頭）。<td> 改回瀏覽器預設的 table-cell（也就是整條規則直接拿掉，
+   不用另外寫 display:table-cell 去覆蓋），♥ 圖示跟作者名稱的 baseline
+   對齊改交給內層真正的 inline 元素 .author-cell-value 負責（見下面該
+   class 的規則），從原本「只在手機卡片版才生效」改成不分寬度一律套用，
+   跟外層 <td> 的實際 display 完全脫鉤，不會再有任何寬度的表格欄位計算
+   被闖入的 flex 容器打斷。 */
+
+.author-cell-value {
+  display: inline-flex;
   align-items: baseline;
+  gap: 0.2rem;
 }
 
 .author-star {
