@@ -757,6 +757,14 @@ export async function renderGraphPage(container, rawBookId) {
           const nextTop = Math.max(0, originTop + (moveEvent.clientY - startY));
           card.style.left = `${nextLeft}px`;
           card.style.top = `${nextTop}px`;
+          // 拖曳中卡片本身即時跟著游標移動，但連線只有放開滑鼠那一刻的 reload() 才會
+          // 重新呼叫 drawConnections() 對齊新位置——中間拖曳的過程中，連線整條停在
+          // 拖曳開始前的舊位置沒有動，卡片跟連線兩者「各走各的」，看起來就像卡片
+          // 被拖走了、但連線硬生生被拉出一截還連在原地，直到放開才「跳」回正確位置。
+          // 這裡拖曳的每一格都重新畫一次連線，卡片移到哪、連線就即時跟到哪，不用
+          // 等放開滑鼠才校正——drawConnections() 本身是用 getBoundingClientRect()
+          // 即時量測，卡片這時候已經套上新的 left/top，量到的自然就是新位置。
+          drawConnections(svgEl, boardEl, edges, showEdgePanel);
         }
         async function onUp() {
           document.removeEventListener('pointermove', onMove);
