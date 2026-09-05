@@ -1,5 +1,6 @@
 import { DB } from './db.js';
-import { escapeHtml, showToast } from './utils.js';
+import { LocalDB } from './localDb.js';
+import { escapeHtml, showToast, confirmModal } from './utils.js';
 import { wireNotionImportButton } from './notionImport.js';
 import { renderPersistenceStatusWidget } from './services/storagePersistenceService.js';
 import { WebDavSyncService, renderWebDavSettingsPanel } from './services/webdavSyncService.js';
@@ -75,6 +76,22 @@ export async function renderBackupPage(container) {
   // isSupabaseConfigured() 額外擋掉「連 Supabase 都還沒設定」的部署環境。
   const showCloudSyncPanel = isSupabaseConfigured() && Boolean(getCurrentUser());
 
+  // 登入之後，上面「目前資料」那份 counts 讀的是 DB（路由器）─也就是雲端帳號的
+  // 筆數，瀏覽器本機 IndexedDB 裡真正殘留了什麼、殘留多少，使用者完全看不到。
+  // 這就是「手機上刪過的測試書一直被提示尚未同步」這個問題的根——登入狀態下，
+  // 書籍列表的刪除鈕走的也是 DB（路由器），永遠只能刪到雲端那一筆；如果這本書
+  // 從頭到尾只存在本機（登入前建立、還沒被搬過去），刪除鈕根本碰不到它，殘影
+  // 留在本機 IndexedDB 裡，每次登入都會被 maybeOfferCloudMigration() 的指紋比對
+  // 抓出來、跳出同一句「偵測到本機有 N 本書尚未同步」，使用者「明明刪過了」卻
+  // 怎麼樣都清不掉。這裡直接繞過路由器、用 LocalDB 讀本機真正的筆數，讓使用者
+  // 至少看得到「本機還留著什麼」，而不是被一句提示文字搞得一頭霧水。
+  let localOnlyTotal = 0;
+  if (showCloudSyncPanel) {
+    for (const storeName of DB.STORE_NAMES) {
+      localOnlyTotal += (await LocalDB.getAll(storeName)).length;
+    }
+  }
+
   container.innerHTML = `
     <div class="toolbar">
       <a href="#/books">← 回書籍列表</a>
@@ -93,6 +110,10 @@ export async function renderBackupPage(container) {
       <h4>雲端同步</h4>
       <p class="graph-hint">登入時不會再每次重新整理頁面都自動比對本機與雲端資料（這是刻意的改動，避免拖慢頁面載入速度）。如果懷疑有資料還沒同步上雲端帳號，可以在這裡手動檢查一次。</p>
       <button type="button" class="btn btn-primary" id="cloud-sync-check-btn">檢查雲端同步</button>
+      ${localOnlyTotal > 0 ? `
+      <p class="graph-hint" style="margin-top:1rem;">這台瀏覽器的本機儲存裡還留著 ${localOnlyTotal} 筆資料（通常是登入雲端帳號之前建立、或測試用的舊資料）。如果這些不是你想要的內容、不想被同步上雲端帳號，可以直接清掉本機這一份——只會刪除「這台瀏覽器」裡的殘留資料，完全不會動到雲端帳號裡已經有的任何書籍/筆記/佳句。如果反而是想把它們留下來，請改用上面的「檢查雲端同步」把它們補到雲端帳號。</p>
+      <button type="button" class="btn btn-danger" id="clear-local-leftover-btn">清除本機殘留資料（${localOnlyTotal} 筆）</button>
+      ` : ''}
     </div>
     ` : ''}
 
@@ -136,6 +157,7 @@ export async function renderBackupPage(container) {
       syncBtn.textContent = '檢查中…';
       try {
         await runManualCloudSync();
+        await renderBackupPage(container);
       } catch (err) {
         showToast('檢查失敗，請稍後再試一次');
         console.error(err);
@@ -144,6 +166,34 @@ export async function renderBackupPage(container) {
         syncBtn.textContent = '檢查雲端同步';
       }
     });
+
+    const clearLocalBtn = container.querySelector('#clear-local-leftover-btn');
+    if (clearLocalBtn) {
+      clearLocalBtn.addEventListener('click', async () => {
+        const confirmed = await confirmModal({
+          title: '確定要清除本機殘留資料嗎？',
+          message: `這台瀏覽器裡的 ${localOnlyTotal} 筆本機殘留資料將被永久刪除，此動作無法復原。雲端帳號裡已經有的資料完全不受影響。`,
+          confirmText: '確認清除',
+          cancelText: '取消',
+          danger: true,
+        });
+        if (!confirmed) return;
+        clearLocalBtn.disabled = true;
+        clearLocalBtn.textContent = '清除中…';
+        try {
+          for (const storeName of DB.STORE_NAMES) {
+            await LocalDB.clear(storeName);
+          }
+          showToast('本機殘留資料已清除');
+          await renderBackupPage(container);
+        } catch (err) {
+          showToast('清除失敗，請稍後再試一次');
+          console.error(err);
+          clearLocalBtn.disabled = false;
+          clearLocalBtn.textContent = `清除本機殘留資料（${localOnlyTotal} 筆）`;
+        }
+      });
+    }
   }
 
   container.querySelector('#export-btn').addEventListener('click', async () => {
