@@ -1700,15 +1700,47 @@ header h1 a {
     table-layout: fixed !important;
   }
 
-  /* 欄寬直接設在 <th>（表頭列＝表格的「第一列」）而不是設在 <colgroup> 的
-     <col> 上——實測發現兩者在這裡不等價：這張表格另外兩欄（書籍類型／書籍
-     歸還）被下面的規則 display:none 藏起來，這個情境下 Chrome 對「<col>
-     的百分比寬度」算出來的欄寬雖然 getComputedStyle() 讀起來數字正確，
-     卻沒有真的套用到對應那欄的 <th>/<td> 上（該欄的實際渲染寬度變成 0，
-     書名/作者兩欄反而各自撐到跟自己的 <col> 寬度一致，完成日期整欄消失、
-     內容跑到看不見的地方）——是實測抓到的真實瀏覽器行為，不是預防性猜測。
-     改成直接設在表頭 <th> 上（table-layout:fixed 演算法本來就會優先採用
-     「第一列儲存格」的顯式寬度），三欄的欄寬就會正確生效、加總剛好 100%。 */
+  /* 實機 iPad Safari 截圖抓到的真實 bug（表格右側被切掉、「完成日期」的
+     「完」字被腰斬、日期只剩「20」）：根因是欄寬優先權跟 Chrome 不一樣。
+     CSS 表格版面規範（CSS 2.1 §17.5.2.1）規定 table-layout:fixed 決定欄寬
+     的優先順序是「這一欄的 <col> 若有明確寬度就用它，沒有才退而求其次看
+     第一列儲存格的寬度」——<col> 永遠贏過 <th>/<td>，不是反過來。這個檔案
+     最上面（.book-table 桌機版基礎樣式旁）本來就有一條沒有掛在任何媒體
+     查詢底下、全螢幕寬度都生效的 `.book-table .col-completed { width: 1% }`
+     （原意是桌機版「完成日期」只吃內容需要的最小寬度）——Chrome 在「這一欄
+     的儲存格被其他規則 display:none」這個特殊情境下有個實測到的 bug，沒有
+     真的套用 <col> 的百分比／固定寬度，於是退回用下面設在 <th> 上的
+     width:25% !important，「碰巧」讓桌機版那條 1% 舊規則沒有造成影響；
+     Safari 照規範老實套用 <col> 的 1%，這裡的「完成日期」欄實際只分到
+     整張表 1% 的寬度，逼著另外兩個欄位（書名 50%＋作者 25%）之外剩下的
+     23% 空間變成沒人認領、算進表格的最小内容寬度裡，導致整張表格比容器
+     更寬，多出來的部分被 body 的 overflow-x:hidden（見「排版與字體系統」
+     那次調整）直接裁掉，不是產生一條可以捲動找回內容的橫向捲軸——這正是
+     使用者截圖看到「內容整個消失不見」而不是「有捲軸可以捲」的原因。
+     解法是雙管齊下，兩者都改成直接指定在最終會生效的地方，不再依賴任何
+     一個瀏覽器「猜對」誰該贏：三個保留欄位（書名/作者/完成日期）的欄寬
+     同時寫在 <col> 跟 <th> 上（兩邊寫的數字一致，不管哪個瀏覽器採用哪一
+     份都不會偏出 50/25/25 的比例），兩個被隱藏的欄位除了原本的儲存格
+     display:none，連 <colgroup> 裡對應的 <col> 本身也一併 display:none——
+     這是規範裡「整欄真正從表格移除」唯一乾淨的做法，不會像單獨隱藏儲存格
+     那樣讓瀏覽器對「這張表到底有幾欄」各自解讀出不同答案。 */
+  .book-table .col-title {
+    width: 50% !important;
+  }
+
+  .book-table .col-author {
+    width: 25% !important;
+  }
+
+  .book-table .col-completed {
+    width: 25% !important;
+  }
+
+  .book-table .col-category,
+  .book-table .col-actions {
+    display: none !important;
+  }
+
   .book-table th:nth-child(1),
   .book-table td:nth-child(1) {
     width: 50% !important;
