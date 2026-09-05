@@ -132,12 +132,28 @@ async function getByIndex(storeName, indexName, value) {
 
 // 對照現有呼叫端的實際用法（bookForm.js／readingRecords.js……都只在記錄已存在時
 // 才呼叫 update()，新增一律走 add()），這裡不用做 upsert，單純更新既有那一列即可。
+//
+// 這裡曾經真實發生過「所有 update() 全部失敗」的 bug：呼叫端傳進來的 record
+// 物件本來就帶著自己的 id（例如 { id: person.id, label, ... }），過去這裡直接
+// { ...record } 整包當作 UPDATE 的 SET 內容送出去，等於連 id 這個欄位本身也
+// 一起被塞進 SET 子句。id 欄位在 schema.sql 裡是 `generated always as identity`
+// （見 books/nodes/quotes……每一張表），PostgreSQL 對這種身分欄位有硬性規定：
+// 只要 UPDATE 語句的 SET 子句裡出現這一欄，不管新值是不是跟舊值一樣，一律
+// 直接報錯「column "id" can only be updated to DEFAULT」，整個 UPDATE 連同
+// 其他欄位一起失敗——這代表任何一個功能只要透過 DB.update() 存檔（筆記編輯、
+// 佳句編輯、書籍表單、閱讀紀錄、人物/群組/關係……全部都是），登入雲端帳號
+// 之後其實全部都會存檔失敗，只是使用者剛好先在關係圖譜的「主角」欄位發現。
+// 修法是把 id 從要送出去的 SET payload 裡拿掉（只留著給 .eq('id', id) 當
+// WHERE 條件用），本機快取仍然需要完整的 id 才能用同一把 key 覆蓋寫回去
+// （IndexedDB 的 put() 靠 id 這個 keyPath 找到要更新的是哪一列），所以快取
+// 那份物件另外把 id 加回來，兩份用途不同、不能共用同一個 payload 變數。
 async function update(storeName, record) {
   const supabase = await client();
-  const payload = { ...record, user_id: requireUserId() };
-  const { error } = await supabase.from(storeName).update(payload).eq('id', record.id);
+  const { id, ...fields } = record;
+  const payload = { ...fields, user_id: requireUserId() };
+  const { error } = await supabase.from(storeName).update(payload).eq('id', id);
   if (error) throw error;
-  await patchCacheRecord(storeName, payload);
+  await patchCacheRecord(storeName, { ...payload, id });
 }
 
 async function remove(storeName, id) {
