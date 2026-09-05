@@ -2082,9 +2082,16 @@ header h1 a {
     color: var(--text-muted);
   }
 
+  /* 手機卡片版書籍類型膠囊前面的 🏷️ 是用 ::before content 插入的字元，不是
+     真的 <img>/<svg> 元素，沒辦法像全站其他按鈕/頁籤那樣直接換成 icons.js
+     的線條 SVG（那些是插進 innerHTML 的實際 DOM 節點，這裡純粹是 CSS
+     生成的內容）。套用 Task b 當時就準備好的統一備案：filter 把它去彩＋
+     壓暗，跟其餘全部換成單色 Icon 的地方視覺上還是和諧，不會有一顆突兀的
+     橘黃色 emoji 跳出來。 */
   .book-table td:nth-child(3)::before {
     content: "🏷️";
     font-size: 0.8125rem;
+    filter: grayscale(100%) opacity(0.7);
   }
 }
 
