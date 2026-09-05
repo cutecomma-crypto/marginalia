@@ -3133,17 +3133,23 @@ header h1 a {
   right: 0.4rem;
   top: 50%;
   transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.95rem;
   line-height: 1;
-  padding: 0.2rem;
-  color: var(--text-muted);
+  padding: 0.25rem;
+  color: var(--icon-rose);
+  opacity: 0.7;
+  transition: all 0.2s ease;
 }
 
 .password-toggle-btn:hover {
-  color: var(--text);
+  opacity: 1;
+  background: var(--icon-rose-soft);
 }
 
 /* 註冊成功的精緻提示彈窗：跟一般 .modal-card 的差別只在底色換成不透明的

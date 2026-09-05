@@ -1,6 +1,6 @@
 import { DB } from './db.js';
-import { escapeHtml, renderTextWithHashtags, showToast } from './utils.js';
-import { ICON_NOTEBOOK, ICON_LIGHTBULB } from './icons.js';
+import { escapeHtml, renderTextWithHashtags, showToast, confirmModal } from './utils.js';
+import { ICON_NOTEBOOK, ICON_LIGHTBULB, ICON_EDIT, ICON_DELETE } from './icons.js';
 
 // 對照 PROJECT_SPEC.md 第 7 節：儲存當下不要求分類／標籤／關聯，之後才由系統協助辨識（P1 以後）。
 async function getNotesForBook(bookId) {
@@ -29,8 +29,8 @@ function noteItem(note, isEditing) {
   return `
     <div class="output-item" data-id="${note.id}">
       <div class="output-item-actions">
-        <button type="button" class="btn output-edit" data-id="${note.id}">編輯</button>
-        <button type="button" class="btn btn-danger output-delete" data-id="${note.id}">刪除</button>
+        <button type="button" class="btn output-edit" data-id="${note.id}" title="編輯">${ICON_EDIT}</button>
+        <button type="button" class="btn btn-danger output-delete" data-id="${note.id}" title="刪除">${ICON_DELETE}</button>
       </div>
       <p>${renderTextWithHashtags(note.text)}</p>
       <div class="output-date">${escapeHtml((note.createdAt || '').slice(0, 10))}</div>
@@ -84,6 +84,14 @@ export async function renderNotesSection(container, bookId, { editingId = null }
 
   container.querySelectorAll('.output-delete').forEach((btn) => {
     btn.addEventListener('click', async () => {
+      const confirmed = await confirmModal({
+        title: '確定要刪除嗎？',
+        message: '這則筆記刪除後無法復原。',
+        confirmText: '確認刪除',
+        cancelText: '取消',
+        danger: true,
+      });
+      if (!confirmed) return;
       await DB.remove('notes', Number(btn.dataset.id));
       await renderNotesSection(container, bookId);
     });

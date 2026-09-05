@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml, renderTextWithHashtags } from './utils.js';
+import { escapeHtml, renderTextWithHashtags, confirmModal } from './utils.js';
 
 // 頁碼欄位是自由文字（例如「45-47」），排序時只抓第一串數字當排序依據。
 function parsePageNumber(page) {
@@ -185,7 +185,14 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
 
     listEl.querySelectorAll('.quote-delete-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        if (!window.confirm('確定要刪除這句佳句嗎？')) return;
+        const confirmed = await confirmModal({
+          title: '確定要刪除嗎？',
+          message: '這句佳句刪除後無法復原。',
+          confirmText: '確認刪除',
+          cancelText: '取消',
+          danger: true,
+        });
+        if (!confirmed) return;
         await DB.remove('quotes', Number(btn.dataset.id));
         await redrawList();
       });
