@@ -134,6 +134,21 @@ body {
    收斂成同一支色票才是真正的「全站一致」。Firefox 預設會把 Placeholder
    顏色的不透明度打折（大約 54%），這裡明講 opacity:1 蓋掉那個預設行為，
    不然同一個色碼在 Firefox 裡看起來會比 Chrome/Safari 更淡一階。 */
+/* 全站表單輸入框統一的 Focus 樣式：取代瀏覽器原生的藍/黑色外框，改用品牌
+   玫瑰棕柔光外框，跟卡片陰影同一套材質語言。這是「保底」規則——單一元素
+   選擇器，權重比 .book-form input:focus 這類「class + 元素」選擇器低，
+   已經有專屬 focus 樣式的輸入框（表單、Modal、行內編輯區）會自動蓋過這條，
+   這裡只負責接住其餘沒特別處理過的輸入框（搜尋框、排序下拉選單……），
+   確保「移除瀏覽器預設外框」這件事沒有漏網之魚。 */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+  transition: all 0.2s ease;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: var(--text-muted);
@@ -521,7 +536,7 @@ header h1 a {
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 /* 全站共用的極簡線條 Icon（見 js/icons.js）統一大小／不被文字擠壓變形，
@@ -570,6 +585,7 @@ header h1 a {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  transform: translateY(-1px);
 }
 
 /* .btn 的 display:inline-block 一樣會蓋掉瀏覽器內建的 [hidden]{display:none}（author 規則贏過 UA 規則），
@@ -1172,21 +1188,50 @@ header h1 a {
   gap: 1.5rem;
 }
 
-.dashboard-sidebar::-webkit-scrollbar {
+/* 客製化捲動軸：抽屜／清單類的可捲動區域統一改成 6px 細滾軸＋透明軌道＋
+   低彩度淡灰棕滑塊，取代瀏覽器原生那條又寬又灰黑的捲軸，跟全站低飽和的
+   莫蘭迪質感一致。同時給一份 Firefox 用的 scrollbar-width/scrollbar-color，
+   兩套規則分開寫（不同的屬性/選擇器語法），涵蓋到的區域完全一樣。 */
+.dashboard-sidebar,
+.wishlist-drawer,
+.wishlist-list,
+.category-manager-list,
+.migration-failures-list {
+  scrollbar-width: thin;
+  scrollbar-color: #d6d0c9 transparent;
+}
+
+.dashboard-sidebar::-webkit-scrollbar,
+.wishlist-drawer::-webkit-scrollbar,
+.wishlist-list::-webkit-scrollbar,
+.category-manager-list::-webkit-scrollbar,
+.migration-failures-list::-webkit-scrollbar {
   width: 6px;
 }
 
-.dashboard-sidebar::-webkit-scrollbar-track {
+.dashboard-sidebar::-webkit-scrollbar-track,
+.wishlist-drawer::-webkit-scrollbar-track,
+.wishlist-list::-webkit-scrollbar-track,
+.category-manager-list::-webkit-scrollbar-track,
+.migration-failures-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.dashboard-sidebar::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 999px;
+.dashboard-sidebar::-webkit-scrollbar-thumb,
+.wishlist-drawer::-webkit-scrollbar-thumb,
+.wishlist-list::-webkit-scrollbar-thumb,
+.category-manager-list::-webkit-scrollbar-thumb,
+.migration-failures-list::-webkit-scrollbar-thumb {
+  background: #d6d0c9;
+  border-radius: 3px;
 }
 
-.dashboard-sidebar::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+.dashboard-sidebar::-webkit-scrollbar-thumb:hover,
+.wishlist-drawer::-webkit-scrollbar-thumb:hover,
+.wishlist-list::-webkit-scrollbar-thumb:hover,
+.category-manager-list::-webkit-scrollbar-thumb:hover,
+.migration-failures-list::-webkit-scrollbar-thumb:hover {
+  background: #c2b9ae;
 }
 
 .dashboard-main {
@@ -2067,7 +2112,7 @@ header h1 a {
   color: var(--text);
   font-size: 0.85rem;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .pagination-btn:hover:not(:disabled),
@@ -2075,6 +2120,7 @@ header h1 a {
   background: var(--accent-soft);
   border-color: var(--accent-soft);
   color: var(--accent-hover);
+  transform: translateY(-1px);
 }
 
 .pagination-btn:disabled {
@@ -2303,8 +2349,9 @@ header h1 a {
 .book-form select:focus,
 .book-form textarea:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(74, 46, 43, 0.14);
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+  transition: all 0.2s ease;
 }
 
 .form-actions {
@@ -2349,7 +2396,7 @@ header h1 a {
   margin-bottom: -1px;
   flex-shrink: 0;
   white-space: nowrap;
-  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 /* 四個主題頁籤原本各自一組莫蘭迪色做區分，後來統一改成柔粉 Accent，再後來
@@ -2981,6 +3028,19 @@ header h1 a {
   color: #fff;
 }
 
+/* Modal（含刪除確認彈窗 confirmModal()）開啟時的過場動畫：backdrop 純淡入，
+   卡片本身淡入＋輕微上滑，兩層動畫都是 CSS @keyframes 掛在 animation 屬性上，
+   元素一插入 DOM 就會自動播放，不需要額外的 JS 去切 class 觸發。 */
+@keyframes modal-backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-card-fade-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -2990,6 +3050,7 @@ header h1 a {
   justify-content: center;
   z-index: 200;
   padding: 1rem;
+  animation: modal-backdrop-fade-in 0.25s ease-in-out;
 }
 
 /* Modal 卡片跟願望清單抽屜同一套「磨砂玻璃」處理：底色從全不透明的 --surface
@@ -3007,6 +3068,7 @@ header h1 a {
   padding: 1.5rem;
   width: 360px;
   max-width: 100%;
+  animation: modal-card-fade-in 0.25s ease-in-out;
 }
 
 .modal-card h3 {
@@ -3038,8 +3100,9 @@ header h1 a {
 .modal-card input:focus,
 .modal-card select:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(74, 46, 43, 0.14);
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+  transition: all 0.2s ease;
 }
 
 .modal-actions {
@@ -3236,6 +3299,7 @@ header h1 a {
   padding: 0.1rem 0.3rem;
   border-radius: 4px;
   line-height: 1;
+  transition: all 0.2s ease;
 }
 
 .cm-icon-btn:hover {
@@ -3259,6 +3323,12 @@ header h1 a {
   border-radius: 10px;
   padding: 0.75rem 1rem;
   position: relative;
+  transition: all 0.2s ease;
+}
+
+.output-item:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
 }
 
 .output-item p {
@@ -3441,7 +3511,9 @@ header h1 a {
 }
 
 .reflection-editor:focus {
-  border-color: var(--primary);
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+  transition: all 0.2s ease;
 }
 
 .reflection-editor.is-empty::before {
@@ -3526,10 +3598,17 @@ header h1 a {
   font-family: inherit;
 }
 
-.output-date-input:hover,
-.output-date-input:focus {
+.output-date-input:hover {
   border-color: var(--border);
   background: var(--surface-alt);
+}
+
+.output-date-input:focus {
+  outline: none;
+  border-color: var(--color-primary-accent);
+  background: var(--surface-alt);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+  transition: all 0.2s ease;
 }
 
 /* 「編輯」「刪除」（或編輯狀態的「儲存」「取消」）兩顆按鈕包在同一個容器裡
@@ -3581,8 +3660,9 @@ header h1 a {
 
 .output-edit-textarea:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(74, 46, 43, 0.14);
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+  transition: all 0.2s ease;
 }
 
 .notes-section textarea {
@@ -3623,6 +3703,12 @@ header h1 a {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.quote-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
 }
 
 .quote-card-top {
@@ -4712,7 +4798,11 @@ header h1 a {
      會讓一個貼齊右邊界、佔滿 100vh 高度的面板看起來完全沒有陰影。 */
   box-shadow: -8px 0 32px rgba(44, 42, 41, 0.1);
   transform: translateX(100%);
-  transition: transform 0.28s ease;
+  opacity: 0;
+  /* 滑入的同時疊一層淡入（opacity），純滑動在快速開合時會顯得生硬，
+     兩個動態疊在一起才是「精緻」的過場感——跟旁邊 .wishlist-drawer-backdrop
+     的淡入淡出統一用 ease-in-out、0.25s，開跟關是同一條時間曲線的正反播放。 */
+  transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
   z-index: 151;
   padding: 1.5rem 1.25rem;
   /* 版面改成 flex 直排＋讓清單自己 flex:1 撐滿剩餘空間（見 .wishlist-list），
@@ -4729,6 +4819,7 @@ header h1 a {
 
 .wishlist-drawer.is-open {
   transform: translateX(0);
+  opacity: 1;
 }
 
 .wishlist-drawer-close {
@@ -4840,11 +4931,12 @@ header h1 a {
   border-radius: 8px;
   padding: 8px 12px;
   margin-bottom: 8px;
-  transition: box-shadow 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .wishlist-list li:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
 }
 
 .wishlist-list li:last-child {
@@ -4950,7 +5042,7 @@ header h1 a {
   border-radius: 6px;
   line-height: 1;
   flex-shrink: 0;
-  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .wishlist-icon-btn:hover {
@@ -5070,7 +5162,7 @@ header h1 a {
      用同一套邊框語彙，不再是這張卡片獨有的例外處理。 */
   border: 1px solid var(--border-hairline);
   box-shadow: var(--shadow-card);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: all 0.2s ease;
   /* 讓下面的類型標籤可以用「這張卡片本身量到的寬度」決定要不要顯示，
      而不是猜測整個 viewport 的斷點——同一列的卡片在不同螢幕寬度下欄數不同，
      卡片本身的寬度才是真正決定裝不裝得下類型標籤的依據。 */
