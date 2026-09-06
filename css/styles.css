@@ -1373,7 +1373,10 @@ header h1 a {
     max-width: 85vw !important;
     max-height: none !important;
     z-index: 145 !important;
-    background: rgba(248, 246, 240, 0.92);
+    /* 原本寫死 rgba(248, 246, 240, 0.92)——深色模式上線後才發現這批「磨砂玻璃」
+       浮動面板全部沒跟著換色，見下面 .modal-card 開頭那則完整說明，這裡是
+       同一個系統性坑的其中一處，修法完全相同。 */
+    background: color-mix(in srgb, var(--surface-alt) 92%, transparent);
     backdrop-filter: blur(16px) saturate(150%);
     -webkit-backdrop-filter: blur(16px) saturate(150%);
     border-right: 1px solid var(--border-hairline);
@@ -1451,7 +1454,9 @@ header h1 a {
    底色維持半透明＋backdrop-filter 的磨砂玻璃處理，圓角統一收斂成全站卡片
    共用的 10px。 */
 .sidebar-panel {
-  background: rgba(255, 255, 255, 0.72);
+  /* 見 .modal-card 開頭那則完整說明——同一個「磨砂玻璃底色寫死成亮色、
+     深色模式沒有跟著換」的系統性坑，這裡是其中一處。 */
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
   backdrop-filter: blur(14px) saturate(150%);
   -webkit-backdrop-filter: blur(14px) saturate(150%);
   border: 1px solid var(--border-hairline);
@@ -2039,13 +2044,19 @@ header h1 a {
    書名底色更明顯知道「游標在哪一列」，書名文字同時加深呼應被選中的狀態。
    這裡原本是寫死的粉紅色 hex（不是引用 --accent 系列變數），全站色彩統一
    成玫瑰棕時差點被漏掉——改成 --icon-rose-soft（品牌玫瑰棕的淡色版本），
-   跟其餘 hover 狀態同一支色源。 */
+   跟其餘 hover 狀態同一支色源。
+   斑馬紋底色原本也是寫死的暖米色 hex（#faf7f2）——深色模式上線後才發現
+   這個坑：深色模式下文字變成淺色（--text），這顆寫死的淺色底卻紋絲不動，
+   偶數列變成「淺底淺字」，使用者實測回報「這個夜間顏色好像看不清楚」
+   正是這裡。改成 --surface-alt（本來就是「卡片內部次要區塊」這個語意，
+   淺色模式下跟原本的暖米色幾乎一樣，深色模式下自動換成有足夠對比的深灰），
+   不用再另外為深色模式寫一份斑馬紋覆寫。 */
 .book-table tbody tr {
   transition: background-color 0.15s ease;
 }
 
 .book-table tbody tr:nth-child(even) {
-  background: #faf7f2;
+  background: var(--surface-alt);
 }
 
 .book-table tbody tr:hover {
@@ -2389,7 +2400,9 @@ button.book-completed-date:hover {
 .inline-status-popover {
   position: absolute;
   z-index: 220;
-  background: rgba(255, 255, 255, 0.95);
+  /* 見 .modal-card 開頭那則完整說明——同一個「磨砂玻璃底色寫死成亮色、
+     深色模式沒有跟著換」的系統性坑，這裡是其中一處。 */
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
   border: 1px solid var(--border-hairline);
@@ -3445,9 +3458,23 @@ button.book-completed-date:hover {
    換成半透明版本＋backdrop-filter，透明度刻意留得比抽屜高（0.9 而不是 0.82），
    Modal 通常裝著登入表單這類需要專注閱讀的內容，玻璃感要夠、但不能犧牲
    文字對比度。陰影也從原本偏重、色相跟品牌色系脫節的深色陰影，換成同一套
-   --shadow-glass 語言，跟卡片改版後「輕盈」的整體調性一致。 */
+   --shadow-glass 語言，跟卡片改版後「輕盈」的整體調性一致。
+   底色原本是直接寫死 rgba(255, 255, 255, 0.9)（連同其餘幾個磨砂玻璃面板——
+   .sidebar-panel／.inline-status-popover／.wishlist-drawer／手機版
+   .dashboard-sidebar——全部一樣寫死亮色 rgba）：深色模式上線時只改了
+   :root[data-theme="dark"] 裡那組「實色」design token，這幾個地方因為是
+   直接寫 rgba 字面值、不是引用變數，完全沒被那次改動碰到，深色模式下
+   還是維持亮色半透明底，疊加上已經變成淺色的 --text 文字，就是使用者
+   實測回報「這個夜間顏色好像看不清楚」的同一種「淺底淺字」成因（書籍列表
+   斑馬紋那個具體案例見上面 .book-table tbody tr:nth-child(even) 的說明）。
+   改用 color-mix() 把「半透明」跟「跟著主題換色」兩件事同時處理掉：
+   color-mix(in srgb, var(--surface) 90%, transparent) 等同於把 --surface
+   （淺色模式 #ffffff／深色模式 #2a2725）跟透明色以 9:1 混合，效果跟原本
+   固定寫 rgba(255,255,255,0.9) 在淺色模式下幾乎一樣，深色模式下則自動
+   變成半透明的深色玻璃，不用另外為每個面板在 :root[data-theme="dark"]
+   裡各寫一條覆寫規則。 */
 .modal-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
   border: 1px solid var(--border-hairline);
@@ -5183,7 +5210,9 @@ button.book-completed-date:hover {
      的半透明版本，玻璃感才有東西可以「透」，光靠 backdrop-filter 疊在完全不透明
      的底色上不會有任何視覺效果。saturate 稍微拉高一點點，補回半透明本身會讓
      顏色看起來變「淡」的份量，不加的話玻璃感容易變成單純的霧灰。 */
-  background: rgba(248, 246, 240, 0.82);
+  /* 見 .modal-card 開頭那則完整說明——同一個「磨砂玻璃底色寫死成亮色、
+     深色模式沒有跟著換」的系統性坑，這裡是其中一處。 */
+  background: color-mix(in srgb, var(--surface-alt) 82%, transparent);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   border-left: 1px solid var(--border-hairline);
@@ -5321,8 +5350,12 @@ button.book-completed-date:hover {
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;
-  background: #faf8f5;
-  border: 1px solid #eae5df;
+  /* 原本是寫死的暖白 #faf8f5／邊框 #eae5df，深色模式下這張卡片不會跟著
+     變暗，跟 .modal-card 開頭那則說明是同一類坑（只是這裡是不透明實色，
+     不需要 color-mix，直接換成會隨主題換色的 --surface／--border-soft
+     即可）。 */
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
   border-radius: 8px;
   padding: 8px 12px;
   margin-bottom: 8px;
@@ -5386,7 +5419,7 @@ button.book-completed-date:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
   font-size: 14px;
-  color: #2c2c2c;
+  color: var(--text); /* 原本寫死 #2c2c2c，深色模式下會固定停在深色、跟卡片一起變暗後看不清楚 */
   font-weight: 600;
   line-height: 1.3;
 }
