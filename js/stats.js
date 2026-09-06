@@ -301,15 +301,21 @@ export async function renderSidebarStats(container, options = {}) {
   let activeCategory = null;
   let activeRetention = null;
 
-  // 「UI 極簡化」精簡：預設只留「年度閱讀成果」（使用者最常先想確認「今年讀了
-  // 幾本」）跟下面獨立卡片的「各類型書籍數量」，其餘四項（閱讀中／尚未閱讀／
-  // 已讀完三顆狀態方塊、平均評分、最常閱讀類型、借出中／借入未還）都是「還算
-  // 有用但不是每次打開都需要看」的次要數據，收進「查看更多數據」這個預設收合
-  // 的區塊——不是拿掉，點開還是完整看得到、篩選功能也都還在，只是不再佔用
-  // 一打開頁面就看到的第一版面。 */
+  // 「UI 極簡化」精簡：閱讀中／尚未閱讀／已讀完這三顆狀態方塊使用者反映
+  // 「不想收起來」——本來就是最常用、一打開就想看的第一層資訊（也兼作
+  // 篩選按鈕），移回「我的藏書概況」標題正下方的原始位置，維持一律可見。
+  // 其餘三項（平均評分、最常閱讀類型、借出中／借入未還）維持收進「查看
+  // 更多數據」——不是拿掉，點開還是完整看得到、篩選功能也都還在，只是
+  // 不佔用一打開頁面就看到的第一版面。「各類型書籍數量」維持獨立卡片
+  // 一律可見，不受這裡的收合影響。
   container.innerHTML = `
     <div class="sidebar-panel">
       <h4>我的藏書概況</h4>
+      <div class="sidebar-stat-grid">
+        <div class="sidebar-stat-cell" data-status="閱讀中" title="點擊只看閱讀中的書"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
+        <div class="sidebar-stat-cell" data-status="尚未閱讀" title="點擊只看尚未閱讀的書"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
+        <div class="sidebar-stat-cell" data-status="已讀完" title="點擊只看已讀完的書"><span class="v">${completed}</span><span class="l">已讀完</span></div>
+      </div>
       <div class="sidebar-stat-heading-row sidebar-stat-heading-row--year">
         <span class="stat-section-label">年度閱讀成果</span>
         <select id="sidebar-stats-year-select" class="sidebar-year-select">
@@ -321,11 +327,6 @@ export async function renderSidebarStats(container, options = {}) {
 
       <button type="button" class="sidebar-more-toggle" id="sidebar-more-toggle" aria-expanded="false" aria-controls="sidebar-more-panel">查看更多數據</button>
       <div class="sidebar-more-panel" id="sidebar-more-panel" hidden>
-        <div class="sidebar-stat-grid">
-          <div class="sidebar-stat-cell" data-status="閱讀中" title="點擊只看閱讀中的書"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
-          <div class="sidebar-stat-cell" data-status="尚未閱讀" title="點擊只看尚未閱讀的書"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
-          <div class="sidebar-stat-cell" data-status="已讀完" title="點擊只看已讀完的書"><span class="v">${completed}</span><span class="l">已讀完</span></div>
-        </div>
         <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
         <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
         ${retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention)}
