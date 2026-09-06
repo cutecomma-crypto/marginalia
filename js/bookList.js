@@ -1,6 +1,6 @@
 import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml, showToast, wireSearchClear, wireCoverImage } from './utils.js';
+import { escapeHtml, showToast, wireSearchClear, wireCoverImage, confirmModal, updateBatchActionBar } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
 import { patchRetentionCountBadge } from './stats.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
@@ -8,7 +8,52 @@ import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, RETURNED_RETENTIO
 import { STATUS_OPTIONS } from './readingRecords.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
+import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 import { ICON_SPARKLES, ICON_BOOK_OPEN, ICON_X } from './icons.js';
+
+// 批量操作列的「批次變更類別」彈窗：跟 confirmModal() 同一套 .modal-backdrop／
+// .modal-card／Esc／點外面關閉的寫法，差別只是內容換成一顆分類下拉選單。
+// 選單本身直接借用 categoryOptionsHtml()／wireCategorySelect()——書籍表單怎麼
+// 選分類、怎麼跳「＋自訂分類」彈窗，這裡就跟著一樣，不用另外重寫一份分類邏輯。
+// resolve(null) 代表取消（不異動任何書籍），resolve('') 是「先不分類」的合法選擇，
+// 跟 resolve(null) 要分清楚，呼叫端用 `=== null` 判斷取消，不是用「假值」判斷。
+function openBatchCategoryModal() {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="batch-category-modal-title">
+        <h3 id="batch-category-modal-title">批次變更類別</h3>
+        <label for="batch-category-select">套用到選取的書籍
+          <select id="batch-category-select">
+            <option value="">（先不分類）</option>
+            ${categoryOptionsHtml('')}
+          </select>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="batch-category-cancel-btn">取消</button>
+          <button type="button" class="btn btn-primary" id="batch-category-confirm-btn">套用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+    const selectEl = backdrop.querySelector('#batch-category-select');
+    wireCategorySelect(selectEl);
+
+    function settle(result) {
+      document.removeEventListener('keydown', onKeydown);
+      backdrop.remove();
+      resolve(result);
+    }
+    function onKeydown(event) {
+      if (event.key === 'Escape') settle(null);
+    }
+    backdrop.addEventListener('mousedown', (event) => { if (event.target === backdrop) settle(null); });
+    backdrop.querySelector('#batch-category-cancel-btn').addEventListener('click', () => settle(null));
+    backdrop.querySelector('#batch-category-confirm-btn').addEventListener('click', () => settle(selectEl.value));
+    document.addEventListener('keydown', onKeydown);
+  });
+}
 
 // 雲端快取背景刷新（見 cloudDb.js／services/cloudCache.js 的 Stale-While-Revalidate
 // 說明）如果發現書籍資料真的變了，會發出這個事件——這裡只負責跳一個不打擾的
@@ -229,7 +274,7 @@ function openStatusPopover(anchorBtn, book, recordMap, onSaved) {
   dateInput.addEventListener('change', () => persist({ endDate: dateInput.value }));
 }
 
-function bookRow(book, favoriteAuthors, recordMap) {
+function bookRow(book, favoriteAuthors, recordMap, selectedIds) {
   const record = recordMap.get(book.id);
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
   // data-label：手機版把表格轉成一張張卡片時（見 styles.css 的 @media (max-width: 640px)
@@ -240,9 +285,12 @@ function bookRow(book, favoriteAuthors, recordMap) {
   // 才會顯示——那個寬度書籍類型改成貼在書名下方的小標籤，不再獨立佔一整欄，
   // 直接把內容寫進書名 <td> 裡（跟獨立的「書籍類型」<td> 並存），比起用純 CSS
   // 去「借」另一個 <td> 的文字內容（辦不到）簡單可靠得多。
+  // 批量操作勾選框直接塞進書名 <td> 最前面，不另外加一欄——colgroup／nth-child
+  // 一堆響應式規則都是照現有欄位數算的，多一欄會牽動一整片 CSS，見批量操作列
+  // 那次規劃時的考量。
   return `
     <tr>
-      <td data-label="書名"><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a>${book.category ? `<span class="book-table-category-badge">${escapeHtml(book.category)}</span>` : ''}</td>
+      <td data-label="書名"><input type="checkbox" class="row-select-checkbox book-select-checkbox" data-select-id="${book.id}" aria-label="選取《${escapeHtml(book.title || '未命名')}》" ${selectedIds.has(book.id) ? 'checked' : ''}><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a>${book.category ? `<span class="book-table-category-badge">${escapeHtml(book.category)}</span>` : ''}</td>
       <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
       <td data-label="書籍類型">${escapeHtml(book.category)}</td>
       <td data-label="完成日期">${completedDateCell(book, record)}</td>
@@ -284,7 +332,7 @@ async function buildSearchIndex(books) {
   }));
 }
 
-function bookTableHtml(list, favoriteAuthors, recordMap) {
+function bookTableHtml(list, favoriteAuthors, recordMap, selectedIds) {
   return `
     <table class="book-table">
       <colgroup>
@@ -298,7 +346,7 @@ function bookTableHtml(list, favoriteAuthors, recordMap) {
         <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th><th>書籍歸還</th></tr>
       </thead>
       <tbody>
-        ${list.map((book) => bookRow(book, favoriteAuthors, recordMap)).join('')}
+        ${list.map((book) => bookRow(book, favoriteAuthors, recordMap, selectedIds)).join('')}
       </tbody>
     </table>
   `;
@@ -306,29 +354,39 @@ function bookTableHtml(list, favoriteAuthors, recordMap) {
 
 // 封面網格檢視：跟表格模式吃同一份 list／favoriteAuthors／recordMap，只是換一種排版，
 // 沒有封面的書用書本 emoji 佔位，不留空白方塊。
-function bookGalleryCard(book, favoriteAuthors, recordMap) {
+// 批量操作勾選框沒有直接塞進 <a class="book-gallery-card"> 裡面——<input> 屬於
+// 「互動內容」，HTML 規範不允許塞進另一個互動元素（<a href>）裡面，跟這個檔案
+// 別處用 <span> 取代 <button> 是同一種考量（見 authorNameHtmlInline 等函式的
+// 開頭註解）。這裡改成多包一層 .book-gallery-card-wrap，讓 <input> 跟 <a> 變成
+// 平輩，勾選框改用 CSS 疊在卡片左上角（見 styles.css 的 .book-gallery-checkbox），
+// 點下去不會誤觸 <a> 的導覽，也不需要額外寫 preventDefault／手動轉發 change
+// 事件那種繞路的 hack。
+function bookGalleryCard(book, favoriteAuthors, recordMap, selectedIds) {
   const record = recordMap.get(book.id);
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
   return `
-    <a class="book-gallery-card" href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">
-      <div class="book-gallery-cover">
-        ${book.coverImage ? `<img src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : `<span class="book-gallery-cover-placeholder">${ICON_BOOK_OPEN}</span>`}
-      </div>
-      <div class="book-gallery-info">
-        <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
-        <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" title="喜愛的作者">♥</span> ' : ''}${authorNameHtmlInline(book)}</div>
-        <div class="book-gallery-meta">
-          ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
-          ${completedDateTextOnly(record)}
+    <div class="book-gallery-card-wrap">
+      <input type="checkbox" class="book-gallery-checkbox book-select-checkbox" data-select-id="${book.id}" aria-label="選取《${escapeHtml(book.title || '未命名')}》" ${selectedIds.has(book.id) ? 'checked' : ''}>
+      <a class="book-gallery-card" href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">
+        <div class="book-gallery-cover">
+          ${book.coverImage ? `<img src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : `<span class="book-gallery-cover-placeholder">${ICON_BOOK_OPEN}</span>`}
         </div>
-        ${quickActionBtnHtmlInline(book)}
-      </div>
-    </a>
+        <div class="book-gallery-info">
+          <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
+          <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" title="喜愛的作者">♥</span> ' : ''}${authorNameHtmlInline(book)}</div>
+          <div class="book-gallery-meta">
+            ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
+            ${completedDateTextOnly(record)}
+          </div>
+          ${quickActionBtnHtmlInline(book)}
+        </div>
+      </a>
+    </div>
   `;
 }
 
-function bookGalleryHtml(list, favoriteAuthors, recordMap) {
-  return `<div class="book-gallery">${list.map((book) => bookGalleryCard(book, favoriteAuthors, recordMap)).join('')}</div>`;
+function bookGalleryHtml(list, favoriteAuthors, recordMap, selectedIds) {
+  return `<div class="book-gallery">${list.map((book) => bookGalleryCard(book, favoriteAuthors, recordMap, selectedIds)).join('')}</div>`;
 }
 
 const PAGE_SIZE_OPTIONS = [
@@ -427,7 +485,9 @@ function sortBooks(books, recordMap, sortMode) {
 
 export async function renderBookList(container) {
   const books = await DB.getAll('books');
-  const index = await buildSearchIndex(books);
+  // let（不是 const）：批次刪除時要把被刪掉的書從搜尋索引裡一併移除，
+  // 不然刪除後不重新整理頁面，搜尋結果還會撈到已經不存在的書。
+  let index = await buildSearchIndex(books);
   const favoriteAuthors = await getFavoriteAuthorMap();
   const recordMap = await loadRecordByBookMap();
 
@@ -507,6 +567,73 @@ export async function renderBookList(container) {
   let viewMode = 'table';
   let pageSize = 12;
   let currentPage = 1;
+  // 批量操作列（Batch Action Bar）勾選狀態：只存書籍 id，不存整份書籍物件——
+  // 每次 renderList() 都會用這個 Set 重新決定每一列/每張卡片的勾選框要不要打勾，
+  // 這個 Set 本身才是「唯一事實來源」，checkbox 的 checked 屬性只是照它畫出來的結果。
+  const selectedIds = new Set();
+
+  // 批量操作列本身是掛在 document.body 上的單例元素（見 utils.js 的
+  // updateBatchActionBar()），離開這頁（切到書籍詳情頁、資料管理頁……）
+  // 要記得清空選取＋收起面板，不然面板會跟著單例元素一起「越權」浮在
+  // 別的頁面上——跟這個檔案上面 hideStatusPopover 的 hashchange 監聽器
+  // 是同一種必要防線，不是預防性猜測。
+  window.addEventListener('hashchange', () => selectedIds.clear());
+
+  function refreshBatchBar() {
+    updateBatchActionBar(selectedIds, [
+      {
+        id: 'batch-category',
+        label: '批次變更類別',
+        onClick: async (ids) => {
+          const category = await openBatchCategoryModal();
+          if (category === null) return; // 使用者取消，''（先不分類）是合法選擇
+          for (const id of ids) {
+            const book = books.find((b) => b.id === id);
+            if (!book) continue;
+            await DB.update('books', { ...book, category });
+            book.category = category;
+          }
+          selectedIds.clear();
+          showToast(`已將 ${ids.length} 本書變更類別`);
+          renderList();
+          refreshBatchBar();
+        },
+      },
+      {
+        id: 'batch-delete',
+        label: '批次刪除',
+        danger: true,
+        onClick: async (ids) => {
+          const confirmed = await confirmModal({
+            title: `確定要刪除這 ${ids.length} 本書嗎？`,
+            message: '此動作無法復原，連同它們的閱讀紀錄、輸出、筆記、圖譜一起刪除。',
+            confirmText: '刪除',
+            cancelText: '取消',
+            danger: true,
+          });
+          if (!confirmed) return;
+          // 跟 bookDetail.js 單本刪除同一套關聯資料清除順序（見該檔案
+          // #delete-book 的監聽器），只是這裡對一批 id 各跑一次。
+          for (const id of ids) {
+            await DB.removeByIndex('reading_records', 'bookId', id);
+            await DB.removeByIndex('outputs', 'bookId', id);
+            await DB.removeByIndex('quotes', 'bookId', id);
+            await DB.removeByIndex('notes', 'bookId', id);
+            await DB.removeByIndex('edges', 'bookId', id);
+            await DB.removeByIndex('nodes', 'bookId', id);
+            await DB.remove('books', id);
+            const bookIdx = books.findIndex((b) => b.id === id);
+            if (bookIdx !== -1) books.splice(bookIdx, 1);
+          }
+          index = index.filter((entry) => !ids.includes(entry.book.id));
+          selectedIds.clear();
+          showToast(`已刪除 ${ids.length} 本書`);
+          renderList();
+          refreshBatchBar();
+        },
+      },
+    ], () => renderList());
+  }
 
   // 作者篩選沒有像其他篩選那樣「點原本那個 UI 元素就能取消」的對應開關（作者名稱
   // 到處都可以點：表格、封面卡片、側邊欄喜愛作者、書籍詳情頁），統一收斂到這個
@@ -595,8 +722,8 @@ export async function renderBookList(container) {
       paginationEl.innerHTML = '';
     } else {
       bodyEl.innerHTML = viewMode === 'gallery'
-        ? bookGalleryHtml(pageItems, favoriteAuthors, recordMap)
-        : bookTableHtml(pageItems, favoriteAuthors, recordMap);
+        ? bookGalleryHtml(pageItems, favoriteAuthors, recordMap, selectedIds)
+        : bookTableHtml(pageItems, favoriteAuthors, recordMap, selectedIds);
       bodyEl.querySelectorAll('.book-gallery-cover img').forEach(wireCoverImage);
       paginationEl.innerHTML = paginationHtml(currentPage, totalPages);
       paginationEl.querySelectorAll('[data-page]').forEach((btn) => {
@@ -718,6 +845,19 @@ export async function renderBookList(container) {
     event.preventDefault();
     event.stopPropagation();
     applyAuthorFilter(link.dataset.author);
+  });
+
+  // 批量操作勾選框：表格版、封面網格版共用同一個 .book-select-checkbox class，
+  // 靠 data-select-id 對應書籍 id。這裡只維護 selectedIds 這個 Set 並刷新
+  // 底部的批量操作列，不用整頁重繪——重繪只會影響「排序／篩選／分頁」，
+  // 勾選狀態本身不需要因為打勾這個動作就重新整理列表。
+  bodyEl.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('.book-select-checkbox');
+    if (!checkbox) return;
+    const id = Number(checkbox.dataset.selectId);
+    if (checkbox.checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+    refreshBatchBar();
   });
 
   // 一鍵歸還／已收回：只改 books 陣列裡對應那本書的 retentionStatus 欄位（不用整批

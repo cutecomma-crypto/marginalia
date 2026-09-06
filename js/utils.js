@@ -22,6 +22,54 @@ export function wireCoverImage(img) {
   img.addEventListener('error', () => img.classList.add('is-loaded'), { once: true });
 }
 
+// 批量操作列（Batch Action Bar）：勾選任一列表項目時，畫面下方浮出一條固定
+// 定位的操作列，顯示「目前選了幾筆」＋一組呼叫端自訂的批次操作按鈕（例如
+// 書籍列表的「批次變更類別」「批次刪除」、願望清單的「批次轉為藏書」「批次
+// 刪除」）。跟 bookList.js 的 inline-status-popover／selectionToolbarService.js
+// 同一種「單例、掛在 document.body、每次呼叫重新填內容」做法，書籍列表跟
+// 願望清單兩處呼叫端不用各自維護一份操作列的建立/定位/顯示邏輯，只需要決定
+// 「有哪些按鈕、按下去要做什麼」。
+//
+// actions：陣列，每項 { id, label, danger, onClick(selectedIdArray) }——
+// onClick 收到目前選取的 id 陣列，實際的存取/刪除邏輯完全由呼叫端決定，
+// 這個共用函式不管資料層的事。
+// onClear：使用者按右側的 × 清空選取時呼叫——選取的 Set 已經先被清空，
+// 呼叫端通常只需要重新渲染一次自己的清單（勾選框本來就是照 selectedIds.has()
+// 畫出來的，重繪一次就會自動全部恢復未勾選）。
+//
+// 呼叫端在「勾選狀態有變化」的每個時機都呼叫這個函式一次（勾選/取消勾選
+// 某一列、批次操作完成後）——selectedIds.size === 0 時自動隱藏操作列，
+// 不用呼叫端自己判斷要不要顯示。
+export function updateBatchActionBar(selectedIds, actions, onClear) {
+  let el = document.getElementById('batch-action-bar');
+  if (selectedIds.size === 0) {
+    if (el) el.hidden = true;
+    return;
+  }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'batch-action-bar';
+    el.className = 'batch-action-bar';
+    document.body.appendChild(el);
+  }
+  el.hidden = false;
+  el.innerHTML = `
+    <span class="batch-action-count">已選取 ${selectedIds.size} 筆</span>
+    <div class="batch-action-buttons">
+      ${actions.map((a) => `<button type="button" class="batch-action-btn${a.danger ? ' is-danger' : ''}" data-action-id="${escapeHtml(a.id)}">${escapeHtml(a.label)}</button>`).join('')}
+    </div>
+    <button type="button" class="batch-action-bar-close" id="batch-action-bar-close" aria-label="取消選取">${ICON_X}</button>
+  `;
+  actions.forEach((a) => {
+    el.querySelector(`[data-action-id="${a.id}"]`).addEventListener('click', () => a.onClick(Array.from(selectedIds)));
+  });
+  el.querySelector('#batch-action-bar-close').addEventListener('click', () => {
+    selectedIds.clear();
+    updateBatchActionBar(selectedIds, actions, onClear);
+    onClear();
+  });
+}
+
 export function escapeHtml(value) {
   if (value === undefined || value === null) return '';
   return String(value)

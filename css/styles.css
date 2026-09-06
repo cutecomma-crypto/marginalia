@@ -5364,6 +5364,22 @@ button.book-completed-date:hover {
    在這裡補回來，跟卡片高度只差不到 1px，不影響「一次看 8~10 本」的密度
    目標）、單行超出省略號，跟書名之間幾乎不留間距
    （.wishlist-item-main 的 1px gap），符合「不佔用額外垂直空間」的要求。 */
+/* 勾選框跟書名同一列水平排列（.wishlist-item-main 本身是縱向排列的 flex
+   column，書名/備註各自一行；這裡再包一層橫向 flex row，勾選框才不會自己
+   單獨佔一整行、把書名往下推）。align-items:flex-start 讓勾選框貼齊書名
+   第一行文字的頂端，書名允許最多兩行換行時，勾選框不會被拉到垂直置中而
+   看起來偏移。 */
+.wishlist-item-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.wishlist-item-title-row .row-select-checkbox {
+  margin-right: 0;
+  margin-top: 0.2rem;
+}
+
 .wishlist-item-title {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -5700,4 +5716,142 @@ button.book-completed-date:hover {
 .app-toast.is-visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* 批量操作列（Batch Action Bar）：跟上面 .app-toast 同一種「固定在畫面底部
+   置中的浮動列」定位方式，配色也刻意沿用 var(--text)/var(--surface) 這組
+   「反轉」搭法（淺色模式下是深底淺字；深色模式下 --text/--surface 互換，
+   自動變成淺底深字）——不管哪個主題都跟頁面背景維持足夠對比，不用另外
+   為深色模式寫一份專屬覆寫。跟 .inline-status-popover 一樣屬於「勾選才
+   出現」的成員，切記 [hidden] 要明著蓋掉這裡的 display，不然會重蹈那次
+   「關不掉」的覆轍（見上面 .inline-status-popover 那段長註解）。 */
+.batch-action-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--text);
+  color: var(--surface);
+  padding: 0.65rem 0.75rem 0.65rem 1.1rem;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(35, 27, 20, 0.28);
+  z-index: 210;
+  max-width: calc(100vw - 2rem);
+  animation: modal-card-fade-in 0.2s ease-in-out;
+}
+
+.batch-action-bar[hidden] {
+  display: none;
+}
+
+.batch-action-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.batch-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.batch-action-btn {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.batch-action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.batch-action-btn.is-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.batch-action-btn.is-danger:hover {
+  background: var(--danger);
+  color: var(--surface);
+}
+
+.batch-action-bar-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.batch-action-bar-close .ui-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.batch-action-bar-close:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+@media (max-width: 640px) {
+  .batch-action-bar {
+    left: 1rem;
+    right: 1rem;
+    transform: none;
+    flex-wrap: wrap;
+    border-radius: 16px;
+  }
+}
+
+/* 批量操作列的勾選框：表格列／願望清單直接塞在標題欄位裡面（不另外加一欄），
+   避免打亂既有一堆用 nth-child 算欄位寬度的響應式規則；卡片檢視則是疊在
+   封面左上角的圓形勾選框（見 .book-gallery-checkbox）。<input> 不能合法巢狀在
+   <a href> 裡面（見 bookList.js 的 bookGalleryCard() 開頭註解），改用
+   .book-gallery-card-wrap 這層包住勾選框跟卡片本身的 <a>，兩者變成平輩，
+   勾選框才能用 position:absolute 疊在卡片左上角又不用擔心點到會誤觸連結。 */
+.row-select-checkbox {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.6rem;
+  vertical-align: middle;
+  accent-color: var(--color-primary-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.book-gallery-card-wrap {
+  position: relative;
+}
+
+.book-gallery-checkbox {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 5;
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--color-primary-accent);
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(35, 27, 20, 0.35);
 }

@@ -19,8 +19,9 @@
 // 欄位，收合狀態只差在有沒有預先帶入既有資料，用同一個 openForm() 入口統一處理，
 // 不用另外維護兩套展開/收合邏輯。
 import { DB } from './db.js';
-import { escapeHtml, showToast } from './utils.js';
+import { escapeHtml, showToast, confirmModal, updateBatchActionBar } from './utils.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
+import { DEFAULT_RETENTION_STATUS } from './bookForm.js';
 import { ICON_BOOK_OPEN, ICON_EDIT, ICON_DELETE, ICON_SPARKLES } from './icons.js';
 
 const STORE = 'wishlist';
@@ -48,11 +49,95 @@ let submitBtn = null;
 let formCancelBtn = null;
 let editingId = null; // 目前正在編輯的願望清單項目 id；null 代表現在是新增模式
 let cachedItems = [];
+// 批量操作列勾選狀態：跟 bookList.js 同一種「只存 id，checkbox 照這個 Set 畫出來」
+// 的做法。抽屜本身是單例（見 ensureDrawerBuilt），這裡也用模組層級變數存放，
+// 跟 editingId／cachedItems 是同一種既有慣例，不用另外包一層物件。
+const selectedIds = new Set();
 
 function closeDrawer() {
   if (!drawerEl) return;
   drawerEl.classList.remove('is-open');
   backdropEl.classList.remove('is-open');
+  // 關閉抽屜順便清空選取＋收起批量操作列——抽屜關起來使用者就看不到勾選框了，
+  // 選取狀態留著沒有意義，下次打開應該是乾淨的狀態（跟 closeForm() 永遠重設回
+  // 新增模式是同一種「關閉即重設」的原則）。
+  selectedIds.clear();
+  refreshBatchBar();
+}
+
+// 批量操作列：「批次轉為藏書」「批次刪除」。跟 bookList.js 那份是同一套
+// updateBatchActionBar() 共用元件，只是動作換成願望清單自己的邏輯。
+function refreshBatchBar() {
+  updateBatchActionBar(selectedIds, [
+    {
+      id: 'batch-convert',
+      label: '批次轉為藏書',
+      onClick: async (ids) => {
+        const confirmed = await confirmModal({
+          title: `確定要把這 ${ids.length} 筆願望清單項目轉為藏書嗎？`,
+          message: '會用預設欄位（來源：其他、存留狀態：保存中、閱讀狀態：尚未閱讀）直接建立書籍，之後可以再到書籍詳情頁個別補齊資料。',
+          confirmText: '轉為藏書',
+        });
+        if (!confirmed) return;
+        // 批次操作沒辦法像單筆「轉為藏書」那樣跳表單讓使用者逐一確認/補齊欄位
+        // （見 convertToBook() 開頭註解）——批量操作的本質就是跳過逐一確認，
+        // 這裡直接複製 bookForm.js 新增書籍表單「什麼都不填、全部維持預設值」
+        // 送出時會產生的那組 payload／關聯記錄，行為上等同使用者對每一筆都是
+        // 「不改任何欄位直接送出」。
+        for (const id of ids) {
+          const item = cachedItems.find((i) => i.id === id);
+          if (!item) continue;
+          const targetBookId = await DB.add('books', {
+            title: item.title || '',
+            author: item.author || '',
+            publisher: '',
+            publishDate: '',
+            purchaseDate: '',
+            purchasePrice: null,
+            format: '其他',
+            retentionStatus: DEFAULT_RETENTION_STATUS,
+            libraryBorrowType: '',
+            libraryName: '',
+            lentTo: '',
+            category: '',
+            coverImage: '',
+          });
+          await DB.add('reading_records', {
+            bookId: targetBookId, status: '尚未閱讀', startDate: '', endDate: '',
+            currentPage: null, readCount: 0, rating: 0,
+          });
+          if (item.note) {
+            await DB.add('notes', { bookId: targetBookId, text: `推薦來源／備註：${item.note}` });
+          }
+          await DB.remove(STORE, id);
+        }
+        selectedIds.clear();
+        showToast(`已將 ${ids.length} 筆項目轉為藏書`);
+        await refreshList();
+      },
+    },
+    {
+      id: 'batch-delete',
+      label: '批次刪除',
+      danger: true,
+      onClick: async (ids) => {
+        const confirmed = await confirmModal({
+          title: `確定要刪除這 ${ids.length} 筆願望清單項目嗎？`,
+          message: '此動作無法復原。',
+          confirmText: '刪除',
+          danger: true,
+        });
+        if (!confirmed) return;
+        for (const id of ids) {
+          await DB.remove(STORE, id);
+          if (editingId === id) closeForm();
+        }
+        selectedIds.clear();
+        showToast(`已刪除 ${ids.length} 筆項目`);
+        await refreshList();
+      },
+    },
+  ], () => refreshList());
 }
 
 // 表單展開／收合本身跟「新增模式／編輯模式」是兩件互相獨立的事：展開時是新增
@@ -99,7 +184,10 @@ function itemRowHtml(item) {
   return `
     <li data-id="${item.id}">
       <div class="wishlist-item-main">
-        <span class="wishlist-item-title" title="${escapeHtml(item.title || '（未命名）')}">${escapeHtml(item.title || '（未命名）')}</span>
+        <div class="wishlist-item-title-row">
+          <input type="checkbox" class="row-select-checkbox wishlist-select-checkbox" data-select-id="${item.id}" aria-label="選取「${escapeHtml(item.title || '未命名')}」" ${selectedIds.has(item.id) ? 'checked' : ''}>
+          <span class="wishlist-item-title" title="${escapeHtml(item.title || '（未命名）')}">${escapeHtml(item.title || '（未命名）')}</span>
+        </div>
         ${itemMetaLine(item)}
       </div>
       <div class="wishlist-item-actions">
@@ -114,11 +202,27 @@ function itemRowHtml(item) {
 async function refreshList() {
   cachedItems = await DB.getAll(STORE);
   cachedItems.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  // 批次操作（轉為藏書／刪除）之後這筆項目已經不存在了，selectedIds 裡如果
+  // 還留著已經不存在的 id，批量操作列會顯示錯誤的勾選筆數——每次重新整理
+  // 清單都跟目前真的存在的項目對一次，濾掉那些已經不在的。
+  const existingIds = new Set(cachedItems.map((i) => i.id));
+  for (const id of selectedIds) {
+    if (!existingIds.has(id)) selectedIds.delete(id);
+  }
   countEl.textContent = `共 ${cachedItems.length} 本`;
   listEl.innerHTML = cachedItems.length === 0
     ? '<li class="empty">還沒有任何項目，點上面「＋ 新增願望」加入第一本想讀的書吧。</li>'
     : cachedItems.map(itemRowHtml).join('');
+  refreshBatchBar();
 
+  listEl.querySelectorAll('.wishlist-select-checkbox').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const id = Number(checkbox.dataset.selectId);
+      if (checkbox.checked) selectedIds.add(id);
+      else selectedIds.delete(id);
+      refreshBatchBar();
+    });
+  });
   listEl.querySelectorAll('.wishlist-convert-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = Number(btn.closest('li').dataset.id);
