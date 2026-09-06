@@ -1,12 +1,12 @@
 import { DB } from './db.js';
 import { renderReadingSection } from './readingRecords.js';
-import { renderMotivation, renderReflections } from './outputs.js';
-import { renderNotesSection } from './notes.js';
+import { renderMotivation } from './outputs.js';
+import { renderPersonalNotes } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml, renderTagChip, showToast, confirmModal, wireCoverImage } from './utils.js';
 import { DEFAULT_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
-import { ICON_GRAPH, ICON_EDIT, ICON_DELETE, ICON_LIGHTBULB, ICON_PEN_LINE, ICON_NOTEBOOK, ICON_QUOTE } from './icons.js';
+import { ICON_GRAPH, ICON_EDIT, ICON_DELETE, ICON_LIGHTBULB, ICON_NOTEBOOK, ICON_QUOTE } from './icons.js';
 
 // rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
 // 的欄位可以傳這個代替純文字 value，呼叫端要自己先 escapeHtml() 過使用者輸入的部分。
@@ -97,15 +97,11 @@ export async function renderBookDetail(container, rawId) {
     <div class="main-tabs">
       <div class="main-tab-buttons">
         <button type="button" class="main-tab-btn is-active" data-tab="motivation">${ICON_LIGHTBULB}閱讀動機</button>
-        <button type="button" class="main-tab-btn" data-tab="reflection">${ICON_PEN_LINE}閱讀後輸出</button>
-        <button type="button" class="main-tab-btn" data-tab="notes">${ICON_NOTEBOOK}快速筆記</button>
+        <button type="button" class="main-tab-btn" data-tab="notes">${ICON_NOTEBOOK}個人筆記</button>
         <button type="button" class="main-tab-btn" data-tab="quotes">${ICON_QUOTE}佳句摘錄（<span id="quotes-tab-count">0</span> 條）</button>
       </div>
       <div class="main-tab-panel" data-tab-panel="motivation">
         <div id="motivation-container"></div>
-      </div>
-      <div class="main-tab-panel" data-tab-panel="reflection" hidden>
-        <div id="reflection-container"></div>
       </div>
       <div class="main-tab-panel" data-tab-panel="notes" hidden>
         <div id="notes-section"></div>
@@ -180,13 +176,13 @@ export async function renderBookDetail(container, rawId) {
     });
   });
 
-  // 「閱讀後輸出」選取文字存成佳句摘錄（見 outputs.js 的 attachSelectionToolbar
+  // 「個人筆記」選取文字存成佳句摘錄（見 notes.js 的 attachSelectionToolbar
   // onHighlight）之後，需要一個管道把「佳句摘錄」分頁的數量／列表也一起更新，
   // 不然那個分頁的內容是頁面一開始載入時就渲染好、之後不會再自己重繪的——使用者
   // 存了一句新佳句，畫面上完全沒反應，要重新整理整頁才看得到，這是實測抓到的
-  // 真實問題。抽成獨立函式讓 renderReflections() 存完佳句後可以直接呼叫，只重繪
+  // 真實問題。抽成獨立函式讓 renderPersonalNotes() 存完佳句後可以直接呼叫，只重繪
   // 佳句摘錄那個分頁本身（不是整個 renderBookDetail()／refreshDetail()），不會
-  // 連帶打斷使用者在閱讀後輸出編輯區裡還沒存檔的草稿或游標位置。
+  // 連帶打斷使用者在個人筆記輸入框裡還沒存檔的草稿或游標位置。
   async function refreshQuotesTab() {
     await renderQuotesWorkspace(container.querySelector('#quotes-container'), bookId, {
       onCountChange: (count) => {
@@ -197,7 +193,6 @@ export async function renderBookDetail(container, rawId) {
 
   await renderReadingSection(container.querySelector('#reading-section'), bookId, book, { onReturnedSuggestionAccepted: refreshDetail });
   await renderMotivation(container.querySelector('#motivation-container'), bookId);
-  await renderReflections(container.querySelector('#reflection-container'), bookId, { onQuoteAdded: refreshQuotesTab });
-  await renderNotesSection(container.querySelector('#notes-section'), bookId);
+  await renderPersonalNotes(container.querySelector('#notes-section'), bookId, { onQuoteAdded: refreshQuotesTab });
   await refreshQuotesTab();
 }

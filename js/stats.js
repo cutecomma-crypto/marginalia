@@ -222,9 +222,13 @@ export function patchRetentionCountBadge(sidebarContainer, retentionStatus, newC
   btn.disabled = newCount === 0;
 }
 
-function categorySectionHtml(categoryEntries, year, activeCategory, lentOutCount, borrowedCount, activeRetention) {
+// 「借出中／借入未還」按鈕原本印在這個函式裡（每次年份切換都重繪一次），現在
+// 移到 renderSidebarStats() 的「查看更多數據」收合區塊裡、只渲染＋綁定一次——
+// 這兩顆按鈕本來就「不受年份選擇影響」（見 retentionButtonsHtml 上面的說明），
+// 跟著年份重繪純粹是因為以前跟「各類型書籍數量」擠在同一段 HTML 裡，現在拆開
+// 剛好也一併把這個沒必要的重繪去掉，不是這次調整的重點，只是順手的副作用。
+function categorySectionHtml(categoryEntries, year, activeCategory) {
   return `
-    ${retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention)}
     <h4>各類型書籍數量${year ? `<span class="sidebar-year-tag">${escapeHtml(year)} 年已讀完</span>` : ''}</h4>
     ${categoryProgressListHtml(categoryEntries, activeCategory)}
   `;
@@ -297,17 +301,15 @@ export async function renderSidebarStats(container, options = {}) {
   let activeCategory = null;
   let activeRetention = null;
 
-  // 第一層：全站書籍狀態統計（閱讀中／尚未閱讀／已讀完），不受年份選擇影響，
-  // 是使用者一打開網站最想先看到的「我現在藏書整體長怎樣」；年份切換只影響
-  // 下面第二層的年度成果數字，兩層資料來源不同，順序調整純粹是排版，不動邏輯。
+  // 「UI 極簡化」精簡：預設只留「年度閱讀成果」（使用者最常先想確認「今年讀了
+  // 幾本」）跟下面獨立卡片的「各類型書籍數量」，其餘四項（閱讀中／尚未閱讀／
+  // 已讀完三顆狀態方塊、平均評分、最常閱讀類型、借出中／借入未還）都是「還算
+  // 有用但不是每次打開都需要看」的次要數據，收進「查看更多數據」這個預設收合
+  // 的區塊——不是拿掉，點開還是完整看得到、篩選功能也都還在，只是不再佔用
+  // 一打開頁面就看到的第一版面。 */
   container.innerHTML = `
     <div class="sidebar-panel">
       <h4>我的藏書概況</h4>
-      <div class="sidebar-stat-grid">
-        <div class="sidebar-stat-cell" data-status="閱讀中" title="點擊只看閱讀中的書"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
-        <div class="sidebar-stat-cell" data-status="尚未閱讀" title="點擊只看尚未閱讀的書"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
-        <div class="sidebar-stat-cell" data-status="已讀完" title="點擊只看已讀完的書"><span class="v">${completed}</span><span class="l">已讀完</span></div>
-      </div>
       <div class="sidebar-stat-heading-row sidebar-stat-heading-row--year">
         <span class="stat-section-label">年度閱讀成果</span>
         <select id="sidebar-stats-year-select" class="sidebar-year-select">
@@ -316,18 +318,38 @@ export async function renderSidebarStats(container, options = {}) {
         </select>
       </div>
       <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYearStats.highlight)}</div>
-      <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
-      <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
+
+      <button type="button" class="sidebar-more-toggle" id="sidebar-more-toggle" aria-expanded="false" aria-controls="sidebar-more-panel">查看更多數據</button>
+      <div class="sidebar-more-panel" id="sidebar-more-panel" hidden>
+        <div class="sidebar-stat-grid">
+          <div class="sidebar-stat-cell" data-status="閱讀中" title="點擊只看閱讀中的書"><span class="v">${stats.currentlyReading}</span><span class="l">閱讀中</span></div>
+          <div class="sidebar-stat-cell" data-status="尚未閱讀" title="點擊只看尚未閱讀的書"><span class="v">${wantToRead}</span><span class="l">尚未閱讀</span></div>
+          <div class="sidebar-stat-cell" data-status="已讀完" title="點擊只看已讀完的書"><span class="v">${completed}</span><span class="l">已讀完</span></div>
+        </div>
+        <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
+        <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
+        ${retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention)}
+      </div>
     </div>
     <div class="sidebar-panel" id="sidebar-category-panel"></div>
   `;
 
+  const moreToggle = container.querySelector('#sidebar-more-toggle');
+  const morePanel = container.querySelector('#sidebar-more-panel');
+  moreToggle.addEventListener('click', () => {
+    const nowExpanded = morePanel.hidden; // 展開前的狀態是收合，所以「即將變成」展開
+    morePanel.hidden = !nowExpanded;
+    moreToggle.textContent = nowExpanded ? '收起' : '查看更多數據';
+    moreToggle.classList.toggle('is-expanded', nowExpanded);
+    moreToggle.setAttribute('aria-expanded', String(nowExpanded));
+  });
+  wireRetentionButtons(container, onRetentionFilterChange, (retention) => { activeRetention = retention; });
+
   const categoryPanel = container.querySelector('#sidebar-category-panel');
   function renderCategoryPanel(year) {
-    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory, lentOutCount, borrowedCount, activeRetention);
+    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory);
     wireCategoryToggle(categoryPanel);
     wireCategoryItemClicks(categoryPanel, onCategoryFilterChange, (cat) => { activeCategory = cat; });
-    wireRetentionButtons(categoryPanel, onRetentionFilterChange, (retention) => { activeRetention = retention; });
   }
   renderCategoryPanel(null);
 

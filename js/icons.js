@@ -25,8 +25,6 @@ export const ICON_SPARKLES = icon('<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13
 
 export const ICON_LIGHTBULB = icon('<path d="M15 14c.2-1 .7-1.7 1.5-2.5a5.5 5.5 0 1 0-9 0c.8.8 1.3 1.5 1.5 2.5"></path><path d="M9 18h6"></path><path d="M10 22h4"></path>');
 
-export const ICON_PEN_LINE = icon('<path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>');
-
 export const ICON_NOTEBOOK = icon('<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.4 2.6a2.03 2.03 0 1 1 2.9 2.9L12 14l-4 1 1-4Z"></path>');
 
 export const ICON_QUOTE = icon('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>');
@@ -68,3 +66,7 @@ export const ICON_X = icon('<line x1="18" y1="6" x2="6" y2="18"></line><line x1=
 export const ICON_SUN = icon('<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>');
 
 export const ICON_MOON = icon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>');
+
+// 書籍列表「篩選與批量」按鈕：漏斗形狀是篩選功能的通用符號，使用者不用讀文字
+// 也能一眼認出這是「進階選項收在這裡」。
+export const ICON_FILTER = icon('<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>');

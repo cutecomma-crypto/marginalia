@@ -9,7 +9,29 @@ import { STATUS_OPTIONS } from './readingRecords.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
-import { ICON_SPARKLES, ICON_BOOK_OPEN, ICON_X } from './icons.js';
+import { ICON_SPARKLES, ICON_BOOK_OPEN, ICON_X, ICON_FILTER } from './icons.js';
+
+// 「篩選與批量」下拉面板：跟這個檔案上面 .inline-status-popover 是同一種
+// 「不是 document.body 單例，而是每次 renderBookList() 都重新產生」的頁面
+// 內容，所以點外面關閉／Esc 關閉這兩個監聽器一樣掛在模組最外層、只註冊一次，
+// 每次都用 document.getElementById 現查目前畫面上真正存在的那個面板/按鈕，
+// 不用擔心離開再回來這頁時重複疊加監聽器（舊的 <div id="filter-batch-panel">
+// 節點已經隨著 container.innerHTML 被整個換掉，id 查詢自然只會找到目前這份）。
+function hideFilterBatchPanel() {
+  const panel = document.getElementById('filter-batch-panel');
+  const toggleBtn = document.getElementById('filter-batch-toggle-btn');
+  if (panel) panel.hidden = true;
+  if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('mousedown', (event) => {
+  const panel = document.getElementById('filter-batch-panel');
+  if (!panel || panel.hidden) return;
+  if (panel.contains(event.target) || event.target.closest('#filter-batch-toggle-btn')) return;
+  hideFilterBatchPanel();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') hideFilterBatchPanel();
+});
 
 // 批量操作列的「批次變更類別」彈窗：跟 confirmModal() 同一套 .modal-backdrop／
 // .modal-card／Esc／點外面關閉的寫法，差別只是內容換成一顆分類下拉選單。
@@ -526,12 +548,25 @@ export async function renderBookList(container) {
             <input type="search" id="book-search" class="search-input-field" placeholder="搜尋書名、作者、#標籤，或筆記／佳句內容…">
             <button type="button" class="search-clear-btn" aria-label="清空搜尋" hidden></button>
           </div>
-          <select id="book-sort-select" class="sort-select">
-            ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
-          </select>
-          <select id="book-page-size-select" class="sort-select">
-            ${PAGE_SIZE_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
-          </select>
+          <div class="filter-batch-wrap">
+            <button type="button" class="btn filter-batch-toggle-btn" id="filter-batch-toggle-btn" aria-expanded="false" aria-controls="filter-batch-panel">${ICON_FILTER}篩選與批量</button>
+            <div class="filter-batch-panel" id="filter-batch-panel" hidden>
+              <label class="filter-batch-field">排序
+                <select id="book-sort-select" class="sort-select">
+                  ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
+                </select>
+              </label>
+              <label class="filter-batch-field">每頁顯示
+                <select id="book-page-size-select" class="sort-select">
+                  ${PAGE_SIZE_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
+                </select>
+              </label>
+              <label class="filter-batch-toggle-field">
+                <input type="checkbox" id="batch-mode-checkbox">
+                啟用批量選取（顯示勾選框）
+              </label>
+            </div>
+          </div>
           <span class="book-list-count" id="book-list-count">共 ${books.length} 本</span>
         </div>
         <div id="book-list-body"></div>
@@ -554,6 +589,32 @@ export async function renderBookList(container) {
   const bodyEl = container.querySelector('#book-list-body');
   const paginationEl = container.querySelector('#book-pagination');
   const countEl = container.querySelector('#book-list-count');
+  const dashboardMainEl = container.querySelector('.dashboard-main');
+
+  // 「篩選與批量」按鈕：點下去才展開排序／每頁顯示／批量選取開關這個小面板，
+  // 平常收合不佔搜尋列版面。點面板外面或按 Esc 收起見模組最上面那兩個
+  // document 監聽器（跟這裡的 .inline-status-popover 是同一套做法）。
+  const filterBatchToggleBtn = container.querySelector('#filter-batch-toggle-btn');
+  const filterBatchPanel = container.querySelector('#filter-batch-panel');
+  filterBatchToggleBtn.addEventListener('click', () => {
+    const willShow = filterBatchPanel.hidden;
+    filterBatchPanel.hidden = !willShow;
+    filterBatchToggleBtn.setAttribute('aria-expanded', String(willShow));
+  });
+
+  // 批量選取模式：預設關閉（勾選框不顯示），開啟時才在 .dashboard-main 補一個
+  // class，靠 CSS 顯示表格／卡片上的勾選框（見 styles.css 的 .row-select-checkbox／
+  // .book-gallery-checkbox 預設 display:none）。關閉時順便清空已選取的項目、
+  // 收起底部批量操作列——不然使用者關掉批量模式後，勾選框消失但選取狀態、
+  // 浮動操作列還留著，會很不直覺。
+  const batchModeCheckbox = container.querySelector('#batch-mode-checkbox');
+  batchModeCheckbox.addEventListener('change', () => {
+    dashboardMainEl.classList.toggle('is-batch-mode', batchModeCheckbox.checked);
+    if (!batchModeCheckbox.checked) {
+      selectedIds.clear();
+      refreshBatchBar();
+    }
+  });
 
   // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量／借出中，跟右側書籍列表是同一份狀態，
   // 五種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，

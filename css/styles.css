@@ -759,6 +759,23 @@ header h1 a {
     margin-left: 0;
     width: 100%;
   }
+
+  /* 「篩選與批量」按鈕跟上面搜尋框同一套「窄螢幕滿版寬、40px 高」對齊規則，
+     不然它會維持桌面版依內容自動調整的窄按鈕寬度，跟上下滿版的搜尋框/卡片
+     邊界對不齊。面板本身維持 position:absolute 自己的寬度（見桌面版樣式的
+     min-width/max-width），不用跟著按鈕撐滿——內容是排序/每頁顯示/批量開關
+     這幾個較短的欄位，滿版反而會拉得鬆散。 */
+  .filter-batch-wrap {
+    width: 100%;
+  }
+
+  .filter-batch-toggle-btn {
+    width: 100%;
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
+    justify-content: center;
+  }
 }
 
 .btn-primary {
@@ -1128,7 +1145,11 @@ header h1 a {
   flex-shrink: 0;
 }
 
-.category-progress-toggle {
+/* .sidebar-more-toggle（側邊欄「查看更多數據」收合區的開關）跟這顆「展開更多」
+   共用同一份樣式——都是「卡片底部、跨欄置中、文字連結感」的次要展開按鈕，
+   沒有理由重寫一份幾乎一樣的規則。 */
+.category-progress-toggle,
+.sidebar-more-toggle {
   display: block;
   width: 100%;
   text-align: center;
@@ -1142,8 +1163,21 @@ header h1 a {
   cursor: pointer;
 }
 
-.category-progress-toggle:hover {
+.category-progress-toggle:hover,
+.sidebar-more-toggle:hover {
   text-decoration: underline;
+}
+
+/* 「查看更多數據」展開後的內容區——跟這個檔案其餘所有 hideable 元件一樣，
+   [hidden] 一定要明著蓋掉這裡任何 display 宣告，不然會重演 .inline-status-popover
+   那次「關不掉」的坑（見該規則開頭的完整說明）。這裡目前沒有另外設 display，
+   只是照專案慣例先補上這條保險，之後如果改成 flex/grid 排版也不會不小心漏掉。 */
+.sidebar-more-panel[hidden] {
+  display: none;
+}
+
+.sidebar-more-panel {
+  margin-top: 0.6rem;
 }
 
 .home-grid {
@@ -1640,6 +1674,90 @@ header h1 a {
 
 .search-row .book-list-count {
   margin-left: auto;
+}
+
+/* 「篩選與批量」：排序／每頁顯示兩個下拉選單＋批量選取開關，原本三個直接
+   擠在搜尋列上，現在收進一個點下去才展開的小面板，平常只留一顆按鈕。
+   .filter-batch-wrap 本身純粹是定位錨點（position:relative），面板用
+   position:absolute 疊在它下方，不會把搜尋列的高度撐高。 */
+.filter-batch-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.filter-batch-toggle-btn.is-expanded,
+.filter-batch-toggle-btn[aria-expanded="true"] {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-hover);
+}
+
+.filter-batch-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 60;
+  min-width: 230px;
+  max-width: calc(100vw - 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  /* 跟 .modal-card 那次「深色模式底色沒跟著換」的系統性坑同一種修法，
+     一開始就用 color-mix() 而不是寫死亮色 rgba，不用之後再回頭補一次。 */
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
+  box-shadow: var(--shadow-glass);
+  animation: modal-card-fade-in 0.2s ease-in-out;
+}
+
+.filter-batch-panel[hidden] {
+  display: none;
+}
+
+.filter-batch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.filter-batch-toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text);
+  border-top: 1px dashed var(--border-soft);
+  padding-top: 0.6rem;
+  cursor: pointer;
+}
+
+.filter-batch-toggle-field input[type="checkbox"] {
+  accent-color: var(--color-primary-accent);
+  cursor: pointer;
+}
+
+/* 批量選取的勾選框預設不顯示——「篩選與批量」面板裡的「啟用批量選取」
+   打勾之後，js/bookList.js 會在 .dashboard-main 補上 .is-batch-mode，
+   這裡才讓 display 生效。書籍列表.row-select-checkbox／.book-gallery-checkbox
+   兩種勾選框（表格列/封面卡片）共用同一套開關。 */
+.row-select-checkbox,
+.book-gallery-checkbox {
+  display: none;
+}
+
+.dashboard-main.is-batch-mode .row-select-checkbox {
+  display: inline-block;
+}
+
+.dashboard-main.is-batch-mode .book-gallery-checkbox {
+  display: block;
 }
 
 /* .search-input 現在是外層的視覺容器（沿用它原本全站已經有的所有版面／
@@ -2636,16 +2754,6 @@ button.book-completed-date:hover {
   margin-bottom: 0.6rem;
   font-size: 0.85rem;
   color: var(--text-muted);
-}
-
-/* 心得輸入框原本包在 <label>「想寫點什麼都可以」裡，拿掉那行冗餘提示文字後
-   <label> 沒有可標示的文字內容、語意上不再適合，改用 .book-form label 同一份
-   排版間距的 <div>，視覺上維持跟其他欄位一致的垂直間距。 */
-.reflection-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 0.6rem;
 }
 
 .book-form label.field-required {
@@ -3814,156 +3922,15 @@ button.book-completed-date:hover {
   color: var(--icon-rose);
 }
 
-/* 心得輸入框上方的極簡工具列：小小一排圓角按鈕，份量刻意做輕，不搶輸入框本身的焦點。
-   明確寫死 pointer-events:auto／cursor:pointer，避免日後任何全域規則不小心蓋掉，
-   導致滑鼠事件被吃掉、原生 title 提示跟著一起失效。 */
-.md-toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-bottom: 0.35rem;
-  pointer-events: auto;
-}
-
-.md-tool-btn {
-  position: relative;
-  border: 1px solid var(--border-soft);
-  background: var(--surface);
-  color: var(--text-muted);
-  border-radius: 6px;
-  width: 1.8rem;
-  height: 1.8rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  pointer-events: auto;
-  line-height: 1;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-/* 自訂輕量 Tooltip，取代原生 title：:hover 是瀏覽器樣式渲染的一部分，沒有原生 title
-   那種 OS 層級的顯示延遲，滑鼠移上去幾乎當下就浮現。opacity 用極短的 transition
-   只是避免生硬地瞬間跳出（幾乎感覺不到），不是刻意做出等待時間。 */
-.md-tool-btn::after,
-.md-color-btn::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--text);
-  color: var(--surface);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  white-space: nowrap;
-  padding: 0.25rem 0.55rem;
-  border-radius: 4px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.08s ease;
-  z-index: 30;
-}
-
-.md-tool-btn:hover::after,
-.md-tool-btn:focus-visible::after,
-.md-color-btn:hover::after,
-.md-color-btn:focus-visible::after {
-  opacity: 1;
-}
-
-.md-tool-btn:hover {
-  background: var(--surface-alt);
-  color: var(--text);
-}
-
-.md-tool-btn[data-cmd="strike"] {
-  text-decoration: line-through;
-}
-
-.md-toolbar-divider {
-  width: 1px;
-  height: 1.3rem;
-  background: var(--border-soft);
-  margin: 0 0.15rem;
-}
-
-.md-color-group {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  pointer-events: auto;
-}
-
-/* 5 色文字顏色色票：18px 實心圓點，直接用 inline style 帶顏色（見 outputs.js），
-   hover 用縮放＋外圈提示可點擊，不像 .md-tool-btn 那樣改背景色——改背景會蓋住色點本身的顏色。 */
-.md-color-btn {
-  position: relative;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 2px solid var(--surface);
-  border-radius: 50%;
-  cursor: pointer;
-  pointer-events: auto;
-  box-shadow: 0 0 0 1px var(--border-soft);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.md-color-btn:hover {
-  transform: scale(1.15);
-  box-shadow: 0 0 0 1px var(--text-muted);
-}
-
-/* 所見即所得輸入區：真正的 contenteditable，粗體/斜體/標題/條列/螢光標記點下去
-   當場就是最終樣子，不會再看到 **這種原始碼符號**。line-height 用無單位數字（不是固定 px），
-   字級縮放時行距會照比例一起變，不會出現字放大後行跟行疊在一起的狀況。 */
-.reflection-editor {
-  min-height: 4.5rem;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.95rem;
-  font-family: inherit;
-  line-height: 1.6;
-  outline: none;
-}
-
-.reflection-editor:focus {
-  border-color: var(--color-primary-accent);
-  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
-  transition: all 0.2s ease;
-}
-
-.reflection-editor.is-empty::before {
-  content: attr(data-placeholder);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.reflection-editor p {
-  margin: 0.2rem 0;
-}
-
-.reflection-editor h2 {
-  margin: 0.4rem 0 0.2rem;
-  font-size: 1.05rem;
-  color: var(--text);
-}
-
-.reflection-editor ul,
-.reflection-editor ol {
-  margin: 0.3rem 0;
-  padding-left: 1.3rem;
-}
-
-/* 心得列表顯示：新格式（WYSIWYG 存下來的 HTML）直接吃這裡的 h2/ul/p 標籤樣式；
-   .reflection-line／.reflection-heading／.reflection-list 是舊格式（改版前的
-   Markdown 純文字）解析出來的固定 class，兩套並存，互不干擾。 */
-.reflection-body,
-.reflection-editor {
+/* 心得列表顯示：新格式（合併前 WYSIWYG 所見即所得輸入框存下來的 HTML，見
+   outputs.js 的 renderStoredReflectionHtml）直接吃這裡的 h2/ul/p 標籤樣式；
+   .reflection-line／.reflection-heading／.reflection-list 是更早一輪改版前
+   （純 Markdown 文字語法）解析出來的固定 class，兩套並存，互不干擾。這裡
+   顯示用的規則保留——既有的舊心得資料還是要正常顯示；輸入階段的
+   .reflection-editor／.md-toolbar 這批「所見即所得輸入框」專屬樣式已經隨著
+   「閱讀後輸出」跟「快速筆記」合併成 notes.js 的單一乾淨文字輸入框一起
+   刪除（新增筆記一律走 <textarea>，不再需要 contenteditable／格式化工具列）。 */
+.reflection-body {
   line-height: 1.6;
 }
 
@@ -4000,8 +3967,7 @@ button.book-completed-date:hover {
   padding-left: 1.3rem;
 }
 
-.reflection-body mark,
-.reflection-editor mark {
+.reflection-body mark {
   background: var(--gold);
   color: var(--text);
   padding: 0 0.15rem;

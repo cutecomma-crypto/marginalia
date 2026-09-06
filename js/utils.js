@@ -304,7 +304,7 @@ window.addEventListener('hashchange', () => {
 // 呼叫端在畫面上有輸入框時呼叫一次，isDirty() 回傳目前這個輸入框是否有
 // 未儲存的修改。回傳 unregister()：存檔成功後、或者這個區塊即將重新渲染
 // 產生一份新的 isDirty 閉包之前呼叫，把舊的這一份從 registry 移除——
-// renderReflections()／renderNotesSection() 這類函式常常在新增/刪除其他
+// renderPersonalNotes()（notes.js）這類函式常常在新增/刪除其他
 // 項目時重新呼叫自己好幾次，忘記 unregister() 的話會讓 registry 裡累積一堆
 // 讀著已經被換掉、不會再更新的舊輸入框內容的閉包，可能永遠卡在「回報有未
 // 儲存內容」的假警報。

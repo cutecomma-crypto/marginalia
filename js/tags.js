@@ -1,8 +1,12 @@
 import { DB } from './db.js';
 import { escapeHtml, extractHashtags, renderTextWithHashtags } from './utils.js';
-import { ICON_QUOTE, ICON_PEN_LINE, ICON_NOTEBOOK } from './icons.js';
+import { ICON_QUOTE, ICON_NOTEBOOK } from './icons.js';
 
-const KIND_LABEL = { quote: `${ICON_QUOTE}佳句摘錄`, reflection: `${ICON_PEN_LINE}閱讀後輸出`, note: `${ICON_NOTEBOOK}快速筆記` };
+// 「閱讀後輸出」跟「快速筆記」已經合併成書籍詳情頁的單一個「個人筆記」分頁
+// （見 notes.js 的 renderPersonalNotes），這裡的標籤只是給標籤搜尋結果分類用，
+// 兩種來源資料（reflection／note）不再需要分開的中文標籤跟圖示，統一顯示成
+// 「個人筆記」，不然使用者會在搜尋結果裡看到一個畫面上已經不存在的分頁名稱。
+const KIND_LABEL = { quote: `${ICON_QUOTE}佳句摘錄`, reflection: `${ICON_NOTEBOOK}個人筆記`, note: `${ICON_NOTEBOOK}個人筆記` };
 
 function resultItemHtml(kind, text, bookId, extraHtml) {
   const href = kind === 'quote' ? `#/books/${bookId}/quotes` : `#/books/${bookId}`;

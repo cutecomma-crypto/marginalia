@@ -1,22 +1,39 @@
 import { DB } from './db.js';
 import { escapeHtml, renderTextWithHashtags, showToast, confirmModal, guardUnsavedChanges } from './utils.js';
 import { ICON_NOTEBOOK, ICON_LIGHTBULB, ICON_EDIT, ICON_DELETE } from './icons.js';
+import { attachSelectionToolbar } from './services/selectionToolbarService.js';
+import { getOutputsByKind, renderLegacyReflectionItem } from './outputs.js';
 
-// 對照 PROJECT_SPEC.md 第 7 節：儲存當下不要求分類／標籤／關聯，之後才由系統協助辨識（P1 以後）。
+// 「UI 極簡化」精簡：原本分開的「快速筆記」（這個檔案）跟「閱讀後輸出」
+// （outputs.js 的所見即所得表單）合併成單一個「個人筆記」區塊，介面上只留
+// 一個乾淨的純文字輸入框——不再有兩組各自獨立的表單、標題、心得標籤、
+// 格式化工具列。既有的兩種資料完全不遷移、不刪除：notes 表跟 outputs 表
+// （kind='reflection'）都繼續留著原本的欄位與內容，這裡只是把「讀取」跟
+// 「新增」的入口收斂成一個——新增一律寫進 notes 表（本來就是比較單純的
+// 那張表，之後也只有一種資料格式要維護），既有的 outputs 心得資料則繼續用
+// outputs.js 匯出的 renderLegacyReflectionItem() 顯示（標籤 chip／HTML或
+// Markdown 相容內文／可調整日期都保留），兩種來源合併成同一份時間排序清單。
 async function getNotesForBook(bookId) {
   const notes = await DB.getByIndex('notes', 'bookId', bookId);
-  notes.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  return notes;
+  return notes.map((n) => ({ ...n, _source: 'notes' }));
+}
+
+async function getLegacyReflectionsForBook(bookId) {
+  const reflections = await getOutputsByKind(bookId, 'reflection');
+  return reflections.map((r) => ({ ...r, _source: 'outputs' }));
 }
 
 // isEditing：這張卡片是不是正在被編輯——是的話整個 <p> 內文換成一個帶原始
 // 內容的 <textarea>，右上角的「編輯／刪除」也換成「儲存／取消」，跟原本
 // 唯讀狀態共用同一個 .output-item 外殼／同一組按鈕定位規則，只是內容跟按鈕
-// 文字不同，不需要另外寫一套完全獨立的卡片樣板。
+// 文字不同，不需要另外寫一套完全獨立的卡片樣板。舊 outputs 資料沒有這個
+// 行內編輯功能（沿用合併前就有的限制，見 outputs.js 的 renderLegacyReflectionItem），
+// 只有 notes 來源的項目會走這裡。data-source="notes"：跟舊 outputs 項目共用
+// 同一批 .output-delete class，靠這個屬性分流刪除時該動哪張表。
 function noteItem(note, isEditing) {
   if (isEditing) {
     return `
-      <div class="output-item" data-id="${note.id}">
+      <div class="output-item" data-id="${note.id}" data-source="notes">
         <div class="output-item-actions">
           <button type="button" class="btn btn-primary output-save-edit" data-id="${note.id}">儲存</button>
           <button type="button" class="btn output-cancel-edit" data-id="${note.id}">取消</button>
@@ -27,10 +44,10 @@ function noteItem(note, isEditing) {
     `;
   }
   return `
-    <div class="output-item" data-id="${note.id}">
+    <div class="output-item" data-id="${note.id}" data-source="notes">
       <div class="output-item-actions">
         <button type="button" class="btn output-edit" data-id="${note.id}" title="編輯">${ICON_EDIT}</button>
-        <button type="button" class="btn btn-danger output-delete" data-id="${note.id}" title="刪除">${ICON_DELETE}</button>
+        <button type="button" class="btn btn-danger output-delete" data-id="${note.id}" data-source="notes" title="刪除">${ICON_DELETE}</button>
       </div>
       <p>${renderTextWithHashtags(note.text)}</p>
       <div class="output-date">${escapeHtml((note.createdAt || '').slice(0, 10))}</div>
@@ -40,22 +57,29 @@ function noteItem(note, isEditing) {
 
 // editingId：目前正在編輯中的那一條筆記 id（同一時間只開放編輯一條，符合
 // 一般「行內編輯」的直覺——同時開兩條編輯欄容易搞不清楚哪個「儲存」對應
-// 哪一條）。整個函式每次都會重新從資料庫抓一次最新的筆記列表（跟既有的
+// 哪一條）。整個函式每次都會重新從資料庫抓一次最新的合併清單（跟既有的
 // 新增／刪除操作完全同一套模式），editingId 只是額外告訴 noteItem() 要把
 // 哪一張卡片換成編輯狀態，取消編輯不需要另外寫回資料庫，直接重繪回唯讀
 // 狀態即可。
-export async function renderNotesSection(container, bookId, { editingId = null } = {}) {
+// onQuoteAdded：合併後這裡也接手了原本「閱讀後輸出」選取文字存成佳句的
+// 功能（見下面 attachSelectionToolbar）——存完一句佳句要通知外層
+// （bookDetail.js 的 refreshQuotesTab）同步更新「佳句摘錄」分頁，做法完全
+// 沿用 outputs.js 原本 renderReflections() 的那一套。
+export async function renderPersonalNotes(container, bookId, { editingId = null, onQuoteAdded } = {}) {
   // 這個函式在新增／刪除／編輯筆記時會重新呼叫自己好幾次，每次都整個重繪
   // DOM——先清掉上一次殘留的 guardUnsavedChanges() 監聽器，不然它還讀著
   // 已經被換掉的舊輸入框內容，可能一路累加、卡在假警報（同一個成因跟
-  // outputs.js 的 renderReflections()／bookList.js 的 inline-status-popover
-  // 都處理過的問題一樣）。
+  // bookList.js 的 inline-status-popover 都處理過的問題一樣）。
   container._unsavedGuardDestroy?.();
-  const notes = await getNotesForBook(bookId);
+  const [notes, reflections] = await Promise.all([
+    getNotesForBook(bookId),
+    getLegacyReflectionsForBook(bookId),
+  ]);
+  const merged = [...notes, ...reflections].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
   container.innerHTML = `
     <div class="notes-section">
-      <h4 class="section-heading icon-heading">${ICON_NOTEBOOK}快速筆記</h4>
+      <h4 class="section-heading icon-heading">${ICON_NOTEBOOK}個人筆記</h4>
       <form id="note-form" class="book-form">
         <label>想到什麼就先寫下來，之後再整理
           <textarea name="text" rows="2" placeholder="例如：這裡提到榮格，感覺跟之前看的那本書有關"></textarea>
@@ -66,7 +90,9 @@ export async function renderNotesSection(container, bookId, { editingId = null }
         </div>
       </form>
       <div class="output-list">
-        ${notes.length === 0 ? '<p class="empty">還沒有任何筆記。</p>' : notes.map((note) => noteItem(note, note.id === editingId)).join('')}
+        ${merged.length === 0
+          ? '<p class="empty">還沒有任何筆記。</p>'
+          : merged.map((item) => (item._source === 'notes' ? noteItem(item, item.id === editingId) : renderLegacyReflectionItem(item))).join('')}
       </div>
     </div>
   `;
@@ -88,7 +114,7 @@ export async function renderNotesSection(container, bookId, { editingId = null }
     if (!text) return;
     await DB.add('notes', { bookId, text });
     isDirty = false;
-    await renderNotesSection(container, bookId);
+    await renderPersonalNotes(container, bookId, { onQuoteAdded });
   });
 
   textarea.addEventListener('keydown', (event) => {
@@ -97,6 +123,8 @@ export async function renderNotesSection(container, bookId, { editingId = null }
     }
   });
 
+  // 刪除：notes／舊 outputs 兩種來源共用同一顆 .output-delete 按鈕，靠
+  // data-source 決定要對哪張表下 DB.remove，不用另外寫兩套幾乎一樣的邏輯。
   container.querySelectorAll('.output-delete').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const confirmed = await confirmModal({
@@ -107,20 +135,23 @@ export async function renderNotesSection(container, bookId, { editingId = null }
         danger: true,
       });
       if (!confirmed) return;
-      await DB.remove('notes', Number(btn.dataset.id));
-      await renderNotesSection(container, bookId);
+      await DB.remove(btn.dataset.source, Number(btn.dataset.id));
+      await renderPersonalNotes(container, bookId, { onQuoteAdded });
     });
   });
 
+  // 行內編輯／日期調整：只有 notes 來源的項目才有 .output-edit 按鈕（見
+  // noteItem()），舊 outputs 心得項目沒有這幾個 class，底下這幾段
+  // querySelectorAll 自然不會選到，不用另外判斷來源。
   container.querySelectorAll('.output-edit').forEach((btn) => {
     btn.addEventListener('click', () => {
-      renderNotesSection(container, bookId, { editingId: Number(btn.dataset.id) });
+      renderPersonalNotes(container, bookId, { editingId: Number(btn.dataset.id), onQuoteAdded });
     });
   });
 
   container.querySelectorAll('.output-cancel-edit').forEach((btn) => {
     btn.addEventListener('click', () => {
-      renderNotesSection(container, bookId);
+      renderPersonalNotes(container, bookId, { onQuoteAdded });
     });
   });
 
@@ -136,7 +167,7 @@ export async function renderNotesSection(container, bookId, { editingId = null }
       }
       await DB.update('notes', { ...note, text: newText, updatedAt: new Date().toISOString() });
       showToast('筆記已更新');
-      await renderNotesSection(container, bookId);
+      await renderPersonalNotes(container, bookId, { onQuoteAdded });
     });
   });
 
@@ -155,4 +186,31 @@ export async function renderNotesSection(container, bookId, { editingId = null }
       }
     });
   }
+
+  // 日期只有舊 outputs 心得項目才有（見 renderLegacyReflectionItem），
+  // 沿用它原本存在 outputs 表的行為，改了直接寫回 outputs，不動 notes。
+  container.querySelectorAll('.output-date-input').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const id = Number(input.dataset.id);
+      const item = reflections.find((r) => r.id === id);
+      if (!item) return;
+      await DB.update('outputs', { ...item, date: input.value });
+    });
+  });
+
+  // 選取已儲存的筆記／心得文字時跳出懸浮工具列（高亮／朗讀／複製），沿用
+  // outputs.js 原本「閱讀後輸出」就有的功能——合併後 notes 來源的內容也
+  // 一併擁有這個能力，不是只有舊心得才能劃線存成佳句。「高亮」在這裡的
+  // 意思是把選到的句子存成一句新的佳句摘錄，沿用 quotes.js 既有的資料結構，
+  // 不是畫面上疊一層存不下來的顏色。
+  const outputListEl = container.querySelector('.output-list');
+  attachSelectionToolbar(outputListEl, {
+    onHighlight: async (selectedText) => {
+      await DB.add('quotes', { bookId, content: selectedText });
+      showToast('已加入佳句摘錄');
+      // 存完立刻讓「佳句摘錄」分頁的數量／列表同步更新，不用使用者自己重新
+      // 整理整頁才看得到剛剛存的這句——見 bookDetail.js 的 refreshQuotesTab() 說明。
+      await onQuoteAdded?.();
+    },
+  });
 }
