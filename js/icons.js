@@ -62,3 +62,5 @@ export const ICON_CLIPBOARD = icon('<rect x="8" y="2" width="8" height="4" rx="1
 export const ICON_HIGHLIGHTER = icon('<path d="m9 11-6 6v3h3l6-6"></path><path d="m14 3 7 7-4 4-7-7z"></path>');
 
 export const ICON_USER = icon('<path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="9" r="5"></circle>');
+
+export const ICON_X = icon('<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>');

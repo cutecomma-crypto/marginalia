@@ -1,6 +1,6 @@
 import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml, showToast } from './utils.js';
+import { escapeHtml, showToast, wireSearchClear } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
 import { patchRetentionCountBadge } from './stats.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
@@ -440,7 +440,10 @@ export async function renderBookList(container) {
           <button type="button" class="clear-filters-btn" id="clear-filters-btn">${CLOSE_ICON}清除篩選</button>
         </div>
         <div class="search-row">
-          <input type="search" id="book-search" class="search-input" placeholder="搜尋書名、作者、#標籤，或筆記／佳句內容…">
+          <div class="search-input">
+            <input type="search" id="book-search" class="search-input-field" placeholder="搜尋書名、作者、#標籤，或筆記／佳句內容…">
+            <button type="button" class="search-clear-btn" aria-label="清空搜尋" hidden></button>
+          </div>
           <select id="book-sort-select" class="sort-select">
             ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
           </select>
@@ -463,6 +466,7 @@ export async function renderBookList(container) {
   const clearFiltersBtn = container.querySelector('#clear-filters-btn');
   const viewModeBtn = container.querySelector('#view-mode-toggle-btn');
   const searchInput = container.querySelector('#book-search');
+  wireSearchClear(container);
   const sortSelect = container.querySelector('#book-sort-select');
   const pageSizeSelect = container.querySelector('#book-page-size-select');
   const bodyEl = container.querySelector('#book-list-body');

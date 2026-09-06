@@ -193,6 +193,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
         <legend class="icon-heading">${ICON_BOOK_OPEN}書籍基本資料</legend>
         <div class="basic-fields-col">
           <label class="field-required" for="field-title">書名 *<input id="field-title" name="title" required value="${escapeHtml(book.title)}" placeholder="這本書叫什麼名字？"></label>
+          <p class="field-hint field-warning" id="title-duplicate-warning" hidden>資料庫中已存在同名書籍</p>
           <div class="basic-fields-row">
             <label for="field-author">作者
               <span class="author-input-row">
@@ -306,6 +307,19 @@ export async function renderBookForm(container, rawId) {
   wireCoverUpload(form);
   wireCategorySelect(form.elements.category);
   wireSourceAndRetentionToggles(form);
+
+  // 關鍵字與書籍新增防呆（Duplicate Check）：輸入書名時即時比對現有藏書庫，
+  // 完全同名（去頭尾空白）就顯示提醒——只是提醒，不阻擋送出，使用者可能真的
+  // 就是收了兩本同名書（例如不同版本／譯者），不強制當成錯誤處理。編輯既有
+  // 書籍時要排除自己本身，不然書名沒改也會對著自己跳出「已存在同名書籍」。
+  const allBooks = await DB.getAll('books');
+  const titleInput = form.elements.title;
+  const titleWarningEl = container.querySelector('#title-duplicate-warning');
+  titleInput.addEventListener('input', () => {
+    const value = titleInput.value.trim();
+    const isDuplicate = value.length > 0 && allBooks.some((b) => b.id !== bookId && (b.title || '').trim() === value);
+    titleWarningEl.hidden = !isDuplicate;
+  });
 
   const authorInput = form.elements.author;
   const favoriteBtn = container.querySelector('#author-favorite-btn');

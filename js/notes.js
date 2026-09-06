@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml, renderTextWithHashtags, showToast, confirmModal } from './utils.js';
+import { escapeHtml, renderTextWithHashtags, showToast, confirmModal, guardUnsavedChanges } from './utils.js';
 import { ICON_NOTEBOOK, ICON_LIGHTBULB, ICON_EDIT, ICON_DELETE } from './icons.js';
 
 // 對照 PROJECT_SPEC.md 第 7 節：儲存當下不要求分類／標籤／關聯，之後才由系統協助辨識（P1 以後）。
@@ -45,6 +45,12 @@ function noteItem(note, isEditing) {
 // 哪一張卡片換成編輯狀態，取消編輯不需要另外寫回資料庫，直接重繪回唯讀
 // 狀態即可。
 export async function renderNotesSection(container, bookId, { editingId = null } = {}) {
+  // 這個函式在新增／刪除／編輯筆記時會重新呼叫自己好幾次，每次都整個重繪
+  // DOM——先清掉上一次殘留的 guardUnsavedChanges() 監聽器，不然它還讀著
+  // 已經被換掉的舊輸入框內容，可能一路累加、卡在假警報（同一個成因跟
+  // outputs.js 的 renderReflections()／bookList.js 的 inline-status-popover
+  // 都處理過的問題一樣）。
+  container._unsavedGuardDestroy?.();
   const notes = await getNotesForBook(bookId);
 
   container.innerHTML = `
@@ -68,11 +74,20 @@ export async function renderNotesSection(container, bookId, { editingId = null }
   const form = container.querySelector('#note-form');
   const textarea = form.elements.text;
 
+  // 未儲存內容離開防護（Unsaved Changes Guard）：打了字卻還沒按「儲存」就想
+  // 關分頁／重新整理／換網址，跳出瀏覽器原生的離開提醒。
+  let isDirty = false;
+  textarea.addEventListener('input', () => {
+    isDirty = textarea.value.trim() !== '';
+  });
+  container._unsavedGuardDestroy = guardUnsavedChanges(() => isDirty);
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const text = textarea.value.trim();
     if (!text) return;
     await DB.add('notes', { bookId, text });
+    isDirty = false;
     await renderNotesSection(container, bookId);
   });
 

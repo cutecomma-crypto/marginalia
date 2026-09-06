@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml, applyHashtagLinks, showToast, renderTagChip } from './utils.js';
+import { escapeHtml, applyHashtagLinks, showToast, renderTagChip, guardUnsavedChanges } from './utils.js';
 import { ICON_LIGHTBULB, ICON_PEN_LINE } from './icons.js';
 import { attachSelectionToolbar } from './services/selectionToolbarService.js';
 
@@ -381,6 +381,13 @@ function reflectionItem(item) {
 }
 
 export async function renderReflections(container, bookId, { onQuoteAdded } = {}) {
+  // 這個函式會在新增／刪除心得、或選取文字存成佳句之後重新呼叫自己好幾次
+  // （見下面 form submit／.output-delete／onQuoteAdded 呼叫端），每次重繪都
+  // 整個重新產生 DOM 跟 guardUnsavedChanges() 監聽器——先清掉上一次殘留的
+  // 那份，不然它還讀著已經被換掉、不會再更新的舊編輯區內容，可能一路累加、
+  // 甚至卡在「一直回報有未儲存內容」的假警報（同一個成因跟 bookList.js
+  // 的 inline-status-popover 曾經修過的問題一樣）。
+  container._unsavedGuardDestroy?.();
   const items = await getOutputsByKind(bookId, 'reflection');
   items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
@@ -439,9 +446,14 @@ export async function renderReflections(container, bookId, { onQuoteAdded } = {}
     wireToolbarButton(btn, () => document.execCommand('foreColor', false, btn.dataset.color));
   });
 
+  // 未儲存內容離開防護（Unsaved Changes Guard）：使用者在這個輸入框打了字
+  // 卻還沒按「新增」就想關分頁／重新整理／換網址，跳出瀏覽器原生的離開提醒。
+  let isDirty = false;
   editor.addEventListener('input', () => {
     editor.classList.toggle('is-empty', editor.textContent.trim() === '');
+    isDirty = editor.textContent.trim() !== '';
   });
+  container._unsavedGuardDestroy = guardUnsavedChanges(() => isDirty);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -454,6 +466,7 @@ export async function renderReflections(container, bookId, { onQuoteAdded } = {}
     // 現在進度模組跟這個表單同一個頁籤，使用者很可能剛改完日期就馬上寫心得。
     const date = await getDefaultReflectionDate(bookId);
     await DB.add('outputs', { bookId, kind: 'reflection', tags, text: plainText ? html : '', format: 'html', date });
+    isDirty = false;
     await renderReflections(container, bookId, { onQuoteAdded });
   });
 

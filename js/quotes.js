@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml, renderTextWithHashtags, confirmModal } from './utils.js';
+import { escapeHtml, renderTextWithHashtags, confirmModal, wireSearchClear } from './utils.js';
 
 // 頁碼欄位是自由文字（例如「45-47」），排序時只抓第一串數字當排序依據。
 function parsePageNumber(page) {
@@ -102,7 +102,10 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
       </div>
       <div class="quotes-page-list-col">
         <div class="quotes-toolbar">
-          <input type="search" id="quote-search" class="search-input" placeholder="搜尋佳句內容…">
+          <div class="search-input">
+            <input type="search" id="quote-search" class="search-input-field" placeholder="搜尋佳句內容…">
+            <button type="button" class="search-clear-btn" aria-label="清空搜尋" hidden></button>
+          </div>
           <select id="quote-sort" class="quote-sort-select">
             <option value="page">依頁碼排序</option>
             <option value="newest">依新增時間排序</option>
@@ -118,6 +121,7 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
   const listEl = container.querySelector('#quote-list');
   const countHint = container.querySelector('#quote-count-hint');
   const searchInput = container.querySelector('#quote-search');
+  wireSearchClear(container);
   const sortSelect = container.querySelector('#quote-sort');
 
   async function redrawList() {

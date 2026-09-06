@@ -1565,6 +1565,12 @@ header h1 a {
   margin-left: auto;
 }
 
+/* .search-input 現在是外層的視覺容器（沿用它原本全站已經有的所有版面／
+   斷點樣式，例如 max-width、行動裝置 width:100% !important 那些規則完全
+   不用改），真正的 <input> 換成裡面的 .search-input-field，本身不再有
+   邊框/底色，單純是一個透明填滿容器的文字輸入格——這是為了在輸入框右側
+   加一顆一鍵清空的 × 按鈕，兩者要放在同一個 flex 容器裡才能並排、又讓
+   輸入框跟過去一樣佔滿整條搜尋列。 */
 .search-input {
   width: 100%;
   max-width: 360px;
@@ -1572,9 +1578,78 @@ header h1 a {
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.9375rem;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   background: var(--surface);
   color: var(--text);
+}
+
+.search-input-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/* 全站表單 focus 樣式（見前面 input:focus 那條全域規則）本來是直接套在
+   <input> 自己的邊框上——這裡邊框搬到外層 .search-input 容器，改用
+   :focus-within 讓容器本身在裡面的輸入框聚焦時亮起同一套玫瑰棕柔光外框，
+   內層 .search-input-field 自己不再需要（也不應該再顯示）一份重複的
+   邊框/陰影，直接蓋掉全域規則在它身上的效果。 */
+.search-input:focus-within {
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+  transition: all 0.2s ease;
+}
+
+.search-input-field:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+/* 瀏覽器原生的 type="search" 內建清空叉叉（WebKit／Blink 才有，且様式因
+   系統而異、常常不明顯）跟這裡自訂的 .search-clear-btn 會變成兩顆叉叉疊在
+   一起，統一隱藏原生的那顆，讓畫面上永遠只有一顆、樣式一致的清空按鈕。 */
+.search-input-field::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-clear-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.search-clear-btn .ui-icon {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.search-clear-btn:hover {
+  background: var(--surface-alt);
+  color: var(--color-primary-accent);
+}
+
+.search-clear-btn[hidden] {
+  display: none;
 }
 
 .book-list-body {
@@ -2439,6 +2514,21 @@ button.book-completed-date:hover {
   color: var(--text);
   font-weight: 600;
   font-size: 0.92rem;
+}
+
+/* 表單欄位下方的輔助提示文字，跟 .hashtag-hint 同一套字級／間距語言（0.8125rem
+   的字級是「排版與字體系統」規範的微型元件底線，不能再更小）。.field-warning
+   是它的警示語氣版本——書名重複這種情況不是「不能存」的硬性錯誤（使用者可能
+   就是真的收了兩本同名書），用低飽和灰紅淡淡提示就好，不用 --danger 那支
+   鮮明的驗證錯誤紅，也不整組加底色框，維持「溫和提醒」而不是「阻擋」的份量感。 */
+.field-hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: -0.15rem 0 0.4rem;
+}
+
+.field-hint.field-warning {
+  color: var(--btn-danger-text);
 }
 
 .book-form label.checkbox {
