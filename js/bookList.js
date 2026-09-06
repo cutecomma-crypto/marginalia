@@ -1,6 +1,6 @@
 import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml, showToast, wireSearchClear } from './utils.js';
+import { escapeHtml, showToast, wireSearchClear, wireCoverImage } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
 import { patchRetentionCountBadge } from './stats.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
@@ -374,9 +374,17 @@ function paginationHtml(current, total) {
 const SORT_OPTIONS = [
   { value: 'created-desc', label: '建立時間：新到舊' },
   { value: 'created-asc', label: '建立時間：舊到新' },
-  { value: 'completed-desc', label: '完成時間：新到舊' },
-  { value: 'completed-asc', label: '完成時間：舊到新' },
+  { value: 'completed-desc', label: '完成日期：新到舊' },
+  { value: 'completed-asc', label: '完成日期：舊到新' },
+  { value: 'rating-desc', label: '評分：高到低' },
+  { value: 'title-asc', label: '書名：筆劃／字母 A-Z' },
 ];
+
+// 書名排序用 Intl.Collator 搭配 BCP 47 的 -u-co-stroke 擴充參數，指定中文
+// 用「筆劃」排序（不是瀏覽器預設常見的拼音排序）——同一顆 collator 物件
+// 拿英文書名比較一樣正常（回歸到一般字母序），不用另外為中英文分兩套邏輯。
+// 建在函式外層只需要建立一次，重複呼叫 sortBooks() 不用每次都重新初始化。
+const titleCollator = new Intl.Collator('zh-Hant-u-co-stroke', { sensitivity: 'base', numeric: true });
 
 function sortBooks(books, recordMap, sortMode) {
   const list = [...books];
@@ -400,6 +408,17 @@ function sortBooks(books, recordMap, sortMode) {
       if (!endA && endB) return 1;
       return (a.createdAt || '').localeCompare(b.createdAt || '');
     });
+  } else if (sortMode === 'rating-desc') {
+    // 沒評分（0 分／從沒設定過）一律排到最後面，不跟「評分低」混在一起——
+    // 「沒評分」代表使用者根本還沒讀完或懶得評，語意上不是「評 0 分」。
+    list.sort((a, b) => {
+      const ratingA = recordMap.get(a.id)?.rating || 0;
+      const ratingB = recordMap.get(b.id)?.rating || 0;
+      if (ratingA !== ratingB) return ratingB - ratingA;
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+  } else if (sortMode === 'title-asc') {
+    list.sort((a, b) => titleCollator.compare(a.title || '', b.title || ''));
   } else {
     list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // created-desc（預設）
   }
@@ -578,6 +597,7 @@ export async function renderBookList(container) {
       bodyEl.innerHTML = viewMode === 'gallery'
         ? bookGalleryHtml(pageItems, favoriteAuthors, recordMap)
         : bookTableHtml(pageItems, favoriteAuthors, recordMap);
+      bodyEl.querySelectorAll('.book-gallery-cover img').forEach(wireCoverImage);
       paginationEl.innerHTML = paginationHtml(currentPage, totalPages);
       paginationEl.querySelectorAll('[data-page]').forEach((btn) => {
         btn.addEventListener('click', () => {

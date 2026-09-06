@@ -1,5 +1,27 @@
 import { ICON_EYE, ICON_EYE_OFF, ICON_X } from './icons.js';
 
+// 封面圖片 Skeleton 骨架屏與 Fade-in（Image Progressive Loading）：呼叫端把
+// <img> 包一層 .cover-frame（或沿用本來就是固定尺寸容器的 .book-gallery-cover／
+// .cover-preview，見 css/styles.css 對應規則），渲染完 HTML 之後對每張 <img>
+// 呼叫一次這個函式——圖片真正解碼完成（或載入失敗）就補上 .is-loaded，觸發
+// CSS 的透明度淡入動畫，同時（透過 CSS 的 :has() 選擇器）讓外層容器的骨架屏
+// 動畫自動停止，不用另外寫一份「容器/圖片兩邊都要切換 class」的同步邏輯。
+// 這裡的封面是 data URI（FileReader 讀出來直接存進資料庫，不是遠端網址，
+// 見 bookForm.js 的上傳邏輯），瀏覽器不用等網路，但解碼＋排版還是需要一點
+// 時間——封面網格檢視一次擺出十幾張封面同時解碼時，沒有骨架屏會看起來
+// 「一格一格突然蹦出來」。img.complete 檢查是防呆：如果呼叫這個函式的當下
+// 圖片其實已經解碼完（常見於瀏覽器快取過的圖片），原生 load 事件不會再觸發
+// 第二次，直接補 class，不然骨架屏會卡住永遠不消失。
+export function wireCoverImage(img) {
+  if (!img) return;
+  if (img.complete && img.naturalWidth > 0) {
+    img.classList.add('is-loaded');
+    return;
+  }
+  img.addEventListener('load', () => img.classList.add('is-loaded'), { once: true });
+  img.addEventListener('error', () => img.classList.add('is-loaded'), { once: true });
+}
+
 export function escapeHtml(value) {
   if (value === undefined || value === null) return '';
   return String(value)
@@ -154,38 +176,91 @@ export function showToast(message, duration = 2600) {
   toastEl._hideTimer = setTimeout(() => toastEl.classList.remove('is-visible'), duration);
 }
 
-// 未儲存內容離開防護（Unsaved Changes Guard）：閱讀心得／筆記這類「打了字但
-// 還沒按儲存」的輸入框，使用者不小心關掉分頁、重新整理、或直接輸入別的網址時，
-// 內容會無聲無息整個不見——這裡掛一個 beforeunload 監聽器，只要呼叫端傳進來
-// 的 isDirty() 回傳 true，瀏覽器就會跳出自己原生的「異動可能不會儲存」提醒
-// 視窗，使用者確認要離開才會真的離開。
+// 未儲存內容離開防護（Unsaved Changes Guard）：閱讀心得／筆記／佳句這類「打了
+// 字但還沒按儲存」的輸入框，使用者不小心關掉分頁、重新整理、輸入別的網址、
+// 或在這個 hash 路由的單頁應用裡點到別的內部連結（書籍列表、別本書……）時，
+// 內容會無聲無息整個不見。
 //
+// 用一個模組層級的共用 registry（不是各自獨立掛一份監聽器）——同一頁可能
+// 同時有好幾個輸入框呼叫這個函式（心得編輯區、快速筆記、佳句表單都各自算
+// 一份未儲存狀態），只要其中任何一個回報 true，離開網站或切換內部路由都要
+// 攔下來問一次；三個實際的事件監聽器（beforeunload／hashchange／click）
+// 全部只在這個模組載入時掛一次，不會因為呼叫端重繪好幾次就跟著疊加。
+const unsavedGuards = new Set();
+const CONFIRM_LEAVE_MESSAGE = '目前還有尚未儲存的內容，確定要離開嗎？離開後這些修改會遺失。';
+
+function anyUnsavedDirty() {
+  for (const isDirty of unsavedGuards) {
+    if (isDirty()) return true;
+  }
+  return false;
+}
+
 // 瀏覽器安全限制：beforeunload 沒辦法自訂提示文字內容（各家瀏覽器早就統一
 // 改成顯示自己那句固定文案，忽略網站想塞的任何字串），這裡設 event.returnValue
-// 只是觸發提示視窗出現的標準寫法，不是真的要顯示這串文字。
-// beforeunload 只在「真的要離開這份文件」（關分頁／重新整理／換成別的網址）
-// 才會觸發——這個網站是 hash 路由的單頁應用，在同一份文件裡切到書籍列表、
-// 別本書之類的內部換頁，瀏覽器不會把它當成一次真正的 unload，這是預期中的
-// 瀏覽器行為，不是這裡漏掉沒處理。
-//
-// 回傳 destroy()：呼叫端存起來，在存檔成功、或者這個輸入框所在的畫面即將被
-// 換掉之前呼叫。另外自動掛一個「換頁（hashchange）就自我了斷」的保險——
-// 呼叫端渲染心得／筆記區塊的函式常常會在使用者新增/刪除其他項目時重新呼叫
-// 好幾次，忘記手動 destroy() 的話會一路累加監聽器，每一個都還讀著自己那份
-// 已經被換掉、不會再更新的舊輸入框內容，可能永遠卡在「回報有未儲存內容」
-// 的假警報——跟 bookList.js 的 inline-status-popover 曾經因為同樣理由
-// （單例／殘留物件在換頁後沒有跟著清掉）修過的問題是同一個成因。
-export function guardUnsavedChanges(isDirty) {
-  function beforeUnloadHandler(event) {
-    if (!isDirty()) return;
+// 只是觸發提示視窗出現的標準寫法。這條只在「真的要離開這份文件」（關分頁／
+// 重新整理／換成別的網址）才會觸發，涵蓋不到下面另外處理的內部 hash 換頁。
+window.addEventListener('beforeunload', (event) => {
+  if (!anyUnsavedDirty()) return;
+  event.preventDefault();
+  event.returnValue = '';
+});
+
+// 路由攔截（點內部連結的情境）：在 capture 階段攔一次點擊，能在 hash 真的
+// 換掉之前先問使用者，不會有「畫面已經跳走、又要跳回來」那種閃爍感。
+// capture:true 保證這個檢查一定搶在 app.js 的路由監聽器、或連結自己的
+// 預設行為之前執行。
+document.addEventListener('click', (event) => {
+  if (!anyUnsavedDirty()) return;
+  const link = event.target.closest('a[href^="#"]');
+  if (!link) return;
+  if (!window.confirm(CONFIRM_LEAVE_MESSAGE)) {
     event.preventDefault();
-    event.returnValue = '';
+    event.stopImmediatePropagation();
+    return;
   }
-  function destroy() {
-    window.removeEventListener('beforeunload', beforeUnloadHandler);
-    window.removeEventListener('hashchange', destroy);
+  // 使用者確認要離開：這一頁所有還在追蹤的未儲存狀態都已經跟使用者確認過
+  // 「不要了」，一併清空，不然離開後 hashchange 監聽器還會再問一次
+  // （下面那條是最後一道防線，理論上不會再被觸發到，但兩者用同一份
+  // registry，這裡沒清的話還是會誤觸發）。
+  unsavedGuards.clear();
+}, true);
+
+// 保底防線：瀏覽器上一頁/下一頁按鈕、或程式碼直接改 window.location.hash
+// 這類不會經過上面點擊攔截的內部換頁方式，hashchange 事件觸發時 hash 其實
+// 已經換過去了——沒辦法真的「攔下來」，只能問使用者、選擇「不要離開」的話
+// 把網址列的 hash 復原成換頁前的樣子（畫面本身還是舊頁面，因為程式碼還沒
+// 執行到重新渲染新頁面那一步，只有網址列的 hash 字串已經變了，復原後跟
+// 畫面重新一致）。
+let lastConfirmedHash = window.location.hash;
+let suppressNextHashCheck = false;
+window.addEventListener('hashchange', () => {
+  if (suppressNextHashCheck) {
+    suppressNextHashCheck = false;
+    lastConfirmedHash = window.location.hash;
+    return;
   }
-  window.addEventListener('beforeunload', beforeUnloadHandler);
-  window.addEventListener('hashchange', destroy, { once: true });
-  return destroy;
+  if (!anyUnsavedDirty()) {
+    lastConfirmedHash = window.location.hash;
+    return;
+  }
+  if (window.confirm(CONFIRM_LEAVE_MESSAGE)) {
+    unsavedGuards.clear();
+    lastConfirmedHash = window.location.hash;
+    return;
+  }
+  suppressNextHashCheck = true;
+  window.location.hash = lastConfirmedHash;
+});
+
+// 呼叫端在畫面上有輸入框時呼叫一次，isDirty() 回傳目前這個輸入框是否有
+// 未儲存的修改。回傳 unregister()：存檔成功後、或者這個區塊即將重新渲染
+// 產生一份新的 isDirty 閉包之前呼叫，把舊的這一份從 registry 移除——
+// renderReflections()／renderNotesSection() 這類函式常常在新增/刪除其他
+// 項目時重新呼叫自己好幾次，忘記 unregister() 的話會讓 registry 裡累積一堆
+// 讀著已經被換掉、不會再更新的舊輸入框內容的閉包，可能永遠卡在「回報有未
+// 儲存內容」的假警報。
+export function guardUnsavedChanges(isDirty) {
+  unsavedGuards.add(isDirty);
+  return () => unsavedGuards.delete(isDirty);
 }

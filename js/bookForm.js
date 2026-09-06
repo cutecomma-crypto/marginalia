@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { STATUS_OPTIONS } from './readingRecords.js';
 import { MOTIVATION_TAGS } from './outputs.js';
 import { getFavoriteAuthorMap, toggleFavoriteAuthor } from './authors.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, wireCoverImage } from './utils.js';
 import { ICON_BOOK_OPEN, ICON_CART, ICON_BOOK, ICON_IMAGE, ICON_DELETE } from './icons.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 
@@ -108,6 +108,8 @@ function wireCoverUpload(form) {
   const changeBtn = form.querySelector('#cover-change-btn');
   const removeBtn = form.querySelector('#cover-remove-btn');
 
+  wireCoverImage(preview.querySelector('img'));
+
   // 部分手機瀏覽器在關閉「分類」這種選項很多的原生下拉選單時，偶爾會把關閉當下的觸控事件
   // 誤判成點在下面緊鄰的檔案輸入框上，憑空跳出選擇檔案視窗。這裡不管實際成因是什麼，
   // 只要是「分類」欄位剛互動完的一小段時間內，一律擋掉檔案輸入框的點擊，從根本阻止誤觸。
@@ -135,6 +137,7 @@ function wireCoverUpload(form) {
       const dataUrl = await resizeImageToDataUrl(file, 500, 0.82);
       valueInput.value = dataUrl;
       preview.innerHTML = `<img src="${dataUrl}" alt="封面預覽">`;
+      wireCoverImage(preview.querySelector('img'));
       uploadBtn.hidden = true;
       changeBtn.hidden = false;
       removeBtn.hidden = false;

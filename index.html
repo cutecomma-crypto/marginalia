@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Marginalia</title>
+<script>
+// 深夜莫蘭迪配色方案：在任何 CSS／模組化 JS 載入之前，同步讀一次 localStorage
+// 裡存的主題偏好、把 data-theme 屬性補上 <html>——一定要用這種不經過
+// type="module"（本身就是 defer，會等整份文件解析完才執行）的普通同步
+// <script>，而且放在 <head> 最前面幾行，才能在瀏覽器真正畫出第一張畫面
+// 之前就決定好主題，不然使用者選了深色模式，每次重新整理都會先看到一瞬間
+// 的淺色畫面才「跳」成深色（Flash of Unstyled/Wrong Theme），視覺上很刺眼。
+(function() {
+  try {
+    if (localStorage.getItem('marginalia:theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  } catch (e) {}
+})();
+</script>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="css/styles.css">
@@ -19,6 +34,7 @@
   </div>
   <div class="header-right">
     <nav><a href="#/backup">資料管理</a></nav>
+    <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" title="切換日／夜間模式" aria-label="切換日／夜間模式"></button>
     <div id="auth-status-slot" class="auth-status-slot"></div>
   </div>
 </header>

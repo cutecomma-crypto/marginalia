@@ -64,3 +64,7 @@ export const ICON_HIGHLIGHTER = icon('<path d="m9 11-6 6v3h3l6-6"></path><path d
 export const ICON_USER = icon('<path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="9" r="5"></circle>');
 
 export const ICON_X = icon('<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>');
+
+export const ICON_SUN = icon('<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>');
+
+export const ICON_MOON = icon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>');

@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { escapeHtml, renderTextWithHashtags, confirmModal, wireSearchClear } from './utils.js';
+import { escapeHtml, renderTextWithHashtags, confirmModal, wireSearchClear, guardUnsavedChanges } from './utils.js';
 
 // 頁碼欄位是自由文字（例如「45-47」），排序時只抓第一串數字當排序依據。
 function parsePageNumber(page) {
@@ -79,6 +79,11 @@ function quoteEditFormHtml(quote) {
 // 不吃 book 這個參數——原本只有「匯出文字檔／Markdown」需要書名，兩個匯出
 // 按鈕都拿掉之後，這個函式只需要 bookId 就能運作。
 export async function renderQuotesWorkspace(container, bookId, options = {}) {
+  // 呼叫端（bookDetail.js 的 refreshDetail()）在某些操作後會整頁重新渲染，
+  // 導致這個函式被重新呼叫一次——先清掉上一次殘留的未儲存內容守衛，不然它
+  // 還讀著已經被換掉的舊表單內容（同一個成因跟 outputs.js／notes.js 處理過
+  // 的問題一樣）。
+  container._unsavedGuardDestroy?.();
   const onCountChange = options.onCountChange || (() => {});
   let editingId = null;
   let searchQuery = '';
@@ -220,6 +225,14 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
     });
   }
 
+  // 未儲存內容離開防護（Unsaved Changes Guard）：「新增佳句」欄位打了字卻還沒
+  // 送出就想離開，跳出提醒（見 utils.js 的 guardUnsavedChanges 完整說明）。
+  let isDirty = false;
+  form.elements.content.addEventListener('input', () => {
+    isDirty = form.elements.content.value.trim() !== '';
+  });
+  container._unsavedGuardDestroy = guardUnsavedChanges(() => isDirty);
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const content = form.elements.content.value.trim();
@@ -227,6 +240,7 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
     const page = form.elements.page.value.trim();
     await DB.add('quotes', { bookId, content, page });
     form.reset();
+    isDirty = false;
     await redrawList();
   });
 

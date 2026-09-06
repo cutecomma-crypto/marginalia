@@ -104,6 +104,49 @@
   --border-hairline: rgba(0, 0, 0, 0.06);
 }
 
+/* 深夜莫蘭迪配色方案（Dark Morandi Mode）：只覆寫上面 :root 已經定義過的
+   design tokens，不新增另一套獨立的深色樣式——這份檔案這幾輪色彩巡檢／
+   CSS 變數重構下來，全站絕大多數顏色早就收斂成引用這批 token（背景、卡片、
+   文字、邊框、標籤、按鈕……），這裡改個變數值就能讓那些地方全部自動跟著
+   變成深色，不用重新逐一改寫每一條規則。用 [data-theme="dark"] 屬性
+   （掛在 <html> 上，見 js/theme.js）而不是 prefers-color-scheme 媒體查詢——
+   使用者要的是一顆自己按的太陽/月亮開關＋存進 localStorage 記住選擇，
+   不是純粹跟隨系統設定，兩者是不同的需求。
+   少數幾處寫死 hex 色碼、沒有走 token 的舊規則（例如願望清單卡片、書籍
+   列表隔行网格背景）不在這次全站色彩巡檢的範圍內，深色模式下這幾處會
+   維持原本的淺色，是已知、刻意接受的範圍邊界，不是遺漏。 */
+:root[data-theme="dark"] {
+  --bg: #1f1d1b;
+  --surface: #2a2725;
+  --surface-alt: #332f2c;
+  --border: rgba(232, 228, 220, 0.16);
+  --border-soft: rgba(232, 228, 220, 0.1);
+  --border-hairline: rgba(232, 228, 220, 0.08);
+  --text: #e8e4dc;
+  --text-muted: #a8a196;
+  --primary: #d9c2b4;
+  --primary-hover: #e8d5c9;
+  --primary-soft: #3a332e;
+  --color-primary-accent: #c9938a;
+  --color-tag-bg: #3a332e;
+  --color-tag-active-text: #1f1d1b;
+  --color-tag-text: #d9c9be;
+  --icon-rose-soft: #4a3b37;
+  --btn-bg: #332f2c;
+  --btn-danger-bg: #4a332f;
+  --btn-danger-text: #e0a199;
+  --tag-inactive-border: #4a433d;
+  --tab-active-bg: #3a332e;
+  --accent-green: #9bb08e;
+  --accent-green-soft: #333a2e;
+  --danger: #e0a199;
+  --danger-soft: #4a332f;
+  --gold: #e0b876;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --shadow-glass: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -243,6 +286,35 @@ header nav a {
   display: flex;
   align-items: center;
   gap: 1.25rem;
+}
+
+/* 深夜莫蘭迪配色方案的太陽/月亮開關：跟旁邊的「資料管理」文字連結、登入
+   狀態徽章同一列，份量刻意做得低調（透明底、細邊框），不搶走這兩個原本
+   就在這裡的元素的視覺重量，滑過才亮起玫瑰棕。 */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle-btn .ui-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.theme-toggle-btn:hover {
+  color: var(--color-primary-accent);
+  border-color: var(--color-primary-accent);
+  background: var(--icon-rose-soft);
 }
 
 .auth-login-btn {
@@ -3213,6 +3285,24 @@ button.book-completed-date:hover {
   margin-top: 0.75rem;
 }
 
+/* 書籍詳情頁的封面沒有像 .book-gallery-cover／.cover-preview 那樣天生就有
+   一個固定尺寸的外層容器可以掛骨架屏——.cover-frame 是專門為了這裡補上的
+   薄殼，inline-block 讓它自動貼合 <img> 本身的尺寸（.book-cover-image 已經
+   有明確的 width/height，殼不用重複寫一次），純粹提供「圖片還沒淡入之前
+   露出骨架屏底色」需要的定位/裁切基準。 */
+.cover-frame {
+  display: inline-block;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.cover-frame:has(img:not(.is-loaded)) {
+  background: linear-gradient(90deg, var(--surface-alt) 25%, var(--border-soft) 37%, var(--surface-alt) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
 .book-cover-image {
   width: 110px;
   height: 156px;
@@ -3221,6 +3311,12 @@ button.book-completed-date:hover {
   border: 1px solid var(--border-soft);
   box-shadow: 0 4px 14px rgba(61, 51, 42, 0.18);
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.book-cover-image.is-loaded {
+  opacity: 1;
 }
 
 /* 放大到 140x196（維持原本 5:7 的書封比例），加上立體陰影，讓右側卡片裡的封面
@@ -3239,10 +3335,22 @@ button.book-completed-date:hover {
   flex-shrink: 0;
 }
 
+.cover-preview:has(img:not(.is-loaded)) {
+  background: linear-gradient(90deg, var(--surface-alt) 25%, var(--border-soft) 37%, var(--surface-alt) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
 .cover-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cover-preview img.is-loaded {
+  opacity: 1;
 }
 
 .cover-preview-empty {
@@ -5470,10 +5578,33 @@ button.book-completed-date:hover {
   background: var(--surface-alt);
 }
 
+/* 封面圖片 Skeleton 骨架屏（見 js/utils.js 的 wireCoverImage() 完整說明）：
+   :has() 讀「這個容器裡面是不是還有一張沒補上 .is-loaded 的 <img>」，
+   有的話疊一層低彩度莫蘭迪灰的橫向微光掃過動畫；圖片一補上 .is-loaded，
+   :has() 條件不再成立，動畫自動停掉，不用另外寫 JS 去同步切換容器本身的
+   class。沒有封面、顯示書本圖示佔位的卡片本來就沒有 <img>，:has() 天生
+   不會命中，不會誤把「本來就沒有封面」的卡片也套上骨架屏動畫。 */
+.book-gallery-cover:has(img:not(.is-loaded)) {
+  background: linear-gradient(90deg, var(--surface-alt) 25%, var(--border-soft) 37%, var(--surface-alt) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
 .book-gallery-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.book-gallery-cover img.is-loaded {
+  opacity: 1;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .book-gallery-cover-placeholder {

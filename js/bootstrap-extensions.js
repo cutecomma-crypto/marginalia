@@ -18,6 +18,7 @@ import { startAutoLocalBackup } from './services/localBackupService.js';
 import { migrateLegacyCategoryNames } from './categories.js';
 import { migrateLegacyBookFields } from './bookForm.js';
 import { initAuthUI } from './authUI.js';
+import { initThemeToggle } from './theme.js';
 
 export async function gatherAllData() {
   const data = {};
@@ -95,4 +96,5 @@ initWebDavAutoSync();
 initCategoryMigration();
 initBookFieldMigration();
 initAuthUI();
+initThemeToggle();
 // initLocalBackup() 還沒被要求啟用，先留著沒呼叫。

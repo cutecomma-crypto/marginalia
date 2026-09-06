@@ -4,7 +4,7 @@ import { renderMotivation, renderReflections } from './outputs.js';
 import { renderNotesSection } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml, renderTagChip, showToast, confirmModal } from './utils.js';
+import { escapeHtml, renderTagChip, showToast, confirmModal, wireCoverImage } from './utils.js';
 import { DEFAULT_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
 import { ICON_GRAPH, ICON_EDIT, ICON_DELETE, ICON_LIGHTBULB, ICON_PEN_LINE, ICON_NOTEBOOK, ICON_QUOTE } from './icons.js';
 
@@ -69,7 +69,7 @@ export async function renderBookDetail(container, rawId) {
     </div>
     <div class="book-header-panel">
       <div class="book-header-top">
-        ${book.coverImage ? `<img class="book-cover-image book-cover-image-sm" src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : ''}
+        ${book.coverImage ? `<span class="cover-frame"><img class="book-cover-image book-cover-image-sm" src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面"></span>` : ''}
         <div class="book-header-info">
           <h2>${escapeHtml(book.title || '（未命名）')}</h2>
           ${book.tags && book.tags.length ? `
@@ -115,6 +115,8 @@ export async function renderBookDetail(container, rawId) {
       </div>
     </div>
   `;
+
+  wireCoverImage(container.querySelector('.book-cover-image'));
 
   // 作者名稱可點擊：跳回「所有書籍」列表並套用該作者的篩選。篩選狀態活在 bookList.js
   // 的閉包裡，跨頁面沒辦法直接傳變數過去，借用 hash 帶一段 #/books?author=XXX
