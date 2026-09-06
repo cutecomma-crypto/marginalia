@@ -29,6 +29,35 @@ async function gatherAllData() {
   return data;
 }
 
+// 「個人數據備份」只打包使用者真的會關心的內容本身（書籍／筆記／佳句／願望清單），
+// 不含 reading_records／nodes／edges／favorite_authors 這些內部輔助資料表——
+// 跟下面「匯出資料」（給這個 App 自己匯入用、格式對齊 DB.STORE_NAMES 全部 9 張表）
+// 是兩個不同用途，這裡是給使用者自己留一份「我的書籍/筆記/佳句/願望清單資料」、
+// 也方便日後匯入其他工具或人工查閱，檔名帶時間戳記方便分辨是哪一天備份的。
+const PERSONAL_BACKUP_STORES = ['books', 'notes', 'quotes', 'wishlist'];
+
+function backupDateStamp() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}`;
+}
+
+async function downloadPersonalBackup() {
+  const data = {};
+  for (const storeName of PERSONAL_BACKUP_STORES) {
+    data[storeName] = await DB.getAll(storeName);
+  }
+  const payload = {
+    app: 'Marginalia',
+    type: 'personal-data-backup',
+    exportedAt: new Date().toISOString(),
+    data,
+  };
+  downloadJson(payload, `marginalia_backup_${backupDateStamp()}.json`);
+}
+
 function downloadJson(obj, filename) {
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -130,8 +159,14 @@ export async function renderBackupPage(container) {
     </div>
 
     <div class="graph-panel">
+      <h4>個人數據備份</h4>
+      <p class="graph-hint">把你的書籍、快速筆記、佳句摘錄、願望清單整合成一份帶時間戳記的 JSON 檔案下載——${showCloudSyncPanel ? '目前是登入狀態，匯出的是雲端帳號裡的資料' : '目前是本機模式，匯出的是這台瀏覽器裡的資料'}。</p>
+      <button type="button" class="btn btn-primary" id="personal-backup-btn">下載個人數據備份</button>
+    </div>
+
+    <div class="graph-panel">
       <h4>匯出資料</h4>
-      <p class="graph-hint">把目前所有資料打包成一個 JSON 檔案，下載到你的電腦。建議定期備份。</p>
+      <p class="graph-hint">把目前所有資料（含閱讀紀錄、關係圖譜等內部結構）打包成一個 JSON 檔案，下載到你的電腦——用來完整備份／還原這個 App，跟上面「個人數據備份」的差別是這份連同閱讀進度、圖譜這類輔助資料一起打包，格式也是設計給「匯入」這個 App 用，不是給其他工具讀取。建議定期備份。</p>
       <button type="button" class="btn btn-primary" id="export-btn">匯出成 JSON 檔案</button>
     </div>
 
@@ -195,6 +230,22 @@ export async function renderBackupPage(container) {
       });
     }
   }
+
+  container.querySelector('#personal-backup-btn').addEventListener('click', async () => {
+    const btn = container.querySelector('#personal-backup-btn');
+    btn.disabled = true;
+    btn.textContent = '準備中…';
+    try {
+      await downloadPersonalBackup();
+      showToast('個人數據備份已下載');
+    } catch (err) {
+      showToast('備份失敗，請稍後再試一次');
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '下載個人數據備份';
+    }
+  });
 
   container.querySelector('#export-btn').addEventListener('click', async () => {
     const data = await gatherAllData();

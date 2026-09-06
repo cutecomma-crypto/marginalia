@@ -2217,6 +2217,65 @@ header h1 a {
   font-size: 0.85rem;
 }
 
+/* 表格版的完成日期改成按鈕（見 bookList.js 的 completedDateCell()），視覺上要
+   維持跟原本 <span> 一模一樣的樣子（清掉瀏覽器按鈕預設的邊框/底色/內距），
+   只在滑鼠移過去時用底線淡淡暗示「這裡可以點」，不要看起來像一顆搶眼的按鈕。 */
+button.book-completed-date {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted transparent;
+  text-underline-offset: 3px;
+  transition: all 0.2s ease;
+}
+
+button.book-completed-date:hover {
+  color: var(--color-primary-accent);
+  text-decoration-color: currentColor;
+}
+
+/* 列表頁「完成日期」欄位點下去跳出的快速更新面板——跟全站 Modal／抽屜同一套
+   磨砂玻璃語言，但份量刻意做得比 Modal 更輕（不遮罩背景、不用整個 backdrop），
+   單純是一個貼著觸發按鈕浮起來的小面板，符合「不用整個跳頁」的份量感。 */
+.inline-status-popover {
+  position: absolute;
+  z-index: 220;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
+  box-shadow: var(--shadow-glass);
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 180px;
+  animation: modal-card-fade-in 0.2s ease-in-out;
+}
+
+.inline-status-popover label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.inline-status-popover select,
+.inline-status-popover input[type="date"] {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+
 /* 全站 RWD 統一用 768px 當「電腦 vs. 平板/手機」的分界（對齊常見的 Tailwind md），
    書籍表單／詳情頁的每一組響應式網格都共用這個門檻，行為才會一致好預期。 */
 .book-form fieldset {

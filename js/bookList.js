@@ -4,7 +4,8 @@ import { escapeHtml, showToast } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
 import { patchRetentionCountBadge } from './stats.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
-import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
+import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, RETURNED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
+import { STATUS_OPTIONS } from './readingRecords.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 import { ICON_SPARKLES, ICON_BOOK_OPEN } from './icons.js';
@@ -53,9 +54,20 @@ const CLOSE_ICON = '<svg class="reset-close-icon" viewBox="0 0 24 24" fill="none
 const LIST_ICON = '<svg class="view-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h.01"></path><path d="M3 12h.01"></path><path d="M3 19h.01"></path><path d="M8 5h13"></path><path d="M8 12h13"></path><path d="M8 19h13"></path></svg>';
 const GRID_ICON = '<svg class="view-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>';
 
-// 完成日期欄位：純文字、低調的次要顏色，不用圖示也不用圓角底色框，
-// 完成了顯示日期、還沒完成顯示「—」，樣式統一維持簡約。
-function completedDateCell(record) {
+// 完成日期欄位：表格版改成可點擊的按鈕（Inline Status Switcher），點下去跳出一個
+// 小面板直接改「狀態」跟「完成日期」，不用整個跳進書籍詳情頁的「閱讀進度設定」
+// 表單——視覺上維持原本純文字、低調次要色的樣子（按鈕本身重置成跟 <span> 一樣
+// 沒有邊框/底色），完成了顯示日期、還沒完成顯示「—」，只是現在多了「可以點」這件事。
+function completedDateCell(book, record) {
+  const text = record && record.endDate ? formatDateSlash(record.endDate) : '—';
+  return `<button type="button" class="book-completed-date book-status-trigger" data-book-id="${book.id}" title="點擊快速更新閱讀狀態／完成日期">${escapeHtml(text)}</button>`;
+}
+
+// 封面網格版維持純文字、不可點擊——整張卡片本身已經是 <a>，<button> 巢狀在
+// <a> 裡面是不合法的 HTML（互動元素不能巢狀互動元素），跟 authorNameHtmlInline／
+// quickActionBtnHtmlInline 用 <span> 走 event delegation 是同一個考量，但這裡
+// 沒有到「一定要在網格檢視也支援快速編輯」的必要性，維持原本簡單的純顯示即可。
+function completedDateTextOnly(record) {
   const text = record && record.endDate ? formatDateSlash(record.endDate) : '—';
   return `<span class="book-completed-date">${escapeHtml(text)}</span>`;
 }
@@ -95,6 +107,125 @@ function quickActionBtnHtmlInline(book) {
   return `<span class="quick-action-btn" data-book-id="${book.id}" data-target-status="${escapeHtml(action.targetStatus)}" data-toast="${escapeHtml(action.toast)}" title="${escapeHtml(action.label)}">${escapeHtml(action.label)}</span>`;
 }
 
+// 列表頁快速更新閱讀狀態／完成日期（Inline Status Switcher）：點擊「完成日期」
+// 欄位跳出一個小面板，只放「狀態」跟「完成日期」這兩個最常需要臨場調整的欄位
+// （開始日期／頁數／閱讀次數／評分這些留在書籍詳情頁的「閱讀進度設定」，那裡才是
+// 完整表單），選了就立刻存檔（跟 outputs.js 的 .output-date-input 同一套「change
+// 就自動存、不用另外按儲存」的習慣），不用整個跳頁就能完成最常見的操作。
+// 單例面板（跟 selectionToolbarService.js 的 ensureToolbarEl() 同一種做法）：
+// 掛在 document.body 上、每次開啟時重新填內容跟定位，不用每次 renderList() 都
+// 重新建立/銷毀一次。
+let statusPopoverEl = null;
+function ensureStatusPopoverEl() {
+  if (!statusPopoverEl) {
+    statusPopoverEl = document.createElement('div');
+    statusPopoverEl.className = 'inline-status-popover';
+    statusPopoverEl.hidden = true;
+    document.body.appendChild(statusPopoverEl);
+  }
+  return statusPopoverEl;
+}
+
+function hideStatusPopover() {
+  if (statusPopoverEl) statusPopoverEl.hidden = true;
+}
+
+function positionStatusPopover(el, anchorRect) {
+  const margin = 6;
+  const top = window.scrollY + anchorRect.bottom + margin;
+  let left = window.scrollX + anchorRect.left;
+  const maxLeft = window.scrollX + document.documentElement.clientWidth - el.offsetWidth - margin;
+  left = Math.max(margin, Math.min(left, maxLeft));
+  el.style.top = `${top}px`;
+  el.style.left = `${left}px`;
+}
+
+// 點面板以外的地方、或按 Esc 都收起面板——跟 selectionToolbarService.js 的
+// onDocMouseDown 同一種收尾方式。這兩個監聽器掛在模組最外層、只會執行一次
+// （不會因為 renderBookList() 被重複呼叫而重複疊加監聽器）。
+document.addEventListener('mousedown', (event) => {
+  if (!statusPopoverEl || statusPopoverEl.hidden) return;
+  if (statusPopoverEl.contains(event.target) || event.target.closest('.book-status-trigger')) return;
+  hideStatusPopover();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') hideStatusPopover();
+});
+// 這是單例元素，掛在 document.body 上不會因為離開書籍列表頁就被清掉（hash
+// 路由只是整個換掉 container 的內容，不是真的重新整理頁面）——沒有這一行，
+// 面板開著的狀態下切去別的頁面（例如書籍詳情頁、資料管理頁），面板會維持
+// 顯示、浮在完全不相干的畫面上面，這是實測抓到的真實問題，不是預防性猜測。
+window.addEventListener('hashchange', hideStatusPopover);
+
+// recordMap 是整頁共用的同一份 Map，存檔成功後直接原地更新這個 Map 裡對應的
+// 那一筆（不用整批重新從資料庫撈一次 reading_records），onSaved() 呼叫端負責
+// 決定要不要重繪列表（通常是 renderList()，讓這一列的完成日期文字立刻反映新值）。
+function openStatusPopover(anchorBtn, book, recordMap, onSaved) {
+  const el = ensureStatusPopoverEl();
+  const record = recordMap.get(book.id);
+  el.innerHTML = `
+    <label>狀態
+      <select name="status">
+        ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${record && record.status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+      </select>
+    </label>
+    <label>完成日期
+      <input type="date" name="endDate" value="${escapeHtml((record && record.endDate) || '')}">
+    </label>
+  `;
+  el.hidden = false;
+  positionStatusPopover(el, anchorBtn.getBoundingClientRect());
+
+  const statusSelect = el.querySelector('select[name="status"]');
+  const dateInput = el.querySelector('input[name="endDate"]');
+  statusSelect.focus();
+
+  // 跟書籍詳情頁「閱讀進度設定」表單（見 readingRecords.js 的 renderReadingSection）
+  // 完全同一套存檔邏輯：沒有既有記錄就新增一筆，有就在原本那筆上面補新的欄位值——
+  // 兩個入口（詳情頁完整表單／列表頁這個快速面板）改的是同一張 reading_records
+  // 資料表，行為只能有一套，不能各寫一份、彼此邏輯兜不起來。
+  async function persist(patch) {
+    const current = recordMap.get(book.id);
+    const payload = {
+      bookId: book.id,
+      status: current?.status || '尚未閱讀',
+      startDate: current?.startDate || '',
+      endDate: current?.endDate || '',
+      currentPage: current?.currentPage ?? null,
+      readCount: current?.readCount || 0,
+      rating: current?.rating || 0,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    let saved;
+    if (current) {
+      saved = { ...current, ...payload, id: current.id };
+      await DB.update('reading_records', saved);
+    } else {
+      const newId = await DB.add('reading_records', payload);
+      saved = { ...payload, id: newId };
+    }
+    recordMap.set(book.id, saved);
+
+    // 圖書館借閱的書標成已讀完，很可能代表書已經還了——這裡跟 readingRecords.js
+    // 完整表單同一句提示，兩個入口改的是同一個「順手詢問」使用者體驗，不能只有
+    // 詳情頁的表單有這個貼心提醒、快速面板卻沒有。
+    if (payload.status === '已讀完' && book.format === LIBRARY_SOURCE_FORMAT && book.retentionStatus === BORROWED_RETENTION_STATUS) {
+      if (window.confirm('這本書的來源是「圖書館借閱」，要順便把存留狀態切換成「已歸還」嗎？')) {
+        await DB.update('books', { ...book, retentionStatus: RETURNED_RETENTION_STATUS });
+        book.retentionStatus = RETURNED_RETENTION_STATUS;
+        showToast('已更新為已歸還');
+      }
+    }
+    showToast('已更新閱讀狀態');
+    hideStatusPopover();
+    onSaved();
+  }
+
+  statusSelect.addEventListener('change', () => persist({ status: statusSelect.value }));
+  dateInput.addEventListener('change', () => persist({ endDate: dateInput.value }));
+}
+
 function bookRow(book, favoriteAuthors, recordMap) {
   const record = recordMap.get(book.id);
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
@@ -111,7 +242,7 @@ function bookRow(book, favoriteAuthors, recordMap) {
       <td data-label="書名"><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a>${book.category ? `<span class="book-table-category-badge">${escapeHtml(book.category)}</span>` : ''}</td>
       <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
       <td data-label="書籍類型">${escapeHtml(book.category)}</td>
-      <td data-label="完成日期">${completedDateCell(record)}</td>
+      <td data-label="完成日期">${completedDateCell(book, record)}</td>
       <td class="action-cell" data-label="書籍歸還">${quickActionBtnHtml(book)}</td>
     </tr>
   `;
@@ -185,7 +316,7 @@ function bookGalleryCard(book, favoriteAuthors, recordMap) {
         <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" title="喜愛的作者">♥</span> ' : ''}${authorNameHtmlInline(book)}</div>
         <div class="book-gallery-meta">
           ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
-          ${completedDateCell(record)}
+          ${completedDateTextOnly(record)}
         </div>
         ${quickActionBtnHtmlInline(book)}
       </div>
@@ -585,6 +716,18 @@ export async function renderBookList(container) {
     const newLentOutCount = books.filter((b) => b.retentionStatus === LENT_OUT_RETENTION_STATUS).length;
     patchRetentionCountBadge(sidebarEl, BORROWED_RETENTION_STATUS, newBorrowedCount);
     patchRetentionCountBadge(sidebarEl, LENT_OUT_RETENTION_STATUS, newLentOutCount);
+  });
+
+  // 完成日期欄位點下去跳出快速更新面板（見上面 openStatusPopover() 的說明）。
+  bodyEl.addEventListener('click', (event) => {
+    const trigger = event.target.closest('.book-status-trigger');
+    if (!trigger) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const id = Number(trigger.dataset.bookId);
+    const book = books.find((b) => b.id === id);
+    if (!book) return;
+    openStatusPopover(trigger, book, recordMap, () => renderList());
   });
 
   searchInput.addEventListener('input', () => {
