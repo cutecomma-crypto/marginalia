@@ -2331,6 +2331,59 @@ button.book-completed-date:hover {
   animation: modal-card-fade-in 0.2s ease-in-out;
 }
 
+/* 這是這次「關不掉」回報的真正病灶：上面那條 .inline-status-popover 的
+   display:flex 是一般的 class 選擇器，跟瀏覽器內建、[hidden] 屬性帶來的
+   [hidden]{display:none} 樣式權重完全相同（都是單一個選擇器，(0,1,0)），
+   優先度平手時看的是「誰的規則寫在後面」——瀏覽器內建樣式表永遠排在最前面，
+   這個檔案裡自己寫的 .inline-status-popover 規則排在後面，於是贏過瀏覽器
+   內建的 [hidden] 樣式：JS 把 hidden 屬性設成 true（見 bookList.js 的
+   hideStatusPopover()）,元素在 DOM 上確實標記了「隱藏」，畫面上卻因為這裡
+   贏過去的 display:flex 而繼續顯示原本的樣子，不管使用者按 Esc、點面板外、
+   還是存檔後想自動收起，全部「看起來沒反應」——這正是這次回報「無法順暢
+   關閉」的根本原因，不是那三個關閉機制本身的邏輯有問題。這個檔案裡其他
+   地方（.btn[hidden]／.active-filters-row[hidden]／.library-borrow-fields
+   [hidden]……）都已經各自補過這個坑，這裡當初新增這顆面板時漏掉了同一個
+   修法。 */
+.inline-status-popover[hidden] {
+  display: none;
+}
+
+/* 右上角關閉按鈕：面板本身已經是 position:absolute（見上面主規則，決定它
+   相對頁面的位置），這本身就足夠當「叉叉貼在右上角」的定位基準——任何
+   position 不是 static 的元素都會變成子孫 position:absolute 的參照對象，
+   不用另外疊一個 position:relative（疊了反而會整條蓋掉上面 position:absolute
+   的宣告，變成用自己在文件流裡的位置當基準，JS 那邊算好要貼在觸發按鈕
+   旁邊的 top/left 就全部跑掉）。這顆按鈕額外用 position:absolute 從排版
+   流裡拿出來，不會把下面的欄位往下擠。淡灰棕色、平常低調融入面板背景，
+   滑過才轉深，符合「極簡」的份量感，不需要像危險操作那樣搶眼。 */
+.inline-status-popover-close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.inline-status-popover-close .ui-icon {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.inline-status-popover-close:hover {
+  background: var(--surface-alt);
+  color: var(--color-primary-accent);
+}
+
 .inline-status-popover label {
   display: flex;
   flex-direction: column;

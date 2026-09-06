@@ -8,7 +8,7 @@ import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, RETURNED_RETENTIO
 import { STATUS_OPTIONS } from './readingRecords.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
-import { ICON_SPARKLES, ICON_BOOK_OPEN } from './icons.js';
+import { ICON_SPARKLES, ICON_BOOK_OPEN, ICON_X } from './icons.js';
 
 // 雲端快取背景刷新（見 cloudDb.js／services/cloudCache.js 的 Stale-While-Revalidate
 // 說明）如果發現書籍資料真的變了，會發出這個事件——這裡只負責跳一個不打擾的
@@ -164,6 +164,7 @@ function openStatusPopover(anchorBtn, book, recordMap, onSaved) {
   const el = ensureStatusPopoverEl();
   const record = recordMap.get(book.id);
   el.innerHTML = `
+    <button type="button" class="inline-status-popover-close" aria-label="關閉">${ICON_X}</button>
     <label>狀態
       <select name="status">
         ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${record && record.status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
@@ -175,6 +176,8 @@ function openStatusPopover(anchorBtn, book, recordMap, onSaved) {
   `;
   el.hidden = false;
   positionStatusPopover(el, anchorBtn.getBoundingClientRect());
+
+  el.querySelector('.inline-status-popover-close').addEventListener('click', hideStatusPopover);
 
   const statusSelect = el.querySelector('select[name="status"]');
   const dateInput = el.querySelector('input[name="endDate"]');
