@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { STATUS_OPTIONS } from './readingRecords.js';
 import { MOTIVATION_TAGS } from './outputs.js';
 import { getFavoriteAuthorMap, toggleFavoriteAuthor } from './authors.js';
-import { escapeHtml, wireCoverImage } from './utils.js';
+import { escapeHtml, wireCoverImage, showToast } from './utils.js';
 import { ICON_BOOK_OPEN, ICON_CART, ICON_BOOK, ICON_IMAGE, ICON_DELETE } from './icons.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 
@@ -399,6 +399,16 @@ export async function renderBookForm(container, rawId) {
         }
         await DB.remove('wishlist', wishlistPrefill.wishlistId);
       }
+      // 送出這一刻書就已經真的存進書庫了（上面的 DB.add('books', ...)），接下來
+      // 跳轉去的書籍詳情頁只是「順便可以繼續補資料」的地方，不是還沒完成的下一步——
+      // 但詳情頁預設停在「閱讀動機」分頁（見 bookDetail.js），那個分頁本身就是一個
+      // 帶著「儲存」按鈕的空白表單，使用者剛送出表單就立刻看到另一個表單＋儲存鍵，
+      // 很容易誤以為「還要再按一次儲存才算加入書庫」。這裡明確跳一個成功提示，
+      // 讓使用者不用靠自己讀懂分頁邏輯就知道書已經加好了，後面的閱讀動機、快速筆記
+      // 這些都是選填、可以隨時再回來補。編輯既有書籍（上面的 if (bookId) 分支）
+      // 不需要這則提示——那個情境本來就是使用者主動點進來修改，不會有「這樣算完成
+      // 了嗎」的疑惑。
+      showToast(`已將「${title}」加入書庫`);
     }
     window.location.hash = `#/books/${targetBookId}`;
   });
