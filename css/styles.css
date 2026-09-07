@@ -2142,6 +2142,71 @@ header h1 a {
   white-space: nowrap;
 }
 
+/* 手機（≤768px）進一步收緊上面 ≤1024px 那套「每個控制項各自獨立一整行」
+   的排列——平板寬度那樣排還算合理，但手機螢幕一路排下來會變成搜尋框／
+   排序／每頁／批量選取／總本數五段各佔一整行，工具列高度直逼半個螢幕。
+   這裡把 .search-row 從「單欄直式清單」改成「可換行的橫向 flex」，
+   靠每個子項目自己的 flex-basis 控制要不要獨占一行：
+     - 搜尋框 flex-basis:100% 強制自己一整行（第一行）。
+     - .toolbar-controls 本身改成 display:contents——這個 <div> 拿掉自己的
+       盒子，讓它原本包住的三個子項目（排序／每頁／批量選取）直接變成
+       .search-row 的 flex 子項目，才能跟後面的「共 N 本」共用同一個
+       flex-wrap 換行流程，不用改動 bookList.js 的 HTML 結構。
+     - 排序／每頁兩個下拉選單各自 flex:1 1 0（零基準＋均分成長），兩個
+       加起來剛好吃滿一整行寬度，逼「批量選取」自動換到下一行（第二行）。
+     - 批量選取／共 N 本兩個都是 flex-basis:auto（照內容寬度），會一起
+       落在同一行（第三行），靠 margin-left:auto 讓「共 N 本」貼右對齊。
+   這裡刻意寫在 .toolbar-controls／.toolbar-control-field／.book-list-count
+   的桌機版基本規則「之後」——這幾個選擇器的特異度都一樣，同特異度純比
+   原始碼順序，寫在前面會被後面桌機版的規則蓋掉（這個檔案已經在這個坑上
+   跌倒過，見「強迫症極致對齊」那則說明），不是隨便找個地方插入。 */
+@media (max-width: 768px) {
+  .search-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .search-row .search-input {
+    flex: 1 1 100%;
+    max-width: 100% !important;
+  }
+
+  .toolbar-controls {
+    display: contents;
+  }
+
+  .toolbar-control-field {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  /* 「排序」「每頁：」這兩個提示文字在窄螢幕上是多餘的重複資訊——選單
+     本身已經會顯示目前選到的值（例如「建立時間：新到舊」），拿掉文字
+     只留下拉選單本身。選單的無障礙名稱改吃 <select> 自己的 aria-label
+     （見 bookListToolbar.js），不會因為視覺上藏起文字就失去語意。 */
+  .toolbar-control-label-text {
+    display: none;
+  }
+
+  .toolbar-control-field .sort-select {
+    width: 100%;
+  }
+
+  .toolbar-control-toggle,
+  .search-row .book-list-count {
+    flex: 0 1 auto;
+    font-size: 0.75rem;
+  }
+
+  .search-row .book-list-count {
+    margin-left: auto;
+  }
+}
+
 .sort-select {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border);
@@ -4273,6 +4338,73 @@ button.book-completed-date:hover {
 #graph-app-container:-webkit-full-screen:has(.graph-drawer.is-open) .graph-toolbar {
   margin-right: 0;
   right: calc(min(360px, 90vw) + 1rem);
+}
+
+/* 手機（≤768px）關係圖譜版面修復：
+   1. .graph-toolbar 桌機版是 flex-wrap:nowrap 硬擠一行——「← 回《書名》」
+      加「本書關係圖」標題本身在窄螢幕就吃掉大半寬度，右側縮放／面板／
+      全螢幕／新增群組四組控制項被壓縮到只剩不到一半可視寬度，只能整組
+      靠 .graph-toolbar-right 既有的 overflow-x:auto 卷動才看得到最後幾顆
+      按鈕（實測：clientWidth 164px vs scrollWidth 560px，「新增群組」按鈕
+      整顆落在 640px 處，遠遠超出螢幕右緣）。改成 flex-wrap:wrap，標題列／
+      控制項列各自獨立成一整行，控制項列拿到全螢幕寬可以用，字級／padding
+      再收緊一輪，兩者相加大幅降低需要橫向卷動才看得到的機率；
+      .graph-toolbar-right 原有的 overflow-x:auto 保留當最後一道安全網
+      （字級再怎麼縮，语言設定字體大小、或極窄的裝置仍有可能放不下）。
+   2. .graph-canvas-area 加 max-width:100vw + overflow-x:hidden——畫布本身
+      的 .group-track 有 min-width:1400px（見該規則的說明），內層
+      .canvas-wrap 已經是 overflow:auto 各自框住，理論上不會外溢到頁面
+      層級，但這裡在外層容器再補一道 max-width:100vw 的保險，確保任何
+      情況下都不會讓 #app.graph-page-wide 撐出整頁橫向捲軸——內層
+      .canvas-wrap 仍然維持 overflow:auto（不是 hidden），使用者拖曳
+      平移／捲動畫布找卡片的操作不受影響，只有「外層頁面」不能因為
+      裡面的畫布而橫向捲動。
+   3. 縮放起始比例已經在 graph.js 依螢幕寬度調整成 45%（見該檔案
+      DEFAULT_ZOOM 的說明），這裡不需要额外處理。 */
+@media (max-width: 768px) {
+  .graph-canvas-area {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .graph-toolbar {
+    flex-wrap: wrap;
+    row-gap: 0.6rem;
+  }
+
+  .graph-toolbar-left {
+    width: 100%;
+  }
+
+  .graph-toolbar-title {
+    font-size: 1.3rem;
+  }
+
+  .graph-toolbar-right {
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .graph-toolbar-right .btn,
+  .canvas-zoom-toolbar {
+    height: 1.9rem;
+  }
+
+  .graph-toolbar-right .btn {
+    padding: 0 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .canvas-tool-btn {
+    height: 1.4rem;
+    min-width: 1.3rem;
+    font-size: 0.75rem;
+  }
+
+  .canvas-zoom-level {
+    font-size: 0.75rem;
+    min-width: 2.2rem;
+  }
 }
 
 .canvas-board {

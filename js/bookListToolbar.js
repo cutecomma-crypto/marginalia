@@ -37,13 +37,13 @@ export function bookListToolbarHtml(bookCount) {
         <button type="button" class="search-clear-btn" aria-label="清空搜尋" hidden></button>
       </div>
       <div class="toolbar-controls">
-        <label class="toolbar-control-field">排序
-          <select id="book-sort-select" class="sort-select">
+        <label class="toolbar-control-field"><span class="toolbar-control-label-text">排序</span>
+          <select id="book-sort-select" class="sort-select" aria-label="排序方式">
             ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
           </select>
         </label>
-        <label class="toolbar-control-field">每頁：
-          <select id="book-page-size-select" class="sort-select">
+        <label class="toolbar-control-field"><span class="toolbar-control-label-text">每頁：</span>
+          <select id="book-page-size-select" class="sort-select" aria-label="每頁顯示本數">
             ${PAGE_SIZE_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
           </select>
         </label>

@@ -357,9 +357,19 @@ export async function renderGraphPage(container, rawBookId) {
   // 縮放：直接對 .canvas-board 套 CSS transform:scale，連線用的 SVG 跟人物/群組卡片
   // 都在它底下，一起等比例縮放；縮放後重新呼叫 drawConnections 讓連線重新對齊卡片新的視覺位置
   // （drawConnections 是用 getBoundingClientRect 量測，量出來的本來就已經反映縮放後的樣子）。
-  let zoomLevel = 1;
+  // 手機螢幕（≤768px）起始縮放比例調小：畫布卡片是用固定像素座標排版
+  // （見 draw() 的 GRID_COL_STEP／GRID_ROW_STEP），100% 縮放在桌面可以看到
+  // 大部分內容，在手機螢幕一開始只會看到左上角一小塊，其餘群組卡片都在
+  // 可視範圍外——改成偵測到手機寬度就用 45%（落在使用者要求的 40%-50%
+  // 區間、也不低於 MIN_ZOOM），讓大部分群組卡片一開始就進到畫面裡。
+  // 「重設縮放」按鈕也吃同一個預設值（見下面 DEFAULT_ZOOM 的用法），不然
+  // 使用者在手機上按「重設」反而會跳回太大的 100%，等於重新製造同一個問題。
+  const MOBILE_ZOOM_BREAKPOINT = 768;
+  const MOBILE_DEFAULT_ZOOM = 0.45;
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 2;
+  const DEFAULT_ZOOM = window.innerWidth <= MOBILE_ZOOM_BREAKPOINT ? MOBILE_DEFAULT_ZOOM : 1;
+  let zoomLevel = DEFAULT_ZOOM;
   const zoomLevelEl = container.querySelector('#zoom-level');
 
   function applyZoom() {
@@ -378,7 +388,7 @@ export async function renderGraphPage(container, rawBookId) {
     applyZoom();
   });
   container.querySelector('#zoom-reset-btn').addEventListener('click', () => {
-    zoomLevel = 1;
+    zoomLevel = DEFAULT_ZOOM;
     applyZoom();
   });
   // 滾輪／觸控板縮放刻意不做：畫布縮放完全交給頂部工具列的 −／＋／重設三顆按鈕，
@@ -413,4 +423,10 @@ export async function renderGraphPage(container, rawBookId) {
   });
 
   await reload();
+  // 只有手機起始縮放（DEFAULT_ZOOM !== 1）才需要在載入時多套用一次——
+  // zoomLevel 變數雖然已經是縮小過的值，但畫面本身的 transform:scale 要靠
+  // applyZoom() 才會真的套用上去，不然卡片還是照瀏覽器預設 100% 畫出來，
+  // 縮放膠囊卻顯示 45%，數字跟畫面對不上。桌面版 DEFAULT_ZOOM 是 1，
+  // 套用 scale(1) 是無害的恆等變換，不用另外判斷跳過。
+  applyZoom();
 }
