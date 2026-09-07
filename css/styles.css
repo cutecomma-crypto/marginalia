@@ -1116,86 +1116,6 @@ header h1 a {
   font-weight: 600;
 }
 
-.category-progress-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.category-progress-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0.4rem;
-  margin: 0 -0.4rem;
-  font-size: 0.85rem;
-  border-bottom: 1px solid var(--border-soft);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.15s ease;
-}
-
-.category-progress-item:hover {
-  background: var(--surface-alt);
-  transform: translateY(-1px);
-}
-
-/* 點下去當篩選條件套用中：底色加深＋外圈 ring，跟 hover 的淺色區隔開來，一眼看出「這個正選著」。 */
-.category-progress-item.is-active {
-  background: var(--primary-soft);
-  box-shadow: 0 0 0 2px var(--primary);
-}
-
-.category-progress-item.is-active .category-progress-name {
-  font-weight: 700;
-}
-
-.category-progress-item::before {
-  content: '';
-  position: absolute;
-  left: 0.4rem;
-  bottom: -1px;
-  height: 2px;
-  width: var(--bar-width, 0%);
-  background: var(--primary-soft);
-}
-
-.category-progress-list .category-progress-item:last-child,
-.category-progress-extra .category-progress-item:last-child {
-  border-bottom: none;
-}
-
-.category-progress-name {
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.category-progress-count {
-  color: var(--text-muted);
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.category-progress-toggle {
-  display: block;
-  width: 100%;
-  text-align: center;
-  background: none;
-  border: none;
-  border-top: 1px dashed var(--border-soft);
-  margin-top: 0.5rem;
-  padding: 0.55rem 0 0.05rem;
-  font-size: 0.8125rem;
-  color: var(--primary);
-  cursor: pointer;
-}
-
-.category-progress-toggle:hover {
-  text-decoration: underline;
-}
-
 .dashboard-layout {
   display: grid;
   grid-template-columns: minmax(240px, 27%) 1fr;
@@ -1535,6 +1455,53 @@ header h1 a {
 
 .sidebar-stat-row:first-of-type {
   border-top: none;
+}
+
+.favorite-author-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.favorite-author-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.4rem;
+}
+
+.favorite-author-list li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* 「喜愛的作者」名稱＋♥ 圖示是同一個按鈕裡的純文字（不是分開的 icon 元素），
+   原本用 --gold 是舊配色殘留，統一改用 --text 深紅棕跟其他作者名稱一致。 */
+.favorite-author-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.favorite-author-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.favorite-author-count {
+  font-size: 0.8125rem;
+  color: var(--text);
+  white-space: nowrap;
 }
 
 .search-row {

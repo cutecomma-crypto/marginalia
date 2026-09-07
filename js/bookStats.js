@@ -49,12 +49,6 @@ export function filterBooksByStatus(books, recordByBook, status) {
   return books.filter((book) => matchesStatusFilter(recordByBook.get(book.id), status));
 }
 
-// 「各類型書籍數量」點擊篩選：沒分類的書籍歸在「未分類」，跟分類清單本身算數量的邏輯一致。
-export function filterBooksByCategory(books, category) {
-  if (!category) return books;
-  return books.filter((book) => (book.category || '未分類') === category);
-}
-
 // 點擊作者名稱篩選：認完全相同（trim 過）的作者名稱字串，跟喜愛作者、
 // 側邊欄作者統計用的比對邏輯（authors.js）一致，不做子字串模糊比對。
 export function filterBooksByAuthor(books, author) {

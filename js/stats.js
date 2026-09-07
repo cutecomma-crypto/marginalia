@@ -1,6 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
-import { buildRecordByBookMap, isCompletedInYear } from './bookStats.js';
+import { buildRecordByBookMap } from './bookStats.js';
 
 // 對照 PROJECT_SPEC.md 第 3 節與 B 原則 6：全部自動計算，不可手動輸入。
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -141,88 +141,19 @@ export async function renderStatsPanel(container) {
   });
 }
 
-const CATEGORY_LIST_LIMIT = 5;
-
-// 側邊欄「各類型書籍數量」改成垂直清單：名稱靠左、本數靠右，底下一條依比例填色的細線當進度感。
-// 預設只顯示前 5 個熱門分類，避免分類一多整張卡片被撐得太長，其餘的收在「展開更多」裡。
-// 每一項現在也是可點擊的篩選按鈕，activeCategory 用來重繪時知道要幫哪一項補回 is-active。
-function categoryProgressListHtml(categoryEntries, activeCategory) {
-  if (categoryEntries.length === 0) return '<p class="empty">還沒有書籍資料。</p>';
-
-  const maxCount = Math.max(...categoryEntries.map(([, count]) => count));
-  const rowHtml = ([cat, count]) => `
-    <div class="category-progress-item${cat === activeCategory ? ' is-active' : ''}" data-category="${escapeHtml(cat)}" style="--bar-width: ${Math.round((count / maxCount) * 100)}%">
-      <span class="category-progress-name">${escapeHtml(cat)}</span>
-      <span class="category-progress-count">${count} 本</span>
-    </div>
-  `;
-
-  const visible = categoryEntries.slice(0, CATEGORY_LIST_LIMIT);
-  const rest = categoryEntries.slice(CATEGORY_LIST_LIMIT);
-
-  return `
-    <div class="category-progress-list">
-      ${visible.map(rowHtml).join('')}
-      ${rest.length > 0 ? `<div class="category-progress-extra" id="category-progress-extra" hidden>${rest.map(rowHtml).join('')}</div>` : ''}
-    </div>
-    ${rest.length > 0 ? `<button type="button" class="category-progress-toggle" id="category-progress-toggle">展開更多（還有 ${rest.length} 項）</button>` : ''}
-  `;
-}
-
-// 「全部年份」看全站累積的分類分佈；選了年份，只算「那一年完成」的書籍落在哪些分類。
-function categoryEntriesForYear(books, recordByBook, year) {
-  const counts = {};
-  for (const book of books) {
-    if (year && !isCompletedInYear(recordByBook.get(book.id), year)) continue;
-    const category = book.category || '未分類';
-    counts[category] = (counts[category] || 0) + 1;
-  }
-  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-}
-
-function categorySectionHtml(categoryEntries, year, activeCategory) {
-  return `
-    <h4>各類型書籍數量${year ? `<span class="sidebar-year-tag">${escapeHtml(year)} 年已讀完</span>` : ''}</h4>
-    ${categoryProgressListHtml(categoryEntries, activeCategory)}
-  `;
-}
-
-function wireCategoryToggle(container) {
-  const toggleBtn = container.querySelector('#category-progress-toggle');
-  if (!toggleBtn) return;
-  toggleBtn.addEventListener('click', () => {
-    const extra = container.querySelector('#category-progress-extra');
-    const nowHidden = !extra.hidden;
-    extra.hidden = nowHidden;
-    toggleBtn.textContent = nowHidden ? toggleBtn.dataset.collapsedLabel : '收起';
-  });
-  toggleBtn.dataset.collapsedLabel = toggleBtn.textContent;
-}
-
-// 點分類項目本身直接切換 class（不重繪 innerHTML），這樣「展開更多」的開合狀態不會被打斷。
-// 再點一次已經選中的項目＝取消篩選，跟閱讀狀態方塊、年份選單同一套「再點一次就清除」邏輯。
-function wireCategoryItemClicks(container, onCategoryFilterChange, setActiveCategory) {
-  container.querySelectorAll('.category-progress-item').forEach((item) => {
-    item.addEventListener('click', () => {
-      const cat = item.dataset.category;
-      const nowActive = !item.classList.contains('is-active');
-      container.querySelectorAll('.category-progress-item').forEach((i) => i.classList.remove('is-active'));
-      if (nowActive) item.classList.add('is-active');
-      setActiveCategory(nowActive ? cat : null);
-      onCategoryFilterChange(nowActive ? cat : null);
-    });
-  });
-}
-
 // 首頁側邊欄用的精簡版：拿掉月份分佈，只留數字概覽，讓「所有書籍」有空間當主角。
 // 年份仍可切換（下拉選單），因為使用者的完成日期常常橫跨好幾年，不能只鎖死顯示今年。
-// options.onYearChange(year) / onStatusFilterChange(status) / onCategoryFilterChange(category)：
-// 三個都是「選到的值字串，取消篩選時是 null」，讓外層（書籍列表、喜愛的作者）可以同步篩選，
-// 三種篩選各自獨立、可以同時套用（AND 組合），不會互相搶狀態。
+// options.onYearChange(year) / onStatusFilterChange(status)：兩個都是「選到的值
+// 字串，取消篩選時是 null」，讓外層（書籍列表）可以同步篩選，兩種篩選各自獨立、
+// 可以同時套用（AND 組合），不會互相搶狀態。
+// 「各類型書籍數量」這張卡片使用者反映還是想換回「喜愛的作者」，已經整個移除
+// （連同 categoryFilter 篩選機制、filterBooksByCategory、.category-progress-*
+// 樣式，見 bookList.js／dashboardSidebar.js／bookStats.js），不是收起來；分類
+// 篩選如果之後想要，可以在書籍表格的「書籍類型」欄位重新設計一個篩選入口，
+// 不用回頭修這裡。
 export async function renderSidebarStats(container, options = {}) {
   const onYearChange = options.onYearChange || (() => {});
   const onStatusFilterChange = options.onStatusFilterChange || (() => {});
-  const onCategoryFilterChange = options.onCategoryFilterChange || (() => {});
   const [books, records] = await Promise.all([DB.getAll('books'), DB.getAll('reading_records')]);
   const stats = computeStats(books, records);
   const currentYear = String(new Date().getFullYear());
@@ -235,15 +166,7 @@ export async function renderSidebarStats(container, options = {}) {
   const completed = books.filter((b) => (recordByBook.get(b.id) || {}).status === '已讀完').length;
 
   const defaultYearStats = statsForYear(stats, completed, defaultYear);
-  let activeCategory = null;
 
-  // 「功能簡化」精簡：首頁側邊欄次要數據卡片（平均評分、最常閱讀類型、
-  // 喜愛的作者、最近輸出）整個移除，只留「年度閱讀成果」跟「各類型書籍
-  // 數量」——連同它們共用的「查看更多數據」收合區塊一起拿掉，不是收起來。
-  // 閱讀中／尚未閱讀／已讀完這三顆狀態方塊是例外：使用者明確要求維持
-  // 常駐顯示（本來就是最常用、一打開就想看的第一層資訊，也兼作篩選
-  // 按鈕），留在「我的藏書概況」標題正下方的原始位置。喜愛的作者／最近
-  // 輸出兩張卡片的移除見 dashboardSidebar.js。
   container.innerHTML = `
     <div class="sidebar-panel">
       <h4>我的藏書概況</h4>
@@ -261,16 +184,7 @@ export async function renderSidebarStats(container, options = {}) {
       </div>
       <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYearStats.highlight)}</div>
     </div>
-    <div class="sidebar-panel" id="sidebar-category-panel"></div>
   `;
-
-  const categoryPanel = container.querySelector('#sidebar-category-panel');
-  function renderCategoryPanel(year) {
-    categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory);
-    wireCategoryToggle(categoryPanel);
-    wireCategoryItemClicks(categoryPanel, onCategoryFilterChange, (cat) => { activeCategory = cat; });
-  }
-  renderCategoryPanel(null);
 
   container.querySelectorAll('.sidebar-stat-cell').forEach((cell) => {
     cell.addEventListener('click', () => {
@@ -286,9 +200,6 @@ export async function renderSidebarStats(container, options = {}) {
     const year = event.target.value || null;
     const yearStats = statsForYear(stats, completed, year);
     container.querySelector('#sidebar-stats-highlight').textContent = yearStats.highlight;
-
-    renderCategoryPanel(year);
-
     onYearChange(year);
   });
 }
