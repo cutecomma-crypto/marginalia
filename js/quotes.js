@@ -51,19 +51,17 @@ async function copyText(text) {
 function quoteCardHtml(quote) {
   return `
     <div class="quote-card" data-id="${quote.id}">
+      <div class="quote-actions">
+        <button type="button" class="quote-icon-btn quote-copy-btn" data-id="${quote.id}" title="複製內文" aria-label="複製內文">${ICON_CLIPBOARD}</button>
+        <button type="button" class="quote-icon-btn quote-edit-btn" data-id="${quote.id}" title="編輯" aria-label="編輯">${ICON_EDIT}</button>
+        <button type="button" class="quote-icon-btn quote-delete-btn" data-id="${quote.id}" title="刪除" aria-label="刪除">${ICON_DELETE}</button>
+      </div>
       <span class="quote-mark" aria-hidden="true">“</span>
       <div class="quote-content-wrap">
         <p class="quote-content is-clamped">${renderTextWithHashtags(quote.content)}</p>
         <button type="button" class="quote-expand-btn" style="display:none;">展開全文</button>
       </div>
-      <div class="quote-card-footer">
-        <div class="quote-actions">
-          <button type="button" class="quote-icon-btn quote-copy-btn" data-id="${quote.id}" title="複製內文" aria-label="複製內文">${ICON_CLIPBOARD}</button>
-          <button type="button" class="quote-icon-btn quote-edit-btn" data-id="${quote.id}" title="編輯" aria-label="編輯">${ICON_EDIT}</button>
-          <button type="button" class="quote-icon-btn quote-delete-btn" data-id="${quote.id}" title="刪除" aria-label="刪除">${ICON_DELETE}</button>
-        </div>
-        ${quote.page ? `<span class="quote-page-note">p.${escapeHtml(quote.page)}</span>` : ''}
-      </div>
+      ${quote.page ? `<div class="quote-card-footer"><span class="quote-page-note">p.${escapeHtml(quote.page)}</span></div>` : ''}
     </div>
   `;
 }
@@ -101,16 +99,18 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
   // 左右兩欄（新增表單／佳句列表）的 .quotes-page-layout grid 也一併拿掉，
   // 改成新增區在上、列表在下的單欄「垂直流」佈局。
   container.innerHTML = `
-    <div class="quote-composer">
-      <form id="quote-form">
-        <textarea name="content" class="quote-composer-input" rows="3" placeholder="輸入書中打動你的句子……" required></textarea>
-        <div class="quote-composer-actions">
-          <input name="page" class="quote-page-input" placeholder="頁碼（選填）">
-          <button type="submit" class="btn btn-primary">＋ 新增佳句</button>
-        </div>
-      </form>
+    <div class="quote-workspace">
+      <div class="quote-composer">
+        <form id="quote-form">
+          <textarea name="content" class="quote-composer-input" rows="2" placeholder="輸入書中打動你的句子……" required></textarea>
+          <div class="quote-composer-actions">
+            <input name="page" class="quote-page-input" placeholder="頁碼（選填）">
+            <button type="submit" class="btn btn-primary">＋ 新增佳句</button>
+          </div>
+        </form>
+      </div>
+      <div class="quote-list" id="quote-list"></div>
     </div>
-    <div class="quote-list" id="quote-list"></div>
   `;
 
   const form = container.querySelector('#quote-form');

@@ -102,6 +102,13 @@
      髒污的邊緣；--border-soft 維持給頁面內文的分隔線／表格用，兩者分工
      不互相取代。 */
   --border-hairline: rgba(0, 0, 0, 0.06);
+  /* 佳句摘錄卡片專用的兩支色票：使用者指定的暖白底／淡邊框，跟 --surface
+     （純白）／--surface-alt（更深一階的卡片內部次要區塊色）都不完全一樣，
+     獨立成自己的 token 而不是直接寫死 hex 在 .quote-card 規則裡——這樣
+     深色模式只要在下面 [data-theme="dark"] 覆寫這兩個值，卡片就能跟著
+     全站色彩系統一起換色，不會變成「唯一沒跟著深色模式切換的白色卡片」。 */
+  --quote-card-bg: #f9f8f6;
+  --quote-card-border: #eae7e1;
 }
 
 /* 深夜莫蘭迪配色方案（Dark Morandi Mode）：只覆寫上面 :root 已經定義過的
@@ -145,6 +152,8 @@
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.4);
   --shadow-glass: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --quote-card-bg: var(--surface-alt);
+  --quote-card-border: var(--border-hairline);
 }
 
 * {
@@ -3671,7 +3680,16 @@ button.book-completed-date:hover {
   line-height: 1.35;
 }
 
-/* 「珍貴典藏」精簡：新增區改成上方一個滿寬度、預設只有 2-3 行高的輕盈
+/* 使用者反映寬螢幕下這個頁籤會無限延展、留白過多，卡片跟輸入框看起來
+   異常巨大——比照一般文章／筆記類介面「內容欄永遠有一個舒適的最大閱讀
+   寬度」的慣例，整個工作區（新增區＋列表）鎖一個 720px 上限並置中，
+   不管視窗多寬，畫面永遠維持這個寬度、左右留白置中，不會被拉爆。 */
+.quote-workspace {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* 「珍貴典藏」精簡：新增區改成上方一個滿寬度、預設只有 2 行高的輕盈
    輸入框，不再是套進 .book-form／.graph-panel 那種厚重的表單卡片外殼——
    邊框/字級/焦點光暈都在這裡重新寫一份簡化版，不依賴 .book-form 的規則。 */
 .quote-composer {
@@ -3682,7 +3700,8 @@ button.book-completed-date:hover {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  padding: 0.9rem 1rem;
+  min-height: 70px;
+  padding: 10px 14px;
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   background: var(--surface);
@@ -3701,13 +3720,14 @@ button.book-completed-date:hover {
 }
 
 /* 「頁碼」欄位＋「＋ 新增佳句」按鈕並排放在輸入框下方右側，極簡呈現——
-   頁碼欄位窄窄一格就好，不需要像其他表單欄位那樣佔一整行。 */
+   頁碼欄位窄窄一格就好，不需要像其他表單欄位那樣佔一整行，間距也收緊
+   成 8px，兩個控制項貼緊一點，不要跟輸入框之間留出太鬆散的空隙。 */
 .quote-composer-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.6rem;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .quote-page-input,
@@ -3732,25 +3752,29 @@ button.book-completed-date:hover {
 
 /* 取消左右分割雙欄，改成單欄「垂直流」：一句句佳句由上往下靜靜排列，
    不再是並排的格狀卡片牆——沉浸閱讀／翻頁瀏覽的感覺比「一次掃視一整排
-   卡片」更貼近「珍貴典藏」的定位，卡片之間留比格狀排列更寬鬆的間距，
-   讓每一句都有自己完整的呼吸空間。 */
+   卡片」更貼近「珍貴典藏」的定位。使用者反映卡片間距／卡片本身偏大，
+   在寬螢幕上顯得空洞——垂直間距從 1.5rem 收緊到 12px，卡片變成單純
+   一句接一句的清單感，不再每句之間都隔著一大段空白。 */
 .quote-list {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 12px;
   margin-top: 1.5rem;
 }
 
-/* 拿掉原本的左側色條與陰影浮起效果——那是「功能性 UI 卡片」的視覺語言，
-   跟這裡想要的「安靜陳列」不搭；改成僅有一圈極細的邊框，卡片本身低調到
-   幾乎融進背景，讓佳句文字自己說話。hover 只做一件事：讓底部操作圖示
-   淡入（見 .quote-actions），不再有位移/陰影這種提醒「這是可互動元件」
-   的動態效果，維持典藏陳列該有的靜態感。 */
+/* 卡片改用使用者指定的暖白底＋淡邊框（--quote-card-bg／--quote-card-border，
+   見 :root 開頭的說明），比全站通用的 --surface 純白更柔和一點，跟頁面
+   背景有若有似無的層次差；圓角收到 8px、內距收緊到 16px/20px——原本
+   1.5rem/1.75rem 的內距配合更大的字級，在窄一點的 720px 版面裡顯得
+   比例失衡，兩者一起調整才會恢復「精緻小巧」而不是「空洞放大」的觀感。
+   position:relative 是為了讓下面 .quote-actions 能以這張卡片為基準，
+   絕對定位浮在右上角。 */
 .quote-card {
-  background: var(--surface);
-  border: 1px solid var(--border-hairline);
-  border-radius: 12px;
-  padding: 1.5rem 1.75rem 1rem;
+  position: relative;
+  background: var(--quote-card-bg);
+  border: 1px solid var(--quote-card-border);
+  border-radius: 8px;
+  padding: 16px 20px;
 }
 
 /* 左上角微小、淡色的引號裝飾——字級跟力度都刻意壓低（原本是 2rem／
@@ -3772,17 +3796,22 @@ button.book-completed-date:hover {
   gap: 0.35rem;
 }
 
-/* 佳句文字是這張卡片真正的主角：字級拉大到 1.1rem（原本 0.9rem，跟一般
-   內文同級，不夠有「摘錄」的份量感）、字距略微拉開、換成跟引號同一組
-   襯線字體＋斜體，讀起來更像書頁上的一句摘錄，不是介面裡的一般文字。 */
+/* 佳句文字字級改回 1rem（跟全站一般內文同級的「標準舒適」大小，上一輪
+   拉到 1.1rem 配上更大的卡片內距，在 720px 版面裡合起來顯得比例過大）、
+   文字顏色用 --text（全站的「軟黑/深灰褐」，數值上就是使用者指定的
+   #2C2A29，這裡直接引用 token 而不是重複寫死同一個 hex，深色模式會自動
+   換成對應的淺色文字，不用另外覆寫）；襯線字體＋斜體＋字距維持不變，
+   這是「摘錄」的文學感來源，這次要調整的是大小/顏色/間距比例，不是
+   拿掉這個質感。 */
 .quote-content {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1.75;
   letter-spacing: 0.01em;
   white-space: pre-wrap;
   font-style: italic;
   font-family: Georgia, "Songti TC", "STSong", serif;
+  color: var(--text);
 }
 
 .quote-content.is-clamped {
@@ -3807,22 +3836,29 @@ button.book-completed-date:hover {
   text-decoration: underline;
 }
 
-/* 卡片底部：操作圖示靠右、頁碼淡化文字收在最右下角——兩者共用同一個
-   flex-end 排列，操作圖示平常整組透明（opacity:0 + pointer-events:none），
-   只有滑鼠移到卡片上才淡入浮現（見下面 .quote-card:hover），維持「安靜
-   陳列」的預設樣貌，需要動手操作時才靠近一步。 */
+/* 卡片底部只剩頁碼淡化文字靠右下角——複製／編輯／刪除三顆圖示改成絕對
+   定位浮在卡片右上角（見下面 .quote-actions），不再擠在同一列，頁碼跟
+   操作圖示分別落在卡片對角的兩個角落，互不干擾。沒有頁碼的佳句這個
+   footer 整塊不會渲染（見 js/quotes.js 的 quoteCardHtml），不會留一段
+   空白的 margin-top。 */
 .quote-card-footer {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  gap: 0.75rem;
   margin-top: 0.6rem;
 }
 
+/* 操作圖示改成絕對定位浮在卡片右上角，平常整組透明＋不接受滑鼠事件
+   （opacity:0 + pointer-events:none），只有滑鼠移到卡片上才淡入浮現
+   （見下面 .quote-card:hover），維持「安靜陳列」的預設樣貌，需要動手
+   操作時滑鼠移過去才靠近一步——.quote-card 已經是 position:relative，
+   這裡直接以它為定位基準。 */
 .quote-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.2rem;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
