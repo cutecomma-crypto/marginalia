@@ -1,5 +1,3 @@
-import { initPasswordToggles } from '../utils.js';
-
 // 獨立、可插拔模組：WebDAV 雲端同步。
 //
 // 設計上刻意用「依賴注入」而不是直接 import db.js——這個檔案完全不認識
@@ -184,67 +182,5 @@ export function trackLocalChanges(DB) {
     };
     wrapped.__marginaliaTracked = true;
     DB[methodName] = wrapped;
-  });
-}
-
-// 可直接掛進「資料管理」頁面的設定＋操作面板。跟 WebDavSyncService 的核心邏輯分開，
-// 純粹是選用的 UI 層——不想用這個現成介面的話，直接呼叫上面的 class 方法自己刻畫面即可。
-export function renderWebDavSettingsPanel(container, service, { gatherLocalData, applyRemoteData }) {
-  const config = service.config || { url: '', username: '', password: '' };
-  const lastSync = service.getLastSyncAt();
-
-  container.innerHTML = `
-    <div class="webdav-settings">
-      <label>WebDAV 網址
-        <input type="url" id="webdav-url" value="${config.url || ''}" placeholder="https://example.com/remote.php/dav/files/USERNAME/">
-      </label>
-      <label>帳號
-        <input type="text" id="webdav-username" value="${config.username || ''}" autocomplete="username">
-      </label>
-      <label>密碼
-        <div class="password-field">
-          <input type="password" id="webdav-password" value="${config.password || ''}" autocomplete="current-password">
-          <button type="button" class="password-toggle-btn" data-target="webdav-password" aria-label="顯示密碼"></button>
-        </div>
-      </label>
-      <div class="form-actions">
-        <button type="button" id="webdav-save-btn" class="btn btn-primary">儲存設定</button>
-        <button type="button" id="webdav-test-btn" class="btn">測試連線</button>
-        <button type="button" id="webdav-sync-btn" class="btn">立即同步</button>
-      </div>
-      <p class="graph-hint">${lastSync ? `上次同步：${new Date(lastSync).toLocaleString('zh-TW')}` : '尚未同步過。'}</p>
-      <p id="webdav-status" class="graph-hint"></p>
-    </div>
-  `;
-
-  initPasswordToggles(container);
-
-  const statusEl = container.querySelector('#webdav-status');
-
-  container.querySelector('#webdav-save-btn').addEventListener('click', () => {
-    service.saveConfig({
-      url: container.querySelector('#webdav-url').value.trim(),
-      username: container.querySelector('#webdav-username').value.trim(),
-      password: container.querySelector('#webdav-password').value,
-    });
-    statusEl.textContent = '設定已儲存。';
-  });
-
-  container.querySelector('#webdav-test-btn').addEventListener('click', async () => {
-    statusEl.textContent = '測試連線中…';
-    const result = await service.testConnection();
-    statusEl.textContent = result.message;
-  });
-
-  container.querySelector('#webdav-sync-btn').addEventListener('click', async () => {
-    statusEl.textContent = '同步中…';
-    try {
-      const result = await service.sync({ gatherLocalData, applyRemoteData });
-      statusEl.textContent = result.reason;
-      await renderWebDavSettingsPanel(container, service, { gatherLocalData, applyRemoteData });
-      container.querySelector('#webdav-status').textContent = result.reason;
-    } catch (err) {
-      statusEl.textContent = `同步失敗：${err.message}`;
-    }
   });
 }

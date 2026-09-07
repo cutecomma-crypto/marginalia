@@ -1,12 +1,6 @@
 import { DB } from './db.js';
-import { LocalDB } from './localDb.js';
-import { escapeHtml, showToast, confirmModal } from './utils.js';
+import { escapeHtml } from './utils.js';
 import { wireNotionImportButton } from './notionImport.js';
-import { renderPersistenceStatusWidget } from './services/storagePersistenceService.js';
-import { WebDavSyncService, renderWebDavSettingsPanel } from './services/webdavSyncService.js';
-import { isSupabaseConfigured } from './config.js';
-import { getCurrentUser } from './services/authService.js';
-import { runManualCloudSync } from './cloudMigration.js';
 
 // 對照 PROJECT_SPEC.md 第 9 節：本地儲存為主，必須支援匯出／匯入／備份，避免資料遺失。
 const STORE_LABELS = {
@@ -14,6 +8,7 @@ const STORE_LABELS = {
   reading_records: '閱讀紀錄',
   outputs: '閱讀輸出',
   notes: '快速筆記',
+  groups: '圖譜群組',
   nodes: '圖譜節點',
   edges: '圖譜關係',
   favorite_authors: '喜愛作者',
@@ -21,41 +16,23 @@ const STORE_LABELS = {
   wishlist: '願望清單',
 };
 
+// 「資料管理」頁面精簡：使用者反映 WebDAV 雲端同步設定、雲端同步手動檢查、
+// 持久化儲存狀態提示、跟「全站匯出」重複的「個人數據備份」四塊太複雜、
+// 彼此功能重疊，要求整頁砍成三個區塊——目前數據總覽／全站 JSON 備份與
+// 還原／外部匯入（Notion CSV）。WebDAV 背景自動同步（bootstrap-extensions.js
+// 的 initWebDavAutoSync()）跟持久化儲存自動請求（initStoragePersistence()）
+// 本身不受影響，繼續在背景運作，只是這個頁面不再顯示設定介面／狀態小工具——
+// renderWebDavSettingsPanel()／renderPersistenceStatusWidget() 這兩個只給
+// 這個頁面用的 UI 函式，連同只服務它們的輔助函式，已經從各自的服務檔案裡
+// 一併刪除，不留死碼；WebDavSyncService／trackLocalChanges／
+// isStoragePersisted／requestPersistentStorage 這些背景服務仍在使用，
+// 沒有被動到。
 async function gatherAllData() {
   const data = {};
   for (const storeName of DB.STORE_NAMES) {
     data[storeName] = await DB.getAll(storeName);
   }
   return data;
-}
-
-// 「個人數據備份」只打包使用者真的會關心的內容本身（書籍／筆記／佳句／願望清單），
-// 不含 reading_records／nodes／edges／favorite_authors 這些內部輔助資料表——
-// 跟下面「匯出資料」（給這個 App 自己匯入用、格式對齊 DB.STORE_NAMES 全部 9 張表）
-// 是兩個不同用途，這裡是給使用者自己留一份「我的書籍/筆記/佳句/願望清單資料」、
-// 也方便日後匯入其他工具或人工查閱，檔名帶時間戳記方便分辨是哪一天備份的。
-const PERSONAL_BACKUP_STORES = ['books', 'notes', 'quotes', 'wishlist'];
-
-function backupDateStamp() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}${mm}${dd}`;
-}
-
-async function downloadPersonalBackup() {
-  const data = {};
-  for (const storeName of PERSONAL_BACKUP_STORES) {
-    data[storeName] = await DB.getAll(storeName);
-  }
-  const payload = {
-    app: 'Marginalia',
-    type: 'personal-data-backup',
-    exportedAt: new Date().toISOString(),
-    data,
-  };
-  downloadJson(payload, `marginalia_backup_${backupDateStamp()}.json`);
 }
 
 function downloadJson(obj, filename) {
@@ -101,151 +78,40 @@ export async function renderBackupPage(container) {
   for (const storeName of DB.STORE_NAMES) {
     counts[storeName] = (await DB.getAll(storeName)).length;
   }
-  // 登入雲端帳號時才顯示手動同步入口——本機模式沒有「雲端」這件事，
-  // isSupabaseConfigured() 額外擋掉「連 Supabase 都還沒設定」的部署環境。
-  const showCloudSyncPanel = isSupabaseConfigured() && Boolean(getCurrentUser());
-
-  // 登入之後，上面「目前資料」那份 counts 讀的是 DB（路由器）─也就是雲端帳號的
-  // 筆數，瀏覽器本機 IndexedDB 裡真正殘留了什麼、殘留多少，使用者完全看不到。
-  // 這就是「手機上刪過的測試書一直被提示尚未同步」這個問題的根——登入狀態下，
-  // 書籍列表的刪除鈕走的也是 DB（路由器），永遠只能刪到雲端那一筆；如果這本書
-  // 從頭到尾只存在本機（登入前建立、還沒被搬過去），刪除鈕根本碰不到它，殘影
-  // 留在本機 IndexedDB 裡，每次登入都會被 maybeOfferCloudMigration() 的指紋比對
-  // 抓出來、跳出同一句「偵測到本機有 N 本書尚未同步」，使用者「明明刪過了」卻
-  // 怎麼樣都清不掉。這裡直接繞過路由器、用 LocalDB 讀本機真正的筆數，讓使用者
-  // 至少看得到「本機還留著什麼」，而不是被一句提示文字搞得一頭霧水。
-  let localOnlyTotal = 0;
-  if (showCloudSyncPanel) {
-    for (const storeName of DB.STORE_NAMES) {
-      localOnlyTotal += (await LocalDB.getAll(storeName)).length;
-    }
-  }
 
   container.innerHTML = `
-    <div class="toolbar">
-      <a href="#/books">← 回書籍列表</a>
-      <h2>資料管理</h2>
-    </div>
+    <div class="backup-page">
+      <div class="toolbar">
+        <a href="#/books">← 回書籍列表</a>
+        <h2>資料管理</h2>
+      </div>
 
-    <div class="graph-panel">
-      <h4>目前資料</h4>
-      <ul class="stat-category-list">
-        ${DB.STORE_NAMES.map((name) => `<li><span>${escapeHtml(STORE_LABELS[name] || name)}</span><span>${counts[name]} 筆</span></li>`).join('')}
-      </ul>
-    </div>
+      <div class="graph-panel">
+        <h4>目前數據總覽</h4>
+        <ul class="stat-category-list">
+          ${DB.STORE_NAMES.map((name) => `<li><span>${escapeHtml(STORE_LABELS[name] || name)}</span><span>${counts[name]} 筆</span></li>`).join('')}
+        </ul>
+      </div>
 
-    ${showCloudSyncPanel ? `
-    <div class="graph-panel">
-      <h4>雲端同步</h4>
-      <p class="graph-hint">登入時不會再每次重新整理頁面都自動比對本機與雲端資料（這是刻意的改動，避免拖慢頁面載入速度）。如果懷疑有資料還沒同步上雲端帳號，可以在這裡手動檢查一次。</p>
-      <button type="button" class="btn btn-primary" id="cloud-sync-check-btn">檢查雲端同步</button>
-      ${localOnlyTotal > 0 ? `
-      <p class="graph-hint" style="margin-top:1rem;">這台瀏覽器的本機儲存裡還留著 ${localOnlyTotal} 筆資料（通常是登入雲端帳號之前建立、或測試用的舊資料）。如果這些不是你想要的內容、不想被同步上雲端帳號，可以直接清掉本機這一份——只會刪除「這台瀏覽器」裡的殘留資料，完全不會動到雲端帳號裡已經有的任何書籍/筆記/佳句。如果反而是想把它們留下來，請改用上面的「檢查雲端同步」把它們補到雲端帳號。</p>
-      <button type="button" class="btn btn-danger" id="clear-local-leftover-btn">清除本機殘留資料（${localOnlyTotal} 筆）</button>
-      ` : ''}
-    </div>
-    ` : ''}
+      <div class="graph-panel">
+        <h4>全站 JSON 備份與還原</h4>
+        <p class="graph-hint">匯出包含全站資料（書籍、閱讀紀錄、筆記、佳句、圖譜等）的單一 JSON 檔案，建議定期備份；還原時選擇之前匯出的檔案即可。<strong>還原會覆蓋目前所有資料</strong>，建議先匯出一份備份再還原。</p>
+        <button type="button" class="btn btn-primary" id="export-btn">匯出 JSON 備份檔</button>
+        <div class="backup-restore-row">
+          <input type="file" id="import-file" accept="application/json">
+          <button type="button" class="btn" id="import-btn">上傳並還原</button>
+        </div>
+        <p id="import-status" class="graph-hint"></p>
+      </div>
 
-    <div class="graph-panel">
-      <h4>持久化儲存</h4>
-      <p class="graph-hint">請求瀏覽器不要在裝置儲存空間吃緊時清掉這個網站的資料，降低跨裝置／長期使用下資料被瀏覽器自動清除的風險。</p>
-      <div id="persistence-widget-container"></div>
-    </div>
-
-    <div class="graph-panel">
-      <h4>WebDAV 雲端同步</h4>
-      <p class="graph-hint">填入你自己的 WebDAV 伺服器資訊（例如 Nextcloud），把整份資料同步到雲端，多台裝置間互相比對時間戳記、新的一份會覆蓋舊的一份。同步內容不會經過任何第三方伺服器，只在你的裝置與你自己的 WebDAV 之間傳輸。</p>
-      <div id="webdav-settings-container"></div>
-    </div>
-
-    <div class="graph-panel">
-      <h4>個人數據備份</h4>
-      <p class="graph-hint">把你的書籍、快速筆記、佳句摘錄、願望清單整合成一份帶時間戳記的 JSON 檔案下載——${showCloudSyncPanel ? '目前是登入狀態，匯出的是雲端帳號裡的資料' : '目前是本機模式，匯出的是這台瀏覽器裡的資料'}。</p>
-      <button type="button" class="btn btn-primary" id="personal-backup-btn">下載個人數據備份</button>
-    </div>
-
-    <div class="graph-panel">
-      <h4>匯出資料</h4>
-      <p class="graph-hint">把目前所有資料（含閱讀紀錄、關係圖譜等內部結構）打包成一個 JSON 檔案，下載到你的電腦——用來完整備份／還原這個 App，跟上面「個人數據備份」的差別是這份連同閱讀進度、圖譜這類輔助資料一起打包，格式也是設計給「匯入」這個 App 用，不是給其他工具讀取。建議定期備份。</p>
-      <button type="button" class="btn btn-primary" id="export-btn">匯出成 JSON 檔案</button>
-    </div>
-
-    <div class="graph-panel">
-      <h4>匯入資料</h4>
-      <p class="graph-hint">選擇之前匯出的 JSON 檔案還原資料。<strong>匯入會覆蓋目前所有資料</strong>，建議先匯出備份再匯入。</p>
-      <input type="file" id="import-file" accept="application/json">
-      <p id="import-status" class="graph-hint"></p>
-    </div>
-
-    <div class="graph-panel">
-      <h4>匯入 Notion 資料</h4>
-      <p class="graph-hint">從 Notion 匯出閱讀紀錄的 CSV 檔案，對照欄位後可以直接併入現有書庫。書名跟現有書籍重複的資料列會自動略過，不會產生重複書籍。</p>
-      <button type="button" class="btn btn-primary" id="notion-import-btn">匯入 Notion 資料 (CSV)</button>
-      <p id="notion-import-status" class="graph-hint"></p>
+      <div class="graph-panel">
+        <h4>外部匯入</h4>
+        <p class="graph-hint">從 Notion 匯出閱讀紀錄的 CSV 檔案，對照欄位後可以直接併入現有書庫。書名跟現有書籍重複的資料列會自動略過，不會產生重複書籍。</p>
+        <button type="button" class="btn btn-primary" id="notion-import-btn">匯入 Notion 資料 (CSV)</button>
+        <p id="notion-import-status" class="graph-hint"></p>
+      </div>
     </div>
   `;
-
-  if (showCloudSyncPanel) {
-    const syncBtn = container.querySelector('#cloud-sync-check-btn');
-    syncBtn.addEventListener('click', async () => {
-      syncBtn.disabled = true;
-      syncBtn.textContent = '檢查中…';
-      try {
-        await runManualCloudSync();
-        await renderBackupPage(container);
-      } catch (err) {
-        showToast('檢查失敗，請稍後再試一次');
-        console.error(err);
-      } finally {
-        syncBtn.disabled = false;
-        syncBtn.textContent = '檢查雲端同步';
-      }
-    });
-
-    const clearLocalBtn = container.querySelector('#clear-local-leftover-btn');
-    if (clearLocalBtn) {
-      clearLocalBtn.addEventListener('click', async () => {
-        const confirmed = await confirmModal({
-          title: '確定要清除本機殘留資料嗎？',
-          message: `這台瀏覽器裡的 ${localOnlyTotal} 筆本機殘留資料將被永久刪除，此動作無法復原。雲端帳號裡已經有的資料完全不受影響。`,
-          confirmText: '確認清除',
-          cancelText: '取消',
-          danger: true,
-        });
-        if (!confirmed) return;
-        clearLocalBtn.disabled = true;
-        clearLocalBtn.textContent = '清除中…';
-        try {
-          for (const storeName of DB.STORE_NAMES) {
-            await LocalDB.clear(storeName);
-          }
-          showToast('本機殘留資料已清除');
-          await renderBackupPage(container);
-        } catch (err) {
-          showToast('清除失敗，請稍後再試一次');
-          console.error(err);
-          clearLocalBtn.disabled = false;
-          clearLocalBtn.textContent = `清除本機殘留資料（${localOnlyTotal} 筆）`;
-        }
-      });
-    }
-  }
-
-  container.querySelector('#personal-backup-btn').addEventListener('click', async () => {
-    const btn = container.querySelector('#personal-backup-btn');
-    btn.disabled = true;
-    btn.textContent = '準備中…';
-    try {
-      await downloadPersonalBackup();
-      showToast('個人數據備份已下載');
-    } catch (err) {
-      showToast('備份失敗，請稍後再試一次');
-      console.error(err);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '下載個人數據備份';
-    }
-  });
 
   container.querySelector('#export-btn').addEventListener('click', async () => {
     const data = await gatherAllData();
@@ -260,11 +126,15 @@ export async function renderBackupPage(container) {
   });
 
   const fileInput = container.querySelector('#import-file');
+  const importBtn = container.querySelector('#import-btn');
   const statusEl = container.querySelector('#import-status');
 
-  fileInput.addEventListener('change', async () => {
+  importBtn.addEventListener('click', async () => {
     const file = fileInput.files[0];
-    if (!file) return;
+    if (!file) {
+      statusEl.textContent = '請先選擇要還原的 JSON 檔案。';
+      return;
+    }
     statusEl.textContent = '讀取中…';
     try {
       const text = await file.text();
@@ -278,9 +148,9 @@ export async function renderBackupPage(container) {
       const importSummary = DB.STORE_NAMES
         .map((name) => `${STORE_LABELS[name] || name} ${(parsed.data[name] || []).length} 筆`)
         .join('、');
-      const confirmed = window.confirm(`確定要匯入嗎？這會覆蓋目前所有資料。\n\n匯入檔案內容：${importSummary}`);
+      const confirmed = window.confirm(`確定要還原嗎？這會覆蓋目前所有資料。\n\n匯入檔案內容：${importSummary}`);
       if (!confirmed) {
-        statusEl.textContent = '已取消匯入，沒有變更任何資料。';
+        statusEl.textContent = '已取消還原，沒有變更任何資料。';
         fileInput.value = '';
         return;
       }
@@ -289,7 +159,7 @@ export async function renderBackupPage(container) {
       // renderBackupPage 會整個重繪這個 container（含 statusEl 自己），要重繪完再設訊息，
       // 不然訊息會被自己的重繪立刻蓋掉，使用者只會看到空白。
       await renderBackupPage(container);
-      container.querySelector('#import-status').textContent = '匯入完成，資料已還原。';
+      container.querySelector('#import-status').textContent = '還原完成，資料已更新。';
     } catch (err) {
       statusEl.textContent = `匯入失敗，沒有變更任何資料：檔案不是有效的 JSON（${err.message}）`;
       fileInput.value = '';
@@ -303,12 +173,5 @@ export async function renderBackupPage(container) {
       await renderBackupPage(container);
       container.querySelector('#notion-import-status').textContent = message;
     },
-  );
-
-  await renderPersistenceStatusWidget(container.querySelector('#persistence-widget-container'));
-  renderWebDavSettingsPanel(
-    container.querySelector('#webdav-settings-container'),
-    new WebDavSyncService(),
-    { gatherLocalData: gatherAllData, applyRemoteData: importAllData },
   );
 }

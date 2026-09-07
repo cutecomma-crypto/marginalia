@@ -3,31 +3,11 @@
    沿用專案既有的 CSS 變數（--surface / --border / --primary 等），
    在 index.html 裡 css/styles.css 之後再引入即可正確取用同一套色票。 */
 
-/* 1. 持久化儲存狀態小工具 */
-.persistence-widget {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  font-size: 0.85rem;
-}
-
-.persistence-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.persistence-status.is-persisted { color: var(--accent-green, #4a7c59); }
-.persistence-status.is-not-persisted { color: var(--danger); }
-
-.persistence-usage {
-  color: var(--text-muted);
-  font-size: 0.78rem;
-}
-
-/* 1b. WebDAV 設定面板／本機快照面板：沿用 .book-form 的欄位排版 */
-.webdav-settings label,
+/* 「資料管理」頁精簡：持久化儲存狀態小工具（.persistence-*）跟 WebDAV
+   設定面板（.webdav-settings）已經拿掉，對應樣式一併刪除，不留死碼——
+   .local-backup-panel label 是另一個從沒被實際啟用過的面板（見
+   bootstrap-extensions.js 的 initLocalBackup() 說明），跟這次改動無關，
+   維持原樣不動。 */
 .local-backup-panel label {
   display: flex;
   flex-direction: column;
@@ -35,14 +15,6 @@
   margin-bottom: 0.6rem;
   font-size: 0.85rem;
   color: var(--text-muted);
-}
-
-.webdav-settings input {
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
 }
 
 /* 4. 選取文字懸浮工具列 */

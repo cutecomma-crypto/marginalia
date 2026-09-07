@@ -248,8 +248,9 @@ export async function initAuthUI() {
       // 事件把已經登入過的 session 還原回來（見 authService.js 的 ensureReady()
       // 開頭說明），這種情況資料狀態根本沒有任何改變，沒有必要每次重新整理都
       // 重新抓一次全部書籍、全部願望清單、算一次指紋比對——這正是拖慢「重新
-      // 整理」速度、也在 Console 洗一堆比對紀錄的元兇。真的有漏同步的資料，
-      // 使用者可以到「資料管理」頁手動點「檢查雲端同步」主動觸發（見 backup.js）。
+      // 整理」速度、也在 Console 洗一堆比對紀錄的元兇。「資料管理」頁精簡時
+      // 拿掉了原本可以手動觸發同一份檢查的「檢查雲端同步」按鈕，真的漏同步
+      // 的資料目前只能靠登出再登入一次重新觸發 SIGNED_IN 事件。
       if (event === 'SIGNED_IN') {
         await maybeOfferCloudMigration();
       }

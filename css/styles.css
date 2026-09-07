@@ -4625,6 +4625,30 @@ button.book-completed-date:hover {
   margin-bottom: 0.6rem;
 }
 
+/* 「資料管理」頁精簡：從 7 個區塊砍到 3 個之後，即使沿用 .graph-panel
+   原本的 padding/margin 頁面高度也已經大幅縮短，這裡再把這個頁面自己的
+   卡片內距／間距收緊一截，讓整頁在一般桌面螢幕高度內不用捲動就能看完——
+   只加在 .backup-page 這個範圍裡，不動 .graph-panel 本身的基礎值（quotes.js
+   也在用同一個 class，不能連帶被壓縮）。 */
+.backup-page .graph-panel {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.backup-page .graph-panel h4 {
+  margin: 0 0 0.5rem;
+}
+
+/* 上傳還原檔案的檔案選擇器＋「上傳並還原」按鈕並排一行，垂直置中對齊，
+   跟上面「匯出 JSON 備份檔」按鈕之間留一點間距，不要三個控制項擠成一團。 */
+.backup-restore-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
 .graph-tabs {
   display: flex;
   gap: 0.4rem;
