@@ -1178,11 +1178,7 @@ header h1 a {
   flex-shrink: 0;
 }
 
-/* .sidebar-more-toggle（側邊欄「查看更多數據」收合區的開關）跟這顆「展開更多」
-   共用同一份樣式——都是「卡片底部、跨欄置中、文字連結感」的次要展開按鈕，
-   沒有理由重寫一份幾乎一樣的規則。 */
-.category-progress-toggle,
-.sidebar-more-toggle {
+.category-progress-toggle {
   display: block;
   width: 100%;
   text-align: center;
@@ -1196,117 +1192,8 @@ header h1 a {
   cursor: pointer;
 }
 
-.category-progress-toggle:hover,
-.sidebar-more-toggle:hover {
+.category-progress-toggle:hover {
   text-decoration: underline;
-}
-
-/* 「查看更多數據」展開後的內容區——跟這個檔案其餘所有 hideable 元件一樣，
-   [hidden] 一定要明著蓋掉這裡任何 display 宣告，不然會重演 .inline-status-popover
-   那次「關不掉」的坑（見該規則開頭的完整說明）。這裡目前沒有另外設 display，
-   只是照專案慣例先補上這條保險，之後如果改成 flex/grid 排版也不會不小心漏掉。 */
-.sidebar-more-panel[hidden] {
-  display: none;
-}
-
-.sidebar-more-panel {
-  margin-top: 0.6rem;
-}
-
-.home-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.home-panel {
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  padding: 1rem 1.1rem;
-}
-
-.home-panel h4 {
-  margin: 0 0 0.75rem;
-}
-
-.status-counts {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.status-count {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: var(--surface-alt);
-  border-radius: 6px;
-  padding: 0.4rem 0.2rem;
-}
-
-.status-count-value {
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.status-count-label {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.home-subtitle {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  margin: 0.75rem 0 0.4rem;
-}
-
-.home-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.home-list li {
-  border-top: 1px solid var(--border-soft);
-  padding-top: 0.6rem;
-}
-
-.home-list li:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-.home-list-title {
-  font-size: 0.88rem;
-  font-weight: 600;
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.home-list-meta {
-  font-weight: 400;
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-}
-
-.home-list-text {
-  margin: 0.3rem 0 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  white-space: pre-wrap;
-}
-
-@media (max-width: 900px) {
-  .home-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .dashboard-layout {
@@ -1649,53 +1536,6 @@ header h1 a {
 
 .sidebar-stat-row:first-of-type {
   border-top: none;
-}
-
-.favorite-author-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.favorite-author-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  border-top: 1px solid var(--border-soft);
-  padding-top: 0.4rem;
-}
-
-.favorite-author-list li:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-/* 「喜愛的作者」名稱＋♥ 圖示是同一個按鈕裡的純文字（不是分開的 icon 元素），
-   原本用 --gold 是舊配色殘留，統一改用 --text 深紅棕跟其他作者名稱一致。 */
-.favorite-author-link {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--text);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  text-align: left;
-}
-
-.favorite-author-link:hover {
-  color: var(--accent-hover);
-  text-decoration: underline;
-}
-
-.favorite-author-count {
-  font-size: 0.8125rem;
-  color: var(--text);
-  white-space: nowrap;
 }
 
 .search-row {

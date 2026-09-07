@@ -237,13 +237,13 @@ export async function renderSidebarStats(container, options = {}) {
   const defaultYearStats = statsForYear(stats, completed, defaultYear);
   let activeCategory = null;
 
-  // 「UI 極簡化」精簡：閱讀中／尚未閱讀／已讀完這三顆狀態方塊使用者反映
-  // 「不想收起來」——本來就是最常用、一打開就想看的第一層資訊（也兼作
-  // 篩選按鈕），移回「我的藏書概況」標題正下方的原始位置，維持一律可見。
-  // 其餘兩項（平均評分、最常閱讀類型）維持收進「查看更多數據」——不是拿掉，
-  // 點開還是完整看得到，只是不佔用一打開頁面就看到的第一版面。借出中／
-  // 借入未還的統計按鈕已經隨著「借閱追蹤」整個功能一起移除（見 bookForm.js
-  // 開頭的說明）。「各類型書籍數量」維持獨立卡片一律可見，不受這裡的收合影響。
+  // 「功能簡化」精簡：首頁側邊欄次要數據卡片（平均評分、最常閱讀類型、
+  // 喜愛的作者、最近輸出）整個移除，只留「年度閱讀成果」跟「各類型書籍
+  // 數量」——連同它們共用的「查看更多數據」收合區塊一起拿掉，不是收起來。
+  // 閱讀中／尚未閱讀／已讀完這三顆狀態方塊是例外：使用者明確要求維持
+  // 常駐顯示（本來就是最常用、一打開就想看的第一層資訊，也兼作篩選
+  // 按鈕），留在「我的藏書概況」標題正下方的原始位置。喜愛的作者／最近
+  // 輸出兩張卡片的移除見 dashboardSidebar.js。
   container.innerHTML = `
     <div class="sidebar-panel">
       <h4>我的藏書概況</h4>
@@ -260,25 +260,10 @@ export async function renderSidebarStats(container, options = {}) {
         </select>
       </div>
       <div class="sidebar-stat-highlight" id="sidebar-stats-highlight">${escapeHtml(defaultYearStats.highlight)}</div>
-
-      <button type="button" class="sidebar-more-toggle" id="sidebar-more-toggle" aria-expanded="false" aria-controls="sidebar-more-panel">查看更多數據</button>
-      <div class="sidebar-more-panel" id="sidebar-more-panel" hidden>
-        <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
-        <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
-      </div>
     </div>
     <div class="sidebar-panel" id="sidebar-category-panel"></div>
   `;
 
-  const moreToggle = container.querySelector('#sidebar-more-toggle');
-  const morePanel = container.querySelector('#sidebar-more-panel');
-  moreToggle.addEventListener('click', () => {
-    const nowExpanded = morePanel.hidden; // 展開前的狀態是收合，所以「即將變成」展開
-    morePanel.hidden = !nowExpanded;
-    moreToggle.textContent = nowExpanded ? '收起' : '查看更多數據';
-    moreToggle.classList.toggle('is-expanded', nowExpanded);
-    moreToggle.setAttribute('aria-expanded', String(nowExpanded));
-  });
   const categoryPanel = container.querySelector('#sidebar-category-panel');
   function renderCategoryPanel(year) {
     categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory);
@@ -301,8 +286,6 @@ export async function renderSidebarStats(container, options = {}) {
     const year = event.target.value || null;
     const yearStats = statsForYear(stats, completed, year);
     container.querySelector('#sidebar-stats-highlight').textContent = yearStats.highlight;
-    container.querySelector('#sidebar-stats-rating').textContent = yearStats.averageRating !== null ? yearStats.averageRating.toFixed(1) : '—';
-    container.querySelector('#sidebar-stats-category').textContent = yearStats.mostReadCategory || '—';
 
     renderCategoryPanel(year);
 

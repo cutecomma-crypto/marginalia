@@ -908,7 +908,6 @@ export async function renderBookList(container) {
       currentPage = 1;
       renderList();
     },
-    onAuthorClick: applyAuthorFilter,
   });
 
   // 側邊欄抽屜（手機／平板直立版）的關閉方式：抽屜自己的「✕ 關閉」按鈕、

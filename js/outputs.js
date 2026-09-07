@@ -23,10 +23,10 @@ export async function getOutputsByKind(bookId, kind) {
 
 // 「唯讀展示」版的動機標籤——跟 bookForm.js 新增書籍表單裡可勾選的版本共用
 // 同一個 .motivation-tag class（見 css/styles.css 的說明），純粹是沒有
-// <input> 的 <span>，給 home.js 的「最近輸出」清單這種「只是要顯示這本書
-// 選過哪些動機、不能互動」的場合用，不要再套用 utils.js 的 renderTagChip()
-// （那組是給書籍/心得的「自由文字標籤」用的高彩度粉/橘/黃三色階，跟這裡
-// 的莫蘭迪配色是兩回事）。
+// <input> 的 <span>，給下面 renderLegacyMotivationItem() 這種「只是要顯示
+// 這本書選過哪些動機、不能互動」的場合用，不要再套用 utils.js 的
+// renderTagChip()（那組是給書籍/心得的「自由文字標籤」用的高彩度粉/橘/黃
+// 三色階，跟這裡的莫蘭迪配色是兩回事）。
 export function renderMotivationTagChip(tag) {
   return `<span class="motivation-tag">${escapeHtml(tag)}</span>`;
 }
