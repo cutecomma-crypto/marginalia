@@ -69,11 +69,15 @@ export async function renderBookDetail(container, rawId) {
           <div class="detail-grid-compact">
             ${detailRow('作者', book.author, {
               rawValue: book.author
-                ? `${isFavoriteAuthor ? '<span class="favorite-heart">♥</span> ' : ''}<button type="button" class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</button>`
+                ? `${isFavoriteAuthor ? '<span class="favorite-heart">♥</span> ' : ''}<button type="button" class="filter-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</button>`
                 : undefined,
             })}
             ${detailRow('出版社', book.publisher)}
-            ${detailRow('書籍類型', book.category)}
+            ${detailRow('書籍類型', book.category, {
+              rawValue: book.category
+                ? `<button type="button" class="filter-link" data-category="${escapeHtml(book.category)}" title="篩選出分類為「${escapeHtml(book.category)}」的所有藏書">${escapeHtml(book.category)}</button>`
+                : undefined,
+            })}
             ${detailRow('出版日期', book.publishDate)}
             ${detailRow('書籍形式／來源', formatDisplay(book))}
             ${detailRow('存留狀態', retentionStatusDisplay(book))}
@@ -99,15 +103,21 @@ export async function renderBookDetail(container, rawId) {
 
   wireCoverImage(container.querySelector('.book-cover-image'));
 
-  // 作者名稱可點擊：跳回「所有書籍」列表並套用該作者的篩選。篩選狀態活在 bookList.js
-  // 的閉包裡，跨頁面沒辦法直接傳變數過去，借用 hash 帶一段 #/books?author=XXX
-  // （不是真正的網址查詢字串，單純是 hash 片段裡的自訂文字）夾帶要套用的作者名稱，
-  // 列表頁載入時會自己讀出來、套用後把網址清乾淨（見 bookList.js 的
-  // readAndClearAuthorFilterFromHash）。
-  const authorLinkBtn = container.querySelector('.author-name-link');
+  // 作者名稱／書籍類型可點擊：跳回「所有書籍」列表並套用對應的篩選。篩選狀態活在
+  // bookList.js 的閉包裡，跨頁面沒辦法直接傳變數過去，借用 hash 帶一段
+  // #/books?author=XXX 或 #/books?category=XXX（不是真正的網址查詢字串，單純是
+  // hash 片段裡的自訂文字）夾帶要套用的值，列表頁載入時會自己讀出來、套用後把
+  // 網址清乾淨（見 bookList.js 的 readAndClearFilterParamsFromHash）。
+  const authorLinkBtn = container.querySelector('[data-author]');
   if (authorLinkBtn) {
     authorLinkBtn.addEventListener('click', () => {
       window.location.hash = `#/books?author=${encodeURIComponent(authorLinkBtn.dataset.author)}`;
+    });
+  }
+  const categoryLinkBtn = container.querySelector('[data-category]');
+  if (categoryLinkBtn) {
+    categoryLinkBtn.addEventListener('click', () => {
+      window.location.hash = `#/books?category=${encodeURIComponent(categoryLinkBtn.dataset.category)}`;
     });
   }
 

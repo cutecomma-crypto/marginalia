@@ -1713,9 +1713,20 @@ header h1 a {
 
 /* 書名下方的書籍類型小標籤：只在平板直向（見下面 641～1024px 區塊）才會
    顯示，桌機版跟手機卡片版本身各自已經有獨立的「書籍類型」欄位/膠囊，
-   這裡預設藏起來，不要三個地方同時重複顯示同一個分類。 */
+   這裡預設藏起來，不要三個地方同時重複顯示同一個分類。
+   現在是 <button>（點下去篩選出該分類的所有藏書），這裡先重置掉瀏覽器
+   原生按鈕的邊框／字體，視覺上維持跟原本純 <span> 一模一樣的圓角膠囊，
+   只是多了指標游標跟下面的 hover 效果。 */
 .book-table-category-badge {
   display: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.book-table-category-badge:hover {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
 /* 平板直向／中型螢幕（641～1024px）：這個寬度維持真正的 <table>（不像
@@ -2901,12 +2912,14 @@ button.book-completed-date:hover {
   color: var(--accent);
 }
 
-/* 全站可點擊的作者名稱（書籍列表表格／封面網格／書籍詳情頁），點下去篩選出
-   該作者的所有藏書。表格版是 <button>、封面網格版是 <span>（外層卡片本身
-   已經是 <a>，不能再塞 <button>），視覺上統一成同一顆樣式，不分標籤種類。
-   Hover 用底線＋變色（--accent-hover，現在等於品牌深棕）雙重提示，跟純文字
-   （未分類等不可點欄位）明顯區隔開。 */
-.author-name-link {
+/* 全站可點擊的純文字篩選連結——作者名稱／書籍類型（純文字版，不是下面
+   的圓角膠囊版）共用同一份樣式，點下去篩選出符合的所有藏書（見
+   bookList.js 的 applyAuthorFilter／applyCategoryFilter）。表格版是
+   <button>、封面網格版是 <span>（外層卡片本身已經是 <a>，不能再塞
+   <button>），視覺上統一成同一顆樣式，不分標籤種類、也不分是作者還是
+   類型。Hover 用底線＋變色（--accent-hover，現在等於品牌深棕）雙重
+   提示，跟純文字（未分類等不可點欄位）明顯區隔開。 */
+.filter-link {
   display: inline;
   background: none;
   border: none;
@@ -2918,7 +2931,7 @@ button.book-completed-date:hover {
   text-align: left;
 }
 
-.author-name-link:hover {
+.filter-link:hover {
   color: var(--accent-hover);
   text-decoration: underline;
 }
@@ -5282,6 +5295,10 @@ button.book-completed-date:hover {
   color: var(--text-muted);
 }
 
+/* 可點擊篩選出該分類的所有藏書（見 bookList.js 的 applyCategoryFilter）。
+   外層卡片本身已經是 <a>，這裡跟作者名稱的網格版一樣改用 <span> 靠事件
+   委派處理（見 authorNameHtmlInline 的說明），不是真的 <button>，
+   cursor:pointer 純粹是視覺提示。 */
 .book-gallery-category {
   display: inline-block;
   max-width: 100%;
@@ -5294,6 +5311,12 @@ button.book-completed-date:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.book-gallery-category:hover {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
 /* 卡片本身寬度低於這個門檻時（例如小螢幕上一列擠了 4、5 欄），類型標籤直接整個隱藏，

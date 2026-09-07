@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml, showToast, wireSearchClear, wireCoverImage, confirmModal, updateBatchActionBar } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
-import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByAuthor } from './bookStats.js';
+import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByAuthor, filterBooksByCategory } from './bookStats.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 import { ICON_SPARKLES } from './icons.js';
@@ -37,20 +37,24 @@ window.addEventListener('marginalia:cloud-cache-updated', (event) => {
   showToast('雲端書籍資料已更新，重新整理即可看到最新內容');
 });
 
-// 書籍詳情頁點作者名稱要「跳頁＋套用篩選」一次完成，但列表頁的篩選狀態全部活在
-// renderBookList 的閉包變數裡，沒辦法直接從別的頁面塞值進去——於是借用 hash 的
-// 後半段夾帶一段假 query string（例如 #/books?author=東野圭吾，這不是真正的網址
-// 查詢字串，單純是 hash 片段裡自訂的文字），列表頁載入時讀一次、套用完馬上用
-// history.replaceState 把網址清乾淨，之後重新整理或再次點擊「所有書籍」都不會殘留。
-function readAndClearAuthorFilterFromHash() {
+// 書籍詳情頁點作者名稱／書籍類型要「跳頁＋套用篩選」一次完成，但列表頁的篩選
+// 狀態全部活在 renderBookList 的閉包變數裡，沒辦法直接從別的頁面塞值進去——
+// 於是借用 hash 的後半段夾帶一段假 query string（例如 #/books?author=東野圭吾
+// 或 #/books?category=投資理財，這不是真正的網址查詢字串，單純是 hash 片段裡
+// 自訂的文字），列表頁載入時讀一次、套用完馬上用 history.replaceState 把網址
+// 清乾淨，之後重新整理或再次點擊「所有書籍」都不會殘留。兩種篩選共用同一個
+// 讀取函式（不是各寫一份），呼叫端各自只取自己要的那個欄位。
+function readAndClearFilterParamsFromHash() {
   const hash = window.location.hash;
   const qIndex = hash.indexOf('?');
-  if (qIndex === -1) return null;
-  const author = new URLSearchParams(hash.slice(qIndex + 1)).get('author');
-  if (author) {
+  if (qIndex === -1) return { author: null, category: null };
+  const params = new URLSearchParams(hash.slice(qIndex + 1));
+  const author = params.get('author');
+  const category = params.get('category');
+  if (author || category) {
     history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/books`);
   }
-  return author;
+  return { author, category };
 }
 
 export async function renderBookList(container) {
@@ -115,12 +119,15 @@ export async function renderBookList(container) {
   });
 
   // 左側「閱讀統計」的年份選單／閱讀狀態方塊／「喜愛的作者」，跟右側書籍列表是
-  // 同一份狀態，三種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年
+  // 同一份狀態，四種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年
   // 完成日期在該年份且已讀完」的書，狀態只留符合閱讀中／尚未閱讀／已讀完的書，
-  // 作者只留符合該作者的書（見下面 applyAuthorFilter）。
+  // 作者只留符合該作者的書（見下面 applyAuthorFilter），類型只留符合該分類的書
+  // （見下面 applyCategoryFilter）。
+  const hashFilterParams = readAndClearFilterParamsFromHash();
   let yearFilter = null;
   let statusFilter = null;
-  let authorFilter = readAndClearAuthorFilterFromHash();
+  let authorFilter = hashFilterParams.author;
+  let categoryFilter = hashFilterParams.category;
   let viewMode = 'table';
   // 每次搜尋／篩選／排序／每頁顯示筆數改變都要把頁碼重設回第 1 頁，不然
   // 切換篩選後畫面還停在「原本第 N 頁」，可能反而看不到剛套用篩選後排在
@@ -211,6 +218,16 @@ export async function renderBookList(container) {
     renderList();
   }
 
+  // 書籍類型篩選：跟上面的作者篩選同一種考量——類型標籤到處都可以點
+  // （表格、平板膠囊、封面卡片、書籍詳情頁），統一收斂到這個函式。
+  function applyCategoryFilter(category) {
+    const trimmed = (category || '').trim();
+    if (!trimmed) return;
+    categoryFilter = trimmed;
+    currentPage = 1;
+    renderList();
+  }
+
   // 平滑滾動回列表頂部，只有「切換每頁顯示數量」跟「換頁」這兩種操作才需要——
   // 打字搜尋、切換篩選這些操作使用者視線本來就停在畫面上，不需要幫他們捲動。
   function scrollListToTop() {
@@ -242,6 +259,14 @@ export async function renderBookList(container) {
         renderList();
       } });
     }
+    if (categoryFilter) {
+      const categoryBookCount = books.filter((b) => (b.category || '').trim() === categoryFilter).length;
+      entries.push({ key: 'category', label: `分類：${categoryFilter}（共 ${categoryBookCount} 本）`, remove: () => {
+        categoryFilter = null;
+        currentPage = 1;
+        renderList();
+      } });
+    }
     return entries;
   }
 
@@ -253,6 +278,7 @@ export async function renderBookList(container) {
     let base = filterBooksCompletedInYear(searched, recordMap, yearFilter);
     base = filterBooksByStatus(base, recordMap, statusFilter);
     base = filterBooksByAuthor(base, authorFilter);
+    base = filterBooksByCategory(base, categoryFilter);
     const sorted = sortBooks(base, recordMap, sortSelect.value);
 
     // 分頁永遠是「搜尋＋篩選＋排序都套用完之後」的最後一步，總頁數依 sorted
@@ -270,7 +296,7 @@ export async function renderBookList(container) {
     if (sorted.length === 0) {
       if (query) {
         bodyEl.innerHTML = `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`;
-      } else if (yearFilter || statusFilter || authorFilter) {
+      } else if (yearFilter || statusFilter || authorFilter || categoryFilter) {
         bodyEl.innerHTML = '<p class="empty">沒有符合目前篩選條件的書籍。</p>';
       } else if (books.length === 0) {
         // 真正的「資料庫一本書都沒有」（不是篩選/搜尋篩到剩零筆），見
@@ -338,6 +364,7 @@ export async function renderBookList(container) {
     yearFilter = null;
     statusFilter = null;
     authorFilter = null;
+    categoryFilter = null;
     currentPage = 1;
     searchInput.value = '';
     const yearSelect = container.querySelector('#sidebar-stats-year-select');
@@ -390,13 +417,27 @@ export async function renderBookList(container) {
   // 表格模式的作者按鈕、封面網格模式的作者 <span> 共用同一個 delegated listener——
   // #book-list-body 底下的內容每次 renderList() 都整個重繪，掛在容器本身而不是
   // 個別元素上，才不用每次重繪後重新綁定。網格卡片本身是 <a>，這裡順手擋掉外層
-  // 導覽，讓點作者名稱只觸發篩選、不會同時跳進書籍詳情頁。
+  // 導覽，讓點作者名稱只觸發篩選、不會同時跳進書籍詳情頁。用 [data-author] 屬性
+  // 選擇器（不是 .filter-link class）辨識，因為分類的純文字版也共用同一個
+  // class，用屬性選擇器才不會兩邊互相誤判。
   bodyEl.addEventListener('click', (event) => {
-    const link = event.target.closest('.author-name-link');
+    const link = event.target.closest('[data-author]');
     if (!link) return;
     event.preventDefault();
     event.stopPropagation();
     applyAuthorFilter(link.dataset.author);
+  });
+
+  // 書籍類型點擊篩選：跟上面作者篩選同一種 delegated listener 手法，
+  // 涵蓋表格純文字版（.filter-link）、平板膠囊（.book-table-category-badge）、
+  // 封面網格膠囊（.book-gallery-category）三種樣式，全部只認 [data-category]
+  // 這個屬性，不管外觀是哪一種。
+  bodyEl.addEventListener('click', (event) => {
+    const link = event.target.closest('[data-category]');
+    if (!link) return;
+    event.preventDefault();
+    event.stopPropagation();
+    applyCategoryFilter(link.dataset.category);
   });
 
   // 批量操作勾選框：表格版、封面網格版共用同一個 .book-select-checkbox class，

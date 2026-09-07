@@ -259,7 +259,7 @@ async function refreshList() {
 
 // 轉為藏書：不直接在背後偷偷幫使用者建立一本資料不全的書，而是把書名／推薦來源
 // 透過 hash 查詢字串帶進「新增書籍」表單直接預填（跟 bookList.js 的作者篩選是
-// 同一種手法，見該檔案 readAndClearAuthorFilterFromHash 開頭註解），使用者看得到、
+// 同一種手法，見該檔案 readAndClearFilterParamsFromHash 開頭註解），使用者看得到、
 // 能修改，按下「加入我的書庫」送出才真的轉入藏書庫。也因此這裡「先不刪除」這筆
 // 願望清單項目——真正的刪除動作放在 bookForm.js 新增書籍成功送出「之後」才執行
 // （見該檔案 wishlistId 的處理），這樣使用者半路按「取消」或直接關掉分頁，

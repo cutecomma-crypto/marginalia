@@ -55,3 +55,11 @@ export function filterBooksByAuthor(books, author) {
   if (!author) return books;
   return books.filter((book) => (book.author || '').trim() === author);
 }
+
+// 點擊書籍類型標籤篩選（列表表格／封面網格／書籍詳情頁三處共用同一份
+// 點擊邏輯，見 bookList.js 的 applyCategoryFilter）：跟上面的作者篩選
+// 同一種比對方式，認完全相同（trim 過）的分類字串，不做子字串模糊比對。
+export function filterBooksByCategory(books, category) {
+  if (!category) return books;
+  return books.filter((book) => (book.category || '').trim() === category);
+}

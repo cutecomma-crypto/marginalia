@@ -32,7 +32,7 @@ function completedDateTextOnly(record) {
 // 不在這裡個別綁定。
 function authorNameHtml(book) {
   if (!book.author) return '';
-  return `<button type="button" class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</button>`;
+  return `<button type="button" class="filter-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</button>`;
 }
 
 // 封面網格模式整張卡片本身就是 <a>，裡面不能再塞一個 <button>（互動元素巢狀在
@@ -41,7 +41,34 @@ function authorNameHtml(book) {
 // 只是換一個不會被瀏覽器特殊處理的容器標籤。
 function authorNameHtmlInline(book) {
   if (!book.author) return '';
-  return `<span class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</span>`;
+  return `<span class="filter-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</span>`;
+}
+
+// 書籍類型點擊即篩選：表格版「書籍類型」欄是純文字（不像下面的膠囊
+// 版），跟作者名稱共用同一顆 .filter-link 樣式（見 css/styles.css 的
+// 說明）——底線＋變色的 hover 提示比較適合這種夾在一般文字欄位裡的
+// 純文字連結，膠囊版（book-table-category-badge／book-gallery-category）
+// 已經有自己的底色/邊框，改用背景變色當 hover 提示更合適，兩邊各自
+// 在 CSS 裡處理，不用統一成同一種視覺語言。
+function categoryNameHtml(book) {
+  if (!book.category) return '';
+  return `<button type="button" class="filter-link" data-category="${escapeHtml(book.category)}" title="篩選出分類為「${escapeHtml(book.category)}」的所有藏書">${escapeHtml(book.category)}</button>`;
+}
+
+// 平板直向才會顯示的書籍類型小膠囊（見 css/styles.css 的
+// .book-table-category-badge 說明）——這個 <button> 是書名 <td> 裡
+// <a> 的平輩，不是巢狀在 <a> 裡面，直接用 <button> 沒有 HTML 巢狀
+// 互動元素的問題。
+function categoryBadgeHtml(book) {
+  if (!book.category) return '';
+  return `<button type="button" class="book-table-category-badge" data-category="${escapeHtml(book.category)}" title="篩選出分類為「${escapeHtml(book.category)}」的所有藏書">${escapeHtml(book.category)}</button>`;
+}
+
+// 封面網格版的書籍類型膠囊——整張卡片本身是 <a>，跟 authorNameHtmlInline
+// 同樣的理由改用 <span> 靠 event delegation 處理。
+function categoryNameHtmlInline(book) {
+  if (!book.category) return '';
+  return `<span class="book-gallery-category" data-category="${escapeHtml(book.category)}" title="篩選出分類為「${escapeHtml(book.category)}」的所有藏書">${escapeHtml(book.category)}</span>`;
 }
 
 // data-label：手機版把表格轉成一張張卡片時（見 styles.css 的 @media (max-width: 640px)
@@ -60,9 +87,9 @@ function bookRow(book, favoriteAuthors, recordMap, selectedIds) {
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
   return `
     <tr>
-      <td data-label="書名"><input type="checkbox" class="row-select-checkbox book-select-checkbox" data-select-id="${book.id}" aria-label="選取《${escapeHtml(book.title || '未命名')}》" ${selectedIds.has(book.id) ? 'checked' : ''}><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a>${book.category ? `<span class="book-table-category-badge">${escapeHtml(book.category)}</span>` : ''}</td>
+      <td data-label="書名"><input type="checkbox" class="row-select-checkbox book-select-checkbox" data-select-id="${book.id}" aria-label="選取《${escapeHtml(book.title || '未命名')}》" ${selectedIds.has(book.id) ? 'checked' : ''}><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a>${categoryBadgeHtml(book)}</td>
       <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" data-tooltip="喜愛的作者" aria-label="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
-      <td data-label="書籍類型">${escapeHtml(book.category)}</td>
+      <td data-label="書籍類型">${categoryNameHtml(book)}</td>
       <td data-label="完成日期">${completedDateCell(book, record)}</td>
     </tr>
   `;
@@ -110,7 +137,7 @@ function bookGalleryCard(book, favoriteAuthors, recordMap, selectedIds) {
           <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
           <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" data-tooltip="喜愛的作者" aria-label="喜愛的作者">♥</span> ' : ''}${authorNameHtmlInline(book)}</div>
           <div class="book-gallery-meta">
-            ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
+            ${categoryNameHtmlInline(book)}
             ${completedDateTextOnly(record)}
           </div>
         </div>

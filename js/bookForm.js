@@ -157,7 +157,7 @@ function wireCoverUpload(form) {
 // 則跟著「存留狀態」欄位——來源與存留狀態解耦之後，這兩組細節欄位分別依附在
 // 各自真正相關的欄位上，不再都綁在存留狀態一個欄位切換。
 // 從願望清單「轉為藏書」點過來時，用跟 bookList.js 作者篩選同一種手法（hash 帶
-// 查詢字串，見該檔案 readAndClearAuthorFilterFromHash 開頭註解）把書名／作者／
+// 查詢字串，見該檔案 readAndClearFilterParamsFromHash 開頭註解）把書名／作者／
 // 推薦來源／願望清單項目 id 帶進新增書籍表單直接預填，讀完立刻用 replaceState
 // 把網址清乾淨，避免重新整理或再次造訪 #/books/new 時殘留上一次轉換的資料。
 function readAndClearWishlistPrefillFromHash() {
