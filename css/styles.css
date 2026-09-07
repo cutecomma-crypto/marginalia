@@ -4339,12 +4339,21 @@ button.book-completed-date:hover {
   min-height: 420px;
 }
 
+/* 圖層順序：底層【群組面板】→中層【關係連線與標籤】→上層【人物卡片】。
+   這裡故意「不」設 z-index（拿掉原本的 z-index:5）——.connections-overlay
+   跟 .group-track 都是 .canvas-board 底下 position 過的手足元素，兩者都是
+   z-index:auto 時，畫面堆疊順序單純看 DOM 先後（HTML 裡 SVG 寫在
+   .group-track 前面），.group-track 自然會蓋在 SVG 上面；先前這裡明講
+   z-index:5 反而讓 SVG 的連線／標籤蓋到群組卡片與人物姓名文字上面
+   （正的 z-index 一定贏過 z-index:auto，不管 DOM 順序誰先誰後），
+   這正是連線「穿透」卡片、標籤蓋住人名的根因。拿掉之後，連線只要路過
+   某張卡片的方塊範圍，都會被那張不透明的卡片自然蓋住一段，視覺上就是
+   「連線從卡片外邊緣進出、不會畫在卡片內容上面」，不需要額外的碰撞演算法。 */
 .connections-overlay {
   position: absolute;
   top: 0;
   left: 0;
   pointer-events: none;
-  z-index: 5;
 }
 
 .group-track {

@@ -211,20 +211,57 @@ function ungroupedTrayHtml(people, x, y) {
 }
 
 
-// 從中心點沿著直線方向，算出跟卡片矩形邊界的交點，讓連線停在卡片邊緣而不是穿過卡片中央。
-function edgePointOnRect(rect, center, towardPoint) {
-  const dx = towardPoint.x - center.x;
-  const dy = towardPoint.y - center.y;
-  if (dx === 0 && dy === 0) return center;
-  const halfW = rect.width / 2;
-  const halfH = rect.height / 2;
-  const scaleX = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
-  const scaleY = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
-  const scale = Math.min(scaleX, scaleY, 1);
-  return { x: center.x + dx * scale, y: center.y + dy * scale };
+// 人物卡片在群組裡是直向排列的清單，連線理論上都是「卡片跟卡片之間橫向拉過去」——
+// 固定從左右兩側外邊緣進出（不是任意角度算出來的邊界交點），看起來才像從卡片側面
+// 接出去，不會有線從卡片上緣/下緣斜插出來這種不符合版面直覺的角度，也不會直接穿過
+// 卡片中央的人名文字。往右邊的對象就接右邊緣中點，往左邊就接左邊緣中點。
+function attachSidePoint(rect, center, towardPoint) {
+  const side = towardPoint.x >= center.x ? 1 : -1;
+  return { x: center.x + side * (rect.width / 2), y: center.y };
 }
 
-function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
+// 折線（Smooth Step）：先橫向拉到兩張卡片正中間的 bendX，再直向切過去，最後橫向切進
+// 對方卡片，轉角用小圓角修掉直角的生硬感——常見於流程圖／關係圖工具的連線畫法。
+// 跟純直線相比，折線不會用一條斜線貫穿整個畫布、直接畫過中間其他不相干的卡片正中央；
+// 配合 styles.css 讓卡片蓋在連線上面，折線只會在「真的路過某張卡片方塊範圍」時
+// 才被那張卡片蓋住一小段，不會像斜線那樣大剌剌地貫穿畫面。
+// bendX 可以外部指定（見呼叫端的 dupSpread）：同兩個人之間如果有好幾條重複關係，
+// 每一條各自用不同的 bendX，折線本身就會左右錯開，不是只有標籤分開、線還是疊在一起。
+function smoothStepPath(start, end, bendX, radius = 14) {
+  const dy = end.y - start.y;
+  // 兩點幾乎同高（左右排在同一列）：直接一條水平線就好，折出兩個幾乎看不出來的
+  // 小彎反而顯得多餘；dupSpread 這時候改成把整條線上下錯開，維持看得到重複關係。
+  if (Math.abs(dy) < radius) {
+    const offsetY = bendX - (start.x + end.x) / 2;
+    return `M ${start.x},${start.y + offsetY} L ${end.x},${end.y + offsetY}`;
+  }
+  const signX = end.x >= start.x ? 1 : -1;
+  const signY = dy >= 0 ? 1 : -1;
+  const r = Math.min(radius, Math.abs(end.x - start.x) / 2, Math.abs(dy) / 2);
+  if (r < 1) {
+    return `M ${start.x},${start.y} L ${bendX},${start.y} L ${bendX},${end.y} L ${end.x},${end.y}`;
+  }
+  return [
+    `M ${start.x},${start.y}`,
+    `L ${bendX - signX * r},${start.y}`,
+    `Q ${bendX},${start.y} ${bendX},${start.y + signY * r}`,
+    `L ${bendX},${end.y - signY * r}`,
+    `Q ${bendX},${end.y} ${bendX + signX * r},${end.y}`,
+    `L ${end.x},${end.y}`,
+  ].join(' ');
+}
+
+// svgEl 只畫連線本身，labelSvgEl 只畫標籤——兩個獨立的 SVG 疊在畫布上，
+// 中間夾著 .group-track（見 index.html 樣板／styles.css 的說明）：
+// svgEl 排在 .group-track 前面、labelSvgEl 排在後面，畫面堆疊順序照 DOM
+// 順序疊成「連線 → 群組／人物卡片 → 標籤」三層。連線被卡片蓋住的部分才會
+// 達到「連線從卡片外邊緣進出、不穿透卡片內容」的效果；但標籤如果也跟著
+// 被蓋住，使用者會完全看不到那條關係叫什麼名字——尤其是跨好幾張卡片的
+// 長距離關係，標籤的計算位置很容易剛好落在中間某張不相干的卡片正下方。
+// 標籤永遠疊在最上層，才能保證「不管線本身有沒有被卡片擋住，標籤本身
+// 一定看得到」，這是比逐字比對原始需求「連線與標籤都在中層」更貼近
+// 「使用者永遠看得懂這條線代表什麼關係」這個實際目的的做法。
+function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) {
   const boardRect = boardEl.getBoundingClientRect();
   // 群組卡片可以自由拖到畫布任何位置，畫布實際大小常常比 boardEl 本身量到的寬高還大
   // （boardEl 的寬度不會因為裡面的絕對定位卡片超出範圍就跟著變寬），
@@ -236,6 +273,9 @@ function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
   svgEl.setAttribute('width', svgWidth);
   svgEl.setAttribute('height', svgHeight);
   svgEl.innerHTML = '';
+  labelSvgEl.setAttribute('width', svgWidth);
+  labelSvgEl.setAttribute('height', svgHeight);
+  labelSvgEl.innerHTML = '';
 
   const validEdges = [];
   for (const edge of edges) {
@@ -315,22 +355,26 @@ function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
 
     let startPulled;
     let end;
+    let pathD;
     if (sameCard) {
       const gutterX = Math.max(fromColRight, toColRight) - GUTTER_INSET + dupSpread;
       startPulled = { x: gutterX, y: fromCenter.y };
       end = { x: gutterX, y: toCenter.y };
+      pathD = `M ${startPulled.x},${startPulled.y} L ${end.x},${end.y}`;
     } else {
       const fromRectLocal = { width: fromRect.width, height: fromRect.height };
       const toRectLocal = { width: toRect.width, height: toRect.height };
-      startPulled = hasStartArrow(edge) ? edgePointOnRect(fromRectLocal, fromCenter, toCenter) : fromCenter;
-      end = hasEndArrow(edge) ? edgePointOnRect(toRectLocal, toCenter, fromCenter) : toCenter;
+      // 一律從左右外邊緣接出去（不管有沒有箭頭），折線走 smooth step，
+      // 不會有直線斜著貫穿中間其他卡片的問題（見兩個函式開頭的說明）。
+      startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
+      end = attachSidePoint(toRectLocal, toCenter, fromCenter);
+      const bendX = (startPulled.x + end.x) / 2 + dupSpread;
+      pathD = smoothStepPath(startPulled, end, bendX);
     }
 
-    const line = document.createElementNS(svgNS, 'line');
-    line.setAttribute('x1', startPulled.x);
-    line.setAttribute('y1', startPulled.y);
-    line.setAttribute('x2', end.x);
-    line.setAttribute('y2', end.y);
+    const line = document.createElementNS(svgNS, 'path');
+    line.setAttribute('d', pathD);
+    line.setAttribute('fill', 'none');
     const edgeColor = effectiveEdgeColor(edge);
     line.setAttribute('stroke', edgeColor);
     line.setAttribute('stroke-width', String(strokeWidthForLabel(edge.label)));
@@ -343,21 +387,22 @@ function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
     svgEl.appendChild(line);
 
     if (edge.label) {
-      // 標籤直接置中疊在連線正中央，讓線貫穿標籤，不要線是線、字是字分開兩邊。
+      // 標籤直接置中疊在連線正中央，讓線貫穿標籤，不要線是線、字是字分開兩邊——
+      // 折線的「正中央」就是那段直向折角線段的中點，跟畫 pathD 用的 bendX 是
+      // 同一個 X 座標，標籤才會真的貼在畫出來的線上，不是飄在旁邊不相干的位置。
+      // 距離太短（兩張卡片擠在一起）就把標籤整個往上浮 10px，不要硬擠在兩張
+      // 小卡片正中間蓋住內容。
       let midX;
       let midY;
       if (sameCard) {
         midX = startPulled.x;
         midY = (startPulled.y + end.y) / 2;
       } else {
-        const dx = end.x - startPulled.x;
-        const dy = end.y - startPulled.y;
-        const lineLength = Math.hypot(dx, dy) || 1;
-        const LABEL_OFFSET = 30;
-        const perpX = dy / lineLength;
-        const perpY = -dx / lineLength;
-        midX = (startPulled.x + end.x) / 2 + perpX * LABEL_OFFSET + perpX * dupSpread;
-        midY = (startPulled.y + end.y) / 2 + perpY * LABEL_OFFSET + perpY * dupSpread;
+        const lineLength = Math.hypot(end.x - startPulled.x, end.y - startPulled.y);
+        const SHORT_EDGE_THRESHOLD = 80;
+        midX = (startPulled.x + end.x) / 2 + dupSpread;
+        midY = (startPulled.y + end.y) / 2;
+        if (lineLength < SHORT_EDGE_THRESHOLD) midY -= 10;
       }
       const labelColor = edgeColor;
       const text = document.createElementNS(svgNS, 'text');
@@ -370,14 +415,16 @@ function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
       text.setAttribute('fill', labelColor);
       text.style.pointerEvents = 'none';
       text.textContent = edge.label;
-      svgEl.appendChild(text);
+      labelSvgEl.appendChild(text);
 
-      // 膠囊狀底色＋同色系描邊，讓標籤在密集的卡片間也能一眼認出，線不會穿過文字造成雜訊
+      // 膠囊狀底色＋同色系描邊，讓標籤在密集的卡片間也能一眼認出，線不會穿過文字造成雜訊——
+      // 內距收緊到 2px 上下／4px 左右（原本 4/7），標籤本身也跟著更貼合文字大小，
+      // 不會比實際文字大一整圈，更不容易疊到旁邊卡片的邊框或文字。
       const bboxProbe = text;
-      svgEl.appendChild(bboxProbe);
+      labelSvgEl.appendChild(bboxProbe);
       const bbox = bboxProbe.getBBox();
-      const padX = 7;
-      const padY = 4;
+      const padX = 4;
+      const padY = 2;
       const rect = document.createElementNS(svgNS, 'rect');
       rect.setAttribute('x', bbox.x - padX);
       rect.setAttribute('y', bbox.y - padY);
@@ -391,7 +438,7 @@ function drawConnections(svgEl, boardEl, edges, onEdgeClick) {
       rect.style.pointerEvents = 'auto';
       rect.style.cursor = 'pointer';
       rect.addEventListener('click', () => onEdgeClick(edge));
-      svgEl.insertBefore(rect, text);
+      labelSvgEl.insertBefore(rect, text);
     }
   }
 }
@@ -490,6 +537,7 @@ export async function renderGraphPage(container, rawBookId) {
             <div class="canvas-board" id="canvas-board">
               <svg class="connections-overlay" id="connections-svg"></svg>
               <div class="group-track" id="group-track"></div>
+              <svg class="connections-overlay connections-labels-overlay" id="connections-labels-svg"></svg>
             </div>
             <div class="canvas-empty-state" id="canvas-empty-state" hidden>
               <p>點擊右上角「＋ 新增群組」開始建立角色關係圖</p>
@@ -529,6 +577,7 @@ export async function renderGraphPage(container, rawBookId) {
   const boardEl = container.querySelector('#canvas-board');
   const trackEl = container.querySelector('#group-track');
   const svgEl = container.querySelector('#connections-svg');
+  const labelSvgEl = container.querySelector('#connections-labels-svg');
   const canvasWrapEl = container.querySelector('#canvas-wrap');
   const emptyStateEl = container.querySelector('#canvas-empty-state');
   const addGroupBtn = container.querySelector('#add-group-btn');
@@ -642,7 +691,7 @@ export async function renderGraphPage(container, rawBookId) {
     edgeForm.style.display = enough ? '' : 'none';
     edgeHint.style.display = enough ? 'none' : '';
 
-    requestAnimationFrame(() => drawConnections(svgEl, boardEl, edges, showEdgePanel));
+    requestAnimationFrame(() => drawConnections(svgEl, labelSvgEl, boardEl, edges, showEdgePanel));
   }
 
   // 把 personId 放進 targetGroupId（null＝未分組），插在 insertBeforeId 那個人前面
@@ -790,7 +839,7 @@ export async function renderGraphPage(container, rawBookId) {
           // 這裡拖曳的每一格都重新畫一次連線，卡片移到哪、連線就即時跟到哪，不用
           // 等放開滑鼠才校正——drawConnections() 本身是用 getBoundingClientRect()
           // 即時量測，卡片這時候已經套上新的 left/top，量到的自然就是新位置。
-          drawConnections(svgEl, boardEl, edges, showEdgePanel);
+          drawConnections(svgEl, labelSvgEl, boardEl, edges, showEdgePanel);
         }
         async function onUp() {
           document.removeEventListener('pointermove', onMove);
@@ -1029,7 +1078,7 @@ export async function renderGraphPage(container, rawBookId) {
     boardEl.style.transform = `scale(${zoomLevel})`;
     boardEl.style.transformOrigin = '0 0';
     zoomLevelEl.textContent = `${Math.round(zoomLevel * 100)}%`;
-    requestAnimationFrame(() => drawConnections(svgEl, boardEl, edges, showEdgePanel));
+    requestAnimationFrame(() => drawConnections(svgEl, labelSvgEl, boardEl, edges, showEdgePanel));
   }
 
   container.querySelector('#zoom-in-btn').addEventListener('click', () => {
