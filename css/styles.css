@@ -760,21 +760,21 @@ header h1 a {
     width: 100%;
   }
 
-  /* 「篩選與批量」按鈕跟上面搜尋框同一套「窄螢幕滿版寬、40px 高」對齊規則，
-     不然它會維持桌面版依內容自動調整的窄按鈕寬度，跟上下滿版的搜尋框/卡片
-     邊界對不齊。面板本身維持 position:absolute 自己的寬度（見桌面版樣式的
-     min-width/max-width），不用跟著按鈕撐滿——內容是排序/每頁顯示/批量開關
-     這幾個較短的欄位，滿版反而會拉得鬆散。 */
-  .filter-batch-wrap {
+  /* 排序／每頁顯示／批量選取這三個控制項跟上面搜尋框同一套「窄螢幕滿版寬」
+     對齊規則——每個控制項各自獨立一行，選單改回標籤在上、選單在下的直式
+     排列（.sort-select 已經在上面那條規則被強制 100% 寬／40px 高，這裡只
+     需要把 .toolbar-control-field 本身從桌面版的橫向排列改成直向）。 */
+  .toolbar-controls {
     width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
   }
 
-  .filter-batch-toggle-btn {
-    width: 100%;
-    height: 40px;
-    min-height: 40px;
-    box-sizing: border-box;
-    justify-content: center;
+  .toolbar-control-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
   }
 }
 
@@ -1509,75 +1509,51 @@ header h1 a {
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .search-row .book-list-count {
   margin-left: auto;
 }
 
-/* 「篩選與批量」：排序／每頁顯示兩個下拉選單＋批量選取開關，原本三個直接
-   擠在搜尋列上，現在收進一個點下去才展開的小面板，平常只留一顆按鈕。
-   .filter-batch-wrap 本身純粹是定位錨點（position:relative），面板用
-   position:absolute 疊在它下方，不會把搜尋列的高度撐高。 */
-.filter-batch-wrap {
-  position: relative;
+/* 使用者反映排序／每頁顯示／批量選取收進一個要點開才看得到的「篩選」
+   小面板，操作起來反而多一步，要求直接攤平放在搜尋框右側、同一行對齊——
+   .toolbar-controls 取代原本的 .filter-batch-wrap／.filter-batch-panel，
+   從「定位錨點 + 絕對定位彈出面板」改成單純的橫向排列容器，本身就是
+   .search-row 的一部分，不再需要 position:absolute／z-index／毛玻璃底這些
+   彈出面板才需要的樣式。 */
+.toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
-.filter-batch-toggle-btn.is-expanded,
-.filter-batch-toggle-btn[aria-expanded="true"] {
-  background: var(--primary-soft);
-  border-color: var(--primary);
-  color: var(--primary-hover);
-}
-
-.filter-batch-panel {
-  position: absolute;
-  top: calc(100% + 0.4rem);
-  left: 0;
-  z-index: 60;
-  min-width: 230px;
-  max-width: calc(100vw - 2rem);
+/* 排序／每頁顯示：小標籤文字＋下拉選單同一行並排、垂直置中，跟搜尋框、
+   批量選取勾選框共用同一條基準線。窄螢幕（見下面 1024px 斷點）才改回
+   標籤在上、選單在下的直式排列。 */
+.toolbar-control-field {
   display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  padding: 0.85rem 0.9rem;
-  /* 跟 .modal-card 那次「深色模式底色沒跟著換」的系統性坑同一種修法，
-     一開始就用 color-mix() 而不是寫死亮色 rgba，不用之後再回頭補一次。 */
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid var(--border-hairline);
-  border-radius: 10px;
-  box-shadow: var(--shadow-glass);
-  animation: modal-card-fade-in 0.2s ease-in-out;
-}
-
-.filter-batch-panel[hidden] {
-  display: none;
-}
-
-.filter-batch-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.8125rem;
   color: var(--text-muted);
   font-weight: 500;
+  white-space: nowrap;
 }
 
-.filter-batch-toggle-field {
+.toolbar-control-toggle {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   font-size: 0.8125rem;
   color: var(--text);
-  border-top: 1px dashed var(--border-soft);
-  padding-top: 0.6rem;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.filter-batch-toggle-field input[type="checkbox"] {
+.toolbar-control-toggle input[type="checkbox"] {
   accent-color: var(--color-primary-accent);
   cursor: pointer;
 }
@@ -1700,9 +1676,18 @@ header h1 a {
   max-width: 100%;
 }
 
+/* 桌面版四欄改成明講的固定百分比寬度（書名 35／作者 25／書籍類型 20／
+   完成日期 20，加總 100%），配 table-layout:fixed——單靠 auto（預設值）
+   加上百分比只是「參考值」，瀏覽器仍會為了內容硬撐超過設定的寬度，
+   一定要 fixed 才會強制每一欄剛好卡在設定的百分比，欄寬不再受任何一欄
+   內容多寡影響，也才能讓下面「書名／作者單行截斷＋…」真的按這個固定
+   寬度裁切，不會因為某一批書名特別長就把整張表格撐寬、擠壓其他欄位
+   （這正是這次要修的問題：舊版作者欄只有 width:1% shrink-to-fit，遇到
+   「大衛．布魯克斯」這種較長的作者名字仍然會被換行成兩行）。 */
 .book-table {
   width: 100%;
   max-width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   background: var(--surface);
   border: 1px solid var(--border-hairline);
@@ -1711,22 +1696,10 @@ header h1 a {
   box-shadow: var(--shadow-card);
 }
 
-/* 「極致純粹版」精簡：拿掉「書籍歸還」欄位之後，釋出的橫向空間要平均分給
-   「書名」跟「完成日期」。「作者」「書籍類型」維持 width:1% 這個 hack（縮到
-   剛好容納內容的最小寬度）；書名／完成日期改成明確各佔一樣的百分比——
-   單靠「不鎖寬度、讓瀏覽器自動分配剩餘空間」沒辦法真的做到「平均」，
-   auto table layout 會照每欄內容的自然寬度按比例分配，書名文字通常比
-   「2026/08/18」這種固定格式的日期長很多，兩欄還是會分配到不一樣的寬度，
-   一定要明講兩欄要一樣寬才會是真的平均分配。 */
-.book-table .col-author,
-.book-table .col-category {
-  width: 1%;
-}
-
-.book-table .col-title,
-.book-table .col-completed {
-  width: 40%;
-}
+.book-table .col-title { width: 35%; }
+.book-table .col-author { width: 25%; }
+.book-table .col-category { width: 20%; }
+.book-table .col-completed { width: 20%; }
 
 .book-table th,
 .book-table td {
@@ -1736,69 +1709,30 @@ header h1 a {
   font-size: 0.9rem;
 }
 
-/* 書名／作者是唯一長度真正不可預期的兩欄——曾經在這裡連同其餘欄位一起用
-   white-space: nowrap，賭「桌面版夠寬，不會需要換行」，這個賭注在畫面上
-   只有一批（20 本）時大致成立，但捲動到底自動載入好幾批之後（見
-   js/bookList.js 的 loadMoreObserver），書一多，只要有任何一本書名或
-   作者名夠長、又剛好沒有可以自然斷行的空白，nowrap 就會逼著那一欄撐出
-   比整個桌面版視窗還寬的最小寬度，table-layout 預設的 auto 演算法只能
-   眼睜睜看著整張表格被撐寬、超出容器，右側「完成日期」被推到視窗外——
-   資料筆數越多、踩到這種書名的機率越高，才會在捲動載入夠多批之前一直
-   沒發現。只讓這兩欄改成 normal + word-break（不是整張表格），跟下面
-   3/4 欄「維持 nowrap，只給合理 min-width」的做法分開處理——類型／日期
-   都是短且格式固定的內容，本來就不需要、也不該換行（完成日期換行會
-   變成「202／6/08／18」這種折斷數字的難看樣子，書多到一定量真的會發生，
-   見下面 min-width 那組規則旁的說明），只有書名/作者這種長度真正不可控
-   的自由文字才需要允許換行來避免撐爆版面。 */
+/* 書名／作者單行截斷：table-layout:fixed 底下欄寬已經是固定值，不會再
+   因為換行內容反過來撐開/壓縮欄寬，所以可以放心用 nowrap + ellipsis
+   讓超長的書名／作者名字裁成一行、尾端顯示「…」，不用像 auto layout
+   時代那樣靠允許換行、外加 min-width 卡下限來避免中文字被逼成單字一行
+   一行的直排——那整套 hack 只是 auto layout 的特有風險，fixed layout
+   結構上就不會出現，這裡不用再帶著這些防呆規則。 */
 .book-table th:nth-child(1),
 .book-table td:nth-child(1),
 .book-table th:nth-child(2),
 .book-table td:nth-child(2) {
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-/* 作者欄現在跟書籍類型一樣是 width:1%（shrink-to-fit，見上面 .col-author
-   的說明）——但作者欄同時還套用了上面那條 normal + word-break（書名／
-   作者都允許換行），兩者疊在一起是實測抓到的真實 bug：中文字之間天生
-   到處都是合法斷行點，auto 表格演算法算「這一欄不換行也能繼續縮多窄」
-   時，會把 shrink-to-fit 的目標寬度一路砍到只剩一個字，逼著整個作者名
-   字一個字往下疊成一直條的難看直排（例如「詹姆斯．克利爾」疊成七行）。
-   一定要另外補一個明講的 min-width 卡住下限，才能讓瀏覽器沒辦法縮到
-   單字寬度，真的太長的作者名字仍然可以自然換行（word-break 沒有拿掉），
-   只是不會整欄窄到誇張的地步。 */
-.book-table th:nth-child(2),
-.book-table td:nth-child(2) {
-  min-width: 9em;
-}
-
-/* 類型／日期維持單行不換行（格式固定、不需要也不該斷行），書籍類型的
-   col 寬度是 1%（只吃內容需要的最小寬度，見上面 .col-category 的說明）——
-   書名/作者兩欄改成上面的 normal 之後，auto 表格演算法在算「內容需要的
-   最小寬度」時，會把這幾欄的最小寬度算得極窄（因為書名/作者現在可以
-   無限換行、不再需要為它們讓出固定寬度），逼著這幾欄的文字被壓縮到一個
-   字一個字往下疊成直排的難看樣子（例如「書籍類型」四個字疊成一直條，
-   捲動載入夠多批、書量夠大時真的會發生）。加一個合理的 min-width 就能讓
-   這幾欄維持橫排單行，不分寬度都生效（這條保護原本只包在 ≤1024px 斷點
-   裡，桌面版現在也有同樣的風險，所以移來這裡當基礎規則）。 */
-.book-table th:nth-child(3),
-.book-table td:nth-child(3) {
   white-space: nowrap;
-  min-width: 5.2em;
-}
-.book-table th:nth-child(4),
-.book-table td:nth-child(4) {
-  white-space: nowrap;
-  min-width: 4.6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* 書名／作者交給欄位自然撐開寬度、單行不換行；類型／完成日期詞彙固定短，
-   書籍類型 col 給 1% 等於「只吃內容需要的最小寬度」。 */
+/* 類型／完成日期一樣單行截斷＋置中，格式固定通常不會真的觸發省略號，
+   純粹跟書名／作者用同一套規則，欄寬改變時不會有例外情況。 */
 .book-table th:nth-child(3),
 .book-table td:nth-child(3),
 .book-table th:nth-child(4),
 .book-table td:nth-child(4) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding-left: 1.1rem;
   padding-right: 1.1rem;
   text-align: center;
@@ -2074,6 +2008,22 @@ header h1 a {
     min-width: 0;
   }
 
+  /* 桌面版四欄現在改成 nth-child 選擇器套用 nowrap + ellipsis 單行截斷
+     （見上面 .book-table 基礎樣式），選擇器優先度（.book-table td + nth-child
+     偽類）比這裡單純的 .book-table td 高，同一份樣式表裡「後寫的規則」在
+     優先度不同時贏不了「優先度較高的規則」——不管這條卡片版重設寫在檔案
+     多後面都一樣蓋不掉，一定要用同樣的 nth-child 選擇器（優先度打平）才能
+     靠下面「後寫的規則勝出」贏回來，卡片版才能維持原本的自然換行，不會
+     被裁成「…」。 */
+  .book-table td:nth-child(1),
+  .book-table td:nth-child(2),
+  .book-table td:nth-child(3),
+  .book-table td:nth-child(4) {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   /* 桌面版「書籍類型／完成日期」兩欄有專屬的置中＋左右內距規則
      （.book-table td:nth-child(3)/(4)，見上面桌面版樣式），選擇器比這裡
      單純的 .book-table td 更精細（多了 :nth-child 偽類），優先度更高，不靠
@@ -2218,19 +2168,75 @@ header h1 a {
   flex-shrink: 0;
 }
 
-/* 「極致純粹版」精簡：原本的分頁列（頁碼按鈕＋上一頁/下一頁）已經換成
-   捲動到底自動載入（見 js/bookList.js 的 #book-list-sentinel／
-   loadMoreObserver），這裡整組 .pagination-* 規則一起刪除，不留死碼。
-   哨兵元素本身的樣式見下面 .book-list-sentinel。 */
-.book-list-sentinel {
-  text-align: center;
-  padding: 1.25rem 0;
-  color: var(--text-muted);
-  font-size: 0.85rem;
+/* 使用者反映捲動到底自動載入不方便掌握「大數據量時要怎麼跳著看」，
+   要求換回明確的分頁——這裡整組 .pagination-* 規則照原本（拿掉之前）的
+   版本原樣復原，不是重新設計一套（見 js/bookList.js 的 paginationHtml()）。 */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1.5rem;
 }
 
-.book-list-sentinel[hidden] {
-  display: none;
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pagination-btn,
+.pagination-page {
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled),
+.pagination-page:hover:not(.is-active) {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 目前頁碼跟「已選中的標籤／作用中頁籤」是同一種「這個是目前選中的那個」
+   語意，收進同一套變數，不再是獨立一塊高彩度粉紅。外框刻意不跟背景同色
+   （不是純色玫瑰棕描邊），改用暖米灰（--tag-inactive-border），玫瑰棕實底
+   本身已經夠醒目，外框同色只會讓邊界糊在一起，暖米灰邊框反而讓色塊邊緣
+   更俐落乾淨。 */
+.pagination-page.is-active {
+  background: var(--color-tag-active-bg);
+  border-color: var(--tag-inactive-border);
+  color: var(--color-tag-active-text);
+  font-weight: 600;
+  cursor: default;
+}
+
+.pagination-ellipsis {
+  color: var(--text-muted);
+  padding: 0 0.2rem;
+}
+
+@media (max-width: 768px) {
+  .pagination-btn,
+  .pagination-page {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 .book-completed-date {
