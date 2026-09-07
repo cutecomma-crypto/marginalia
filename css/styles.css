@@ -3680,15 +3680,6 @@ button.book-completed-date:hover {
   line-height: 1.35;
 }
 
-/* 使用者反映寬螢幕下這個頁籤會無限延展、留白過多，卡片跟輸入框看起來
-   異常巨大——比照一般文章／筆記類介面「內容欄永遠有一個舒適的最大閱讀
-   寬度」的慣例，整個工作區（新增區＋列表）鎖一個 720px 上限並置中，
-   不管視窗多寬，畫面永遠維持這個寬度、左右留白置中，不會被拉爆。 */
-.quote-workspace {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
 /* 「珍貴典藏」精簡：新增區改成上方一個滿寬度、預設只有 2 行高的輕盈
    輸入框，不再是套進 .book-form／.graph-panel 那種厚重的表單卡片外殼——
    邊框/字級/焦點光暈都在這裡重新寫一份簡化版，不依賴 .book-form 的規則。 */
@@ -3700,7 +3691,7 @@ button.book-completed-date:hover {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  min-height: 70px;
+  min-height: 60px;
   padding: 10px 14px;
   border: 1px solid var(--border-soft);
   border-radius: 10px;
@@ -3752,29 +3743,28 @@ button.book-completed-date:hover {
 
 /* 取消左右分割雙欄，改成單欄「垂直流」：一句句佳句由上往下靜靜排列，
    不再是並排的格狀卡片牆——沉浸閱讀／翻頁瀏覽的感覺比「一次掃視一整排
-   卡片」更貼近「珍貴典藏」的定位。使用者反映卡片間距／卡片本身偏大，
-   在寬螢幕上顯得空洞——垂直間距從 1.5rem 收緊到 12px，卡片變成單純
-   一句接一句的清單感，不再每句之間都隔著一大段空白。 */
+   卡片」更貼近「珍貴典藏」的定位。垂直間距進一步收緊到 8px（上一輪已經
+   從 1.5rem 收到 12px），配合下面更精巧的卡片尺寸，多條佳句排在一起
+   呈現緊湊的清單感，不浪費垂直空間。 */
 .quote-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   margin-top: 1.5rem;
 }
 
 /* 卡片改用使用者指定的暖白底＋淡邊框（--quote-card-bg／--quote-card-border，
    見 :root 開頭的說明），比全站通用的 --surface 純白更柔和一點，跟頁面
-   背景有若有似無的層次差；圓角收到 8px、內距收緊到 16px/20px——原本
-   1.5rem/1.75rem 的內距配合更大的字級，在窄一點的 720px 版面裡顯得
-   比例失衡，兩者一起調整才會恢復「精緻小巧」而不是「空洞放大」的觀感。
-   position:relative 是為了讓下面 .quote-actions 能以這張卡片為基準，
-   絕對定位浮在右上角。 */
+   背景有若有似無的層次差；內距進一步收緊到 10px/16px（上一輪是
+   16px/20px），配合下面調小的字級，卡片高度大幅縮減，呈現精巧的橫向
+   卡片感，不是佔一大塊垂直空間的大卡片。position:relative 是為了讓
+   下面 .quote-actions 能以這張卡片為基準，絕對定位浮在右上角。 */
 .quote-card {
   position: relative;
   background: var(--quote-card-bg);
   border: 1px solid var(--quote-card-border);
   border-radius: 8px;
-  padding: 16px 20px;
+  padding: 10px 16px;
 }
 
 /* 左上角微小、淡色的引號裝飾——字級跟力度都刻意壓低（原本是 2rem／
@@ -3796,18 +3786,16 @@ button.book-completed-date:hover {
   gap: 0.35rem;
 }
 
-/* 佳句文字字級改回 1rem（跟全站一般內文同級的「標準舒適」大小，上一輪
-   拉到 1.1rem 配上更大的卡片內距，在 720px 版面裡合起來顯得比例過大）、
-   文字顏色用 --text（全站的「軟黑/深灰褐」，數值上就是使用者指定的
-   #2C2A29，這裡直接引用 token 而不是重複寫死同一個 hex，深色模式會自動
-   換成對應的淺色文字，不用另外覆寫）；襯線字體＋斜體＋字距維持不變，
-   這是「摘錄」的文學感來源，這次要調整的是大小/顏色/間距比例，不是
-   拿掉這個質感。 */
+/* 佳句文字字級再收到 0.95rem（15px，比上一輪的 1rem 更貼近使用者要的
+   「標準尺寸」），拿掉字距（原本 0.01em 的 letter-spacing，使用者反映
+   讀起來字間空隙過大）、行高也跟著收緊，配合上面更精巧的卡片內距，
+   呈現緊湊的橫向卡片感；文字顏色維持用 --text（全站的「軟黑/深灰褐」，
+   深色模式會自動換成對應的淺色文字，不用另外覆寫）。襯線字體＋斜體
+   維持不變，這還是「摘錄」的文學感來源，這次只調整大小/間距比例。 */
 .quote-content {
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.75;
-  letter-spacing: 0.01em;
+  font-size: 0.95rem;
+  line-height: 1.6;
   white-space: pre-wrap;
   font-style: italic;
   font-family: Georgia, "Songti TC", "STSong", serif;

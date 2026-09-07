@@ -97,20 +97,22 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
   // 固定用頁碼排序（見上面 sortByPage 的說明），不再需要搜尋跟排序狀態，
   // 也不需要另外一段文字告訴使用者「共幾條」，捲一下列表本身就看得到。
   // 左右兩欄（新增表單／佳句列表）的 .quotes-page-layout grid 也一併拿掉，
-  // 改成新增區在上、列表在下的單欄「垂直流」佈局。
+  // 改成新增區在上、列表在下的單欄「垂直流」佈局。曾經試過在外面再包一層
+  // .quote-workspace 限制 max-width:720px 置中，使用者反映這會跟上方
+  // 「閱讀進度」等滿版寬度的區塊對不齊、像切一半，已經拿掉那層限制，這裡
+  // 恢復成兩個平輩 div，過度留白的問題改成下面卡片本身的字級/內距/間距
+  // 處理，不再靠限制整體寬度。
   container.innerHTML = `
-    <div class="quote-workspace">
-      <div class="quote-composer">
-        <form id="quote-form">
-          <textarea name="content" class="quote-composer-input" rows="2" placeholder="輸入書中打動你的句子……" required></textarea>
-          <div class="quote-composer-actions">
-            <input name="page" class="quote-page-input" placeholder="頁碼（選填）">
-            <button type="submit" class="btn btn-primary">＋ 新增佳句</button>
-          </div>
-        </form>
-      </div>
-      <div class="quote-list" id="quote-list"></div>
+    <div class="quote-composer">
+      <form id="quote-form">
+        <textarea name="content" class="quote-composer-input" rows="2" placeholder="輸入書中打動你的句子……" required></textarea>
+        <div class="quote-composer-actions">
+          <input name="page" class="quote-page-input" placeholder="頁碼（選填）">
+          <button type="submit" class="btn btn-primary">＋ 新增佳句</button>
+        </div>
+      </form>
     </div>
+    <div class="quote-list" id="quote-list"></div>
   `;
 
   const form = container.querySelector('#quote-form');
