@@ -3,56 +3,29 @@ import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml, showToast, wireSearchClear, wireCoverImage, confirmModal, updateBatchActionBar } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByAuthor } from './bookStats.js';
-import { STATUS_OPTIONS } from './readingRecords.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
-import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
-import { DEFAULT_RETENTION_STATUS } from './bookForm.js';
-import { ICON_SPARKLES, ICON_BOOK_OPEN, ICON_X } from './icons.js';
+import { ICON_SPARKLES } from './icons.js';
+import { CLOSE_ICON, LIST_ICON, GRID_ICON, bookListToolbarHtml } from './bookListToolbar.js';
+import { bookTableHtml, bookGalleryHtml } from './bookListRowTemplates.js';
+import { buildSearchIndex } from './bookListSearch.js';
+import { sortBooks, paginationHtml } from './bookListPagination.js';
+import { emptyLibraryStateHtml, loadSampleBooks } from './bookListEmptyState.js';
+import { openStatusPopover } from './bookStatusPopover.js';
+import { openBatchCategoryModal } from './bookBatchCategoryModal.js';
 
-// 批量操作列的「批次變更類別」彈窗：跟 confirmModal() 同一套 .modal-backdrop／
-// .modal-card／Esc／點外面關閉的寫法，差別只是內容換成一顆分類下拉選單。
-// 選單本身直接借用 categoryOptionsHtml()／wireCategorySelect()——書籍表單怎麼
-// 選分類、怎麼跳「＋自訂分類」彈窗，這裡就跟著一樣，不用另外重寫一份分類邏輯。
-// resolve(null) 代表取消（不異動任何書籍），resolve('') 是「先不分類」的合法選擇，
-// 跟 resolve(null) 要分清楚，呼叫端用 `=== null` 判斷取消，不是用「假值」判斷。
-function openBatchCategoryModal() {
-  return new Promise((resolve) => {
-    const backdrop = document.createElement('div');
-    backdrop.className = 'modal-backdrop';
-    backdrop.innerHTML = `
-      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="batch-category-modal-title">
-        <h3 id="batch-category-modal-title">批次變更類別</h3>
-        <label for="batch-category-select">套用到選取的書籍
-          <select id="batch-category-select">
-            <option value="">（先不分類）</option>
-            ${categoryOptionsHtml('')}
-          </select>
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="btn" id="batch-category-cancel-btn">取消</button>
-          <button type="button" class="btn btn-primary" id="batch-category-confirm-btn">套用</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(backdrop);
-    const selectEl = backdrop.querySelector('#batch-category-select');
-    wireCategorySelect(selectEl);
-
-    function settle(result) {
-      document.removeEventListener('keydown', onKeydown);
-      backdrop.remove();
-      resolve(result);
-    }
-    function onKeydown(event) {
-      if (event.key === 'Escape') settle(null);
-    }
-    backdrop.addEventListener('mousedown', (event) => { if (event.target === backdrop) settle(null); });
-    backdrop.querySelector('#batch-category-cancel-btn').addEventListener('click', () => settle(null));
-    backdrop.querySelector('#batch-category-confirm-btn').addEventListener('click', () => settle(selectEl.value));
-    document.addEventListener('keydown', onKeydown);
-  });
-}
+// 這支檔案是「所有書籍」列表頁的主控制器（畫面組裝、篩選／排序／分頁狀態、
+// 事件串接）。原本 933 行、是全站健檢中偏大的檔案之一，已經拆成好幾個各自
+// 獨立、職責單一的模組：
+//   - js/bookListToolbar.js      頂部工具列樣板＋工具列專用圖示
+//   - js/bookListRowTemplates.js 表格列／封面卡片樣板（對應「BookTableRow」）
+//   - js/bookListSearch.js       搜尋索引建構
+//   - js/bookListPagination.js   排序選項／分頁邏輯
+//   - js/bookListEmptyState.js   新手引導空狀態＋範例書籍
+//   - js/bookStatusPopover.js    「完成日期」欄位的快速狀態切換面板
+//   - js/bookBatchCategoryModal.js 批量操作的「批次變更類別」彈窗
+// 這裡只剩「串起畫面、串起篩選/排序/分頁狀態、串起各模組」的膠水邏輯，
+// 見各檔案開頭的說明。
 
 // 雲端快取背景刷新（見 cloudDb.js／services/cloudCache.js 的 Stale-While-Revalidate
 // 說明）如果發現書籍資料真的變了，會發出這個事件——這裡只負責跳一個不打擾的
@@ -63,10 +36,6 @@ window.addEventListener('marginalia:cloud-cache-updated', (event) => {
   if (event.detail?.store !== 'books') return;
   showToast('雲端書籍資料已更新，重新整理即可看到最新內容');
 });
-
-function formatDateSlash(dateStr) {
-  return dateStr ? dateStr.replaceAll('-', '/') : '';
-}
 
 // 書籍詳情頁點作者名稱要「跳頁＋套用篩選」一次完成，但列表頁的篩選狀態全部活在
 // renderBookList 的閉包變數裡，沒辦法直接從別的頁面塞值進去——於是借用 hash 的
@@ -82,430 +51,6 @@ function readAndClearAuthorFilterFromHash() {
     history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/books`);
   }
   return author;
-}
-
-// 「顯示全部書籍」按鈕用的細線 X，取代原本比較搶眼、線條較粗的「✕」文字符號。
-const CLOSE_ICON = '<svg class="reset-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-
-// 視角切換按鈕用的 Lucide 圖示（List／LayoutGrid），取代原本容易模糊、鋸齒的純文字符號（▦／☰）。
-const LIST_ICON = '<svg class="view-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h.01"></path><path d="M3 12h.01"></path><path d="M3 19h.01"></path><path d="M8 5h13"></path><path d="M8 12h13"></path><path d="M8 19h13"></path></svg>';
-const GRID_ICON = '<svg class="view-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>';
-
-// 完成日期欄位：表格版改成可點擊的按鈕（Inline Status Switcher），點下去跳出一個
-// 小面板直接改「狀態」跟「完成日期」，不用整個跳進書籍詳情頁的「閱讀進度設定」
-// 表單——視覺上維持原本純文字、低調次要色的樣子（按鈕本身重置成跟 <span> 一樣
-// 沒有邊框/底色），完成了顯示日期、還沒完成顯示「—」，只是現在多了「可以點」這件事。
-function completedDateCell(book, record) {
-  const text = record && record.endDate ? formatDateSlash(record.endDate) : '—';
-  return `<button type="button" class="book-completed-date book-status-trigger" data-book-id="${book.id}" title="點擊快速更新閱讀狀態／完成日期">${escapeHtml(text)}</button>`;
-}
-
-// 封面網格版維持純文字、不可點擊——整張卡片本身已經是 <a>，<button> 巢狀在
-// <a> 裡面是不合法的 HTML（互動元素不能巢狀互動元素），跟 authorNameHtmlInline
-// 用 <span> 走 event delegation 是同一個考量，但這裡沒有到「一定要在網格檢視
-// 也支援快速編輯」的必要性，維持原本簡單的純顯示即可。
-function completedDateTextOnly(record) {
-  const text = record && record.endDate ? formatDateSlash(record.endDate) : '—';
-  return `<span class="book-completed-date">${escapeHtml(text)}</span>`;
-}
-
-// 作者名稱點擊即篩選：只有真的有作者名稱才輸出可點擊元素，避免空字串也生出一顆
-// 沒東西可篩的按鈕。點擊事件用 event delegation 掛在 #book-list-body 上（見下方
-// bodyEl.addEventListener），這裡只負責標記 class／data-author，不在這裡個別綁定。
-function authorNameHtml(book) {
-  if (!book.author) return '';
-  return `<button type="button" class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</button>`;
-}
-
-// 封面網格模式整張卡片本身就是 <a>，裡面不能再塞一個 <button>（互動元素巢狀在
-// HTML 語意上不合法），改用 <span> 靠 event delegation 處理，並在監聽器裡
-// preventDefault／stopPropagation 擋掉外層 <a> 的導覽，做法跟 <button> 版一致，
-// 只是換一個不會被瀏覽器特殊處理的容器標籤。
-function authorNameHtmlInline(book) {
-  if (!book.author) return '';
-  return `<span class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</span>`;
-}
-
-
-// 列表頁快速更新閱讀狀態／完成日期（Inline Status Switcher）：點擊「完成日期」
-// 欄位跳出一個小面板，只放「狀態」跟「完成日期」這兩個最常需要臨場調整的欄位
-// （開始日期／頁數／閱讀次數／評分這些留在書籍詳情頁的「閱讀進度設定」，那裡才是
-// 完整表單），選了就立刻存檔（跟 outputs.js 的 .output-date-input 同一套「change
-// 就自動存、不用另外按儲存」的習慣），不用整個跳頁就能完成最常見的操作。
-// 單例面板（跟 selectionToolbarService.js 的 ensureToolbarEl() 同一種做法）：
-// 掛在 document.body 上、每次開啟時重新填內容跟定位，不用每次 renderList() 都
-// 重新建立/銷毀一次。
-let statusPopoverEl = null;
-function ensureStatusPopoverEl() {
-  if (!statusPopoverEl) {
-    statusPopoverEl = document.createElement('div');
-    statusPopoverEl.className = 'inline-status-popover';
-    statusPopoverEl.hidden = true;
-    document.body.appendChild(statusPopoverEl);
-  }
-  return statusPopoverEl;
-}
-
-function hideStatusPopover() {
-  if (statusPopoverEl) statusPopoverEl.hidden = true;
-}
-
-function positionStatusPopover(el, anchorRect) {
-  const margin = 6;
-  const top = window.scrollY + anchorRect.bottom + margin;
-  let left = window.scrollX + anchorRect.left;
-  const maxLeft = window.scrollX + document.documentElement.clientWidth - el.offsetWidth - margin;
-  left = Math.max(margin, Math.min(left, maxLeft));
-  el.style.top = `${top}px`;
-  el.style.left = `${left}px`;
-}
-
-// 點面板以外的地方、或按 Esc 都收起面板——跟 selectionToolbarService.js 的
-// onDocMouseDown 同一種收尾方式。這兩個監聽器掛在模組最外層、只會執行一次
-// （不會因為 renderBookList() 被重複呼叫而重複疊加監聽器）。
-document.addEventListener('mousedown', (event) => {
-  if (!statusPopoverEl || statusPopoverEl.hidden) return;
-  if (statusPopoverEl.contains(event.target) || event.target.closest('.book-status-trigger')) return;
-  hideStatusPopover();
-});
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') hideStatusPopover();
-});
-// 這是單例元素，掛在 document.body 上不會因為離開書籍列表頁就被清掉（hash
-// 路由只是整個換掉 container 的內容，不是真的重新整理頁面）——沒有這一行，
-// 面板開著的狀態下切去別的頁面（例如書籍詳情頁、資料管理頁），面板會維持
-// 顯示、浮在完全不相干的畫面上面，這是實測抓到的真實問題，不是預防性猜測。
-window.addEventListener('hashchange', hideStatusPopover);
-
-// recordMap 是整頁共用的同一份 Map，存檔成功後直接原地更新這個 Map 裡對應的
-// 那一筆（不用整批重新從資料庫撈一次 reading_records），onSaved() 呼叫端負責
-// 決定要不要重繪列表（通常是 renderList()，讓這一列的完成日期文字立刻反映新值）。
-function openStatusPopover(anchorBtn, book, recordMap, onSaved) {
-  const el = ensureStatusPopoverEl();
-  const record = recordMap.get(book.id);
-  el.innerHTML = `
-    <button type="button" class="inline-status-popover-close" aria-label="關閉">${ICON_X}</button>
-    <label>狀態
-      <select name="status">
-        ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${record && record.status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
-      </select>
-    </label>
-    <label>完成日期
-      <input type="date" name="endDate" value="${escapeHtml((record && record.endDate) || '')}">
-    </label>
-  `;
-  el.hidden = false;
-  positionStatusPopover(el, anchorBtn.getBoundingClientRect());
-
-  el.querySelector('.inline-status-popover-close').addEventListener('click', hideStatusPopover);
-
-  const statusSelect = el.querySelector('select[name="status"]');
-  const dateInput = el.querySelector('input[name="endDate"]');
-  statusSelect.focus();
-
-  // 跟書籍詳情頁「閱讀進度設定」表單（見 readingRecords.js 的 renderReadingSection）
-  // 完全同一套存檔邏輯：沒有既有記錄就新增一筆，有就在原本那筆上面補新的欄位值——
-  // 兩個入口（詳情頁完整表單／列表頁這個快速面板）改的是同一張 reading_records
-  // 資料表，行為只能有一套，不能各寫一份、彼此邏輯兜不起來。
-  async function persist(patch) {
-    const current = recordMap.get(book.id);
-    const payload = {
-      bookId: book.id,
-      status: current?.status || '尚未閱讀',
-      startDate: current?.startDate || '',
-      endDate: current?.endDate || '',
-      currentPage: current?.currentPage ?? null,
-      readCount: current?.readCount || 0,
-      rating: current?.rating || 0,
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    };
-    let saved;
-    if (current) {
-      saved = { ...current, ...payload, id: current.id };
-      await DB.update('reading_records', saved);
-    } else {
-      const newId = await DB.add('reading_records', payload);
-      saved = { ...payload, id: newId };
-    }
-    recordMap.set(book.id, saved);
-    showToast('已更新閱讀狀態');
-    hideStatusPopover();
-    onSaved();
-  }
-
-  statusSelect.addEventListener('change', () => persist({ status: statusSelect.value }));
-  dateInput.addEventListener('change', () => persist({ endDate: dateInput.value }));
-}
-
-function bookRow(book, favoriteAuthors, recordMap, selectedIds) {
-  const record = recordMap.get(book.id);
-  const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
-  // data-label：手機版把表格轉成一張張卡片時（見 styles.css 的 @media (max-width: 640px)
-  // .book-table 區塊），每個 <td> 用 CSS ::before 讀這個屬性當左側欄位名稱標籤，
-  // 不用另外為手機版寫一套完全不同的卡片 HTML 樣板。
-  // .book-table-category-badge：平常（桌機／手機卡片）預設 display:none，只有平板
-  // 直向（見 styles.css 的 @media (min-width:641px) and (max-width:1024px) 區塊）
-  // 才會顯示——那個寬度書籍類型改成貼在書名下方的小標籤，不再獨立佔一整欄，
-  // 直接把內容寫進書名 <td> 裡（跟獨立的「書籍類型」<td> 並存），比起用純 CSS
-  // 去「借」另一個 <td> 的文字內容（辦不到）簡單可靠得多。
-  // 批量操作勾選框直接塞進書名 <td> 最前面，不另外加一欄——colgroup／nth-child
-  // 一堆響應式規則都是照現有欄位數算的，多一欄會牽動一整片 CSS，見批量操作列
-  // 那次規劃時的考量。
-  return `
-    <tr>
-      <td data-label="書名"><input type="checkbox" class="row-select-checkbox book-select-checkbox" data-select-id="${book.id}" aria-label="選取《${escapeHtml(book.title || '未命名')}》" ${selectedIds.has(book.id) ? 'checked' : ''}><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a>${book.category ? `<span class="book-table-category-badge">${escapeHtml(book.category)}</span>` : ''}</td>
-      <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" data-tooltip="喜愛的作者" aria-label="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
-      <td data-label="書籍類型">${escapeHtml(book.category)}</td>
-      <td data-label="完成日期">${completedDateCell(book, record)}</td>
-    </tr>
-  `;
-}
-
-function groupTextByBookId(items, field) {
-  const map = {};
-  for (const item of items) {
-    if (!map[item.bookId]) map[item.bookId] = [];
-    map[item.bookId].push(item[field]);
-  }
-  return map;
-}
-
-// 跨書名／作者／筆記／佳句／閱讀後輸出內容搜尋（含 #hashtag，因為標籤本來就是內文的一部分，
-// 子字串比對天生就會吃到）：把每本書的可搜尋文字先組好，輸入時直接子字串比對。
-async function buildSearchIndex(books) {
-  const [allNotes, allQuotes, allOutputs] = await Promise.all([
-    DB.getAll('notes'),
-    DB.getAll('quotes'),
-    DB.getAll('outputs'),
-  ]);
-  const notesByBook = groupTextByBookId(allNotes, 'text');
-  const quotesByBook = groupTextByBookId(allQuotes, 'content');
-  const reflectionsByBook = groupTextByBookId(allOutputs.filter((o) => o.kind === 'reflection'), 'text');
-
-  return books.map((book) => ({
-    book,
-    searchText: [
-      book.title, book.author, ...(book.tags || []),
-      ...(notesByBook[book.id] || []), ...(quotesByBook[book.id] || []), ...(reflectionsByBook[book.id] || []),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase(),
-  }));
-}
-
-function bookTableHtml(list, favoriteAuthors, recordMap, selectedIds) {
-  return `
-    <table class="book-table">
-      <colgroup>
-        <col class="col-title">
-        <col class="col-author">
-        <col class="col-category">
-        <col class="col-completed">
-      </colgroup>
-      <thead>
-        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th></tr>
-      </thead>
-      <tbody>
-        ${list.map((book) => bookRow(book, favoriteAuthors, recordMap, selectedIds)).join('')}
-      </tbody>
-    </table>
-  `;
-}
-
-// 封面網格檢視：跟表格模式吃同一份 list／favoriteAuthors／recordMap，只是換一種排版，
-// 沒有封面的書用書本 emoji 佔位，不留空白方塊。
-// 批量操作勾選框沒有直接塞進 <a class="book-gallery-card"> 裡面——<input> 屬於
-// 「互動內容」，HTML 規範不允許塞進另一個互動元素（<a href>）裡面，跟這個檔案
-// 別處用 <span> 取代 <button> 是同一種考量（見 authorNameHtmlInline 等函式的
-// 開頭註解）。這裡改成多包一層 .book-gallery-card-wrap，讓 <input> 跟 <a> 變成
-// 平輩，勾選框改用 CSS 疊在卡片左上角（見 styles.css 的 .book-gallery-checkbox），
-// 點下去不會誤觸 <a> 的導覽，也不需要額外寫 preventDefault／手動轉發 change
-// 事件那種繞路的 hack。
-function bookGalleryCard(book, favoriteAuthors, recordMap, selectedIds) {
-  const record = recordMap.get(book.id);
-  const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
-  return `
-    <div class="book-gallery-card-wrap">
-      <input type="checkbox" class="book-gallery-checkbox book-select-checkbox" data-select-id="${book.id}" aria-label="選取《${escapeHtml(book.title || '未命名')}》" ${selectedIds.has(book.id) ? 'checked' : ''}>
-      <a class="book-gallery-card" href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">
-        <div class="book-gallery-cover">
-          ${book.coverImage ? `<img src="${book.coverImage}" alt="《${escapeHtml(book.title || '未命名')}》封面">` : `<span class="book-gallery-cover-placeholder">${ICON_BOOK_OPEN}</span>`}
-        </div>
-        <div class="book-gallery-info">
-          <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
-          <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" data-tooltip="喜愛的作者" aria-label="喜愛的作者">♥</span> ' : ''}${authorNameHtmlInline(book)}</div>
-          <div class="book-gallery-meta">
-            ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
-            ${completedDateTextOnly(record)}
-          </div>
-        </div>
-      </a>
-    </div>
-  `;
-}
-
-function bookGalleryHtml(list, favoriteAuthors, recordMap, selectedIds) {
-  return `<div class="book-gallery">${list.map((book) => bookGalleryCard(book, favoriteAuthors, recordMap, selectedIds)).join('')}</div>`;
-}
-
-// 排序選項只留「建立時間」「完成日期」兩組時間排序，使用者反映「書名」
-// 「評分」用不到，要求砍掉——連同底下 sortBooks() 對應的兩個分支、
-// 專門給書名排序用的 titleCollator 一起刪除，不留半套用不到的排序邏輯。
-const SORT_OPTIONS = [
-  { value: 'created-desc', label: '建立時間：新到舊' },
-  { value: 'created-asc', label: '建立時間：舊到新' },
-  { value: 'completed-desc', label: '完成日期：新到舊' },
-  { value: 'completed-asc', label: '完成日期：舊到新' },
-];
-
-// 「每頁顯示」下拉選單：使用者反映捲動到底自動載入更多不方便掌握「大數據量
-// 時要怎麼跳著看」，要求換回明確的分頁——PAGE_SIZE_OPTIONS／buildPageList／
-// paginationHtml 都是照原本（拿掉之前）的版本原樣復原（見下面 renderList()
-// 的分頁切片邏輯），不是重新設計一套。option 文字不再重複「每頁顯示」
-// 四個字——工具列攤平成單行之後，這個下拉選單前面已經有一顆同樣文字的
-// 小標籤（見 formTemplate 裡的 <label class="toolbar-control-field">
-// 每頁：），選單裡的文字只要留數字本身（12 本／24 本／50 本／全部），
-// 兩者合起來讀「每頁： 12 本」，不會變成「每頁顯示 每頁顯示：12 本」
-// 這種疊字重複。
-const PAGE_SIZE_OPTIONS = [
-  { value: '12', label: '12 本' },
-  { value: '24', label: '24 本' },
-  { value: '50', label: '50 本' },
-  { value: 'all', label: '全部' },
-];
-
-// 頁碼超過 7 頁時用「1 … 上一頁 目前頁 下一頁 … 末頁」的縮寫排法，
-// 不然書籍一多頁碼列會長到跟搜尋列一樣寬，反而看不出目前在第幾頁。
-function buildPageList(current, total) {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const keep = new Set([1, total, current - 1, current, current + 1]);
-  const sortedKeep = [...keep].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
-  const result = [];
-  let prev = null;
-  for (const p of sortedKeep) {
-    if (prev !== null && p - prev > 1) result.push('…');
-    result.push(p);
-    prev = p;
-  }
-  return result;
-}
-
-function paginationHtml(current, total) {
-  if (total <= 1) return '';
-  const pages = buildPageList(current, total);
-  return `
-    <nav class="pagination-bar" aria-label="分頁導覽">
-      <button type="button" class="pagination-btn" data-page="${current - 1}" ${current === 1 ? 'disabled' : ''}>‹ 上一頁</button>
-      <div class="pagination-pages">
-        ${pages.map((p) => (p === '…'
-    ? '<span class="pagination-ellipsis">…</span>'
-    : `<button type="button" class="pagination-page${p === current ? ' is-active' : ''}" data-page="${p}" ${p === current ? 'aria-current="page"' : ''}>${p}</button>`
-  )).join('')}
-      </div>
-      <button type="button" class="pagination-btn" data-page="${current + 1}" ${current === total ? 'disabled' : ''}>下一頁 ›</button>
-    </nav>
-  `;
-}
-
-function sortBooks(books, recordMap, sortMode) {
-  const list = [...books];
-  if (sortMode === 'created-asc') {
-    list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-  } else if (sortMode === 'completed-desc') {
-    list.sort((a, b) => {
-      const endA = recordMap.get(a.id)?.endDate || '';
-      const endB = recordMap.get(b.id)?.endDate || '';
-      if (endA && endB) return endB.localeCompare(endA);
-      if (endA && !endB) return -1;
-      if (!endA && endB) return 1;
-      return (b.createdAt || '').localeCompare(a.createdAt || '');
-    });
-  } else if (sortMode === 'completed-asc') {
-    list.sort((a, b) => {
-      const endA = recordMap.get(a.id)?.endDate || '';
-      const endB = recordMap.get(b.id)?.endDate || '';
-      if (endA && endB) return endA.localeCompare(endB);
-      if (endA && !endB) return -1;
-      if (!endA && endB) return 1;
-      return (a.createdAt || '').localeCompare(b.createdAt || '');
-    });
-  } else {
-    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // created-desc（預設）
-  }
-  return list;
-}
-
-// 「空白頁面與新手引導」：資料庫真的一本書都沒有時（不是搜尋/篩選篩到剩零筆——
-// 那種情況維持原本簡短的文字提示，見下面 renderList() 的判斷式），比起單純一行
-// 「還沒有任何書籍」的文字，一張莫蘭迪風格的插畫＋一顆「載入範例書籍」按鈕
-// 更能讓剛註冊、還沒開始建立藏書的新使用者馬上摸得到「這個平台實際長什麼樣子」，
-// 不用自己想書名、慢慢建立才看得到列表、統計、分類這些功能運作起來的樣子。
-// 插畫刻意純用行內 SVG＋CSS 變數上色（跟全站 icons.js 的線條圖示同一種筆觸：
-// stroke-width 1.5、圓角端點），不是外部圖檔——完全繼承目前的莫蘭迪配色（含
-// 深色模式），不用另外準備、维護一張點陣圖素材。
-function emptyLibraryStateHtml() {
-  return `
-    <div class="empty-library-state">
-      <svg class="empty-library-illustration" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="14" y="70" width="92" height="6" rx="3" fill="var(--border-soft)"></rect>
-        <path d="M24 70V32a4 4 0 0 1 4-4h20a4 4 0 0 1 4 4v38" stroke="var(--color-primary-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
-        <path d="M52 70V24a4 4 0 0 1 4-4h20a4 4 0 0 1 4 4v46" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
-        <path d="M80 70V38a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v32" stroke="var(--accent-green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
-        <line x1="32" y1="46" x2="40" y2="46" stroke="var(--color-primary-accent)" stroke-width="2" stroke-linecap="round"></line>
-        <line x1="60" y1="38" x2="70" y2="38" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"></line>
-        <circle cx="90" cy="52" r="3" fill="var(--gold)"></circle>
-      </svg>
-      <p class="empty-library-title">還沒有任何藏書</p>
-      <p class="empty-library-subtitle">點擊上方「＋ 新增書籍」開始記錄，<br>或先載入幾本範例書籍熟悉一下功能。</p>
-      <button type="button" class="btn btn-primary" id="load-sample-books-btn">${ICON_SPARKLES}載入 3 本範例書籍</button>
-    </div>
-  `;
-}
-
-// 範例書籍刻意挑三種不同閱讀狀態（已讀完＋評分／閱讀中／尚未閱讀）跟三個不同
-// 分類，讓新使用者一載入就能同時看到列表、側邊欄「年度已讀進度」「藏書分類
-// 統計」這幾個核心功能實際運作起來的樣子，不是三本內容完全相同、只有書名不同
-// 的空殼資料。
-const SAMPLE_BOOKS = [
-  { title: '原子習慣', author: '詹姆斯．克利爾', category: '自我提升', status: '已讀完', rating: 5, daysAgo: 20 },
-  { title: '人類大歷史', author: '哈拉瑞', category: '社會科學', status: '閱讀中', rating: 0, daysAgo: 0 },
-  { title: '小王子', author: '安東尼．聖修伯里', category: '歐美文學', status: '尚未閱讀', rating: 0, daysAgo: 0 },
-];
-
-function isoDateDaysAgo(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
-async function loadSampleBooks() {
-  for (const sample of SAMPLE_BOOKS) {
-    const bookId = await DB.add('books', {
-      title: sample.title,
-      author: sample.author,
-      publisher: '',
-      publishDate: '',
-      purchaseDate: '',
-      purchasePrice: null,
-      format: '紙本購買',
-      retentionStatus: DEFAULT_RETENTION_STATUS,
-      libraryBorrowType: '',
-      libraryName: '',
-      category: sample.category,
-      coverImage: '',
-    });
-    await DB.add('reading_records', {
-      bookId,
-      status: sample.status,
-      startDate: '',
-      endDate: sample.status === '已讀完' ? isoDateDaysAgo(sample.daysAgo) : '',
-      currentPage: null,
-      readCount: sample.status === '已讀完' ? 1 : 0,
-      rating: sample.rating,
-    });
-  }
 }
 
 export async function renderBookList(container) {
@@ -532,43 +77,7 @@ export async function renderBookList(container) {
         <div class="dashboard-sidebar-inner" id="dashboard-sidebar-inner"></div>
       </aside>
       <div class="dashboard-main">
-        <div class="toolbar">
-          <div class="toolbar-title-row">
-            <h2 id="book-list-title">所有書籍</h2>
-            <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" data-tooltip="切換為封面網格檢視" aria-label="切換為封面網格檢視">${GRID_ICON}</button>
-          </div>
-          <div class="toolbar-actions">
-            <button type="button" class="btn" id="open-wishlist-btn">${ICON_SPARKLES}願望清單</button>
-            <a class="btn btn-primary" href="#/books/new">＋ 新增書籍</a>
-          </div>
-        </div>
-        <div class="active-filters-row" id="active-filters-row" hidden>
-          <div class="active-filter-badges" id="active-filter-badges"></div>
-          <button type="button" class="clear-filters-btn" id="clear-filters-btn">${CLOSE_ICON}清除篩選</button>
-        </div>
-        <div class="search-row">
-          <div class="search-input">
-            <input type="search" id="book-search" class="search-input-field" placeholder="搜尋書名、作者、#標籤，或筆記／佳句內容…">
-            <button type="button" class="search-clear-btn" aria-label="清空搜尋" hidden></button>
-          </div>
-          <div class="toolbar-controls">
-            <label class="toolbar-control-field">排序
-              <select id="book-sort-select" class="sort-select">
-                ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
-              </select>
-            </label>
-            <label class="toolbar-control-field">每頁：
-              <select id="book-page-size-select" class="sort-select">
-                ${PAGE_SIZE_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
-              </select>
-            </label>
-            <label class="toolbar-control-toggle">
-              <input type="checkbox" id="batch-mode-checkbox">
-              批量選取
-            </label>
-          </div>
-          <span class="book-list-count" id="book-list-count">共 ${books.length} 本</span>
-        </div>
+        ${bookListToolbarHtml(books.length)}
         <div id="book-list-body"></div>
         <div id="book-pagination"></div>
       </div>
@@ -764,8 +273,8 @@ export async function renderBookList(container) {
       } else if (yearFilter || statusFilter || authorFilter) {
         bodyEl.innerHTML = '<p class="empty">沒有符合目前篩選條件的書籍。</p>';
       } else if (books.length === 0) {
-        // 真正的「資料庫一本書都沒有」（不是篩選/搜尋篩到剩零筆），見上面
-        // emptyLibraryStateHtml() 的完整說明。
+        // 真正的「資料庫一本書都沒有」（不是篩選/搜尋篩到剩零筆），見
+        // bookListEmptyState.js 的 emptyLibraryStateHtml() 完整說明。
         bodyEl.innerHTML = emptyLibraryStateHtml();
         bodyEl.querySelector('#load-sample-books-btn').addEventListener('click', async (event) => {
           event.target.disabled = true;
@@ -903,7 +412,8 @@ export async function renderBookList(container) {
     refreshBatchBar();
   });
 
-  // 完成日期欄位點下去跳出快速更新面板（見上面 openStatusPopover() 的說明）。
+  // 完成日期欄位點下去跳出快速更新面板（見 bookStatusPopover.js 的
+  // openStatusPopover() 說明）。
   bodyEl.addEventListener('click', (event) => {
     const trigger = event.target.closest('.book-status-trigger');
     if (!trigger) return;
