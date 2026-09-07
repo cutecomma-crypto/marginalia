@@ -3585,17 +3585,17 @@ button.book-completed-date:hover {
 }
 
 .output-list {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.4rem;
 }
 
 .output-item {
   background: var(--surface);
   border: 1px solid var(--border-hairline);
   border-radius: 10px;
-  padding: 0.75rem 1rem;
+  padding: 0.55rem 0.9rem;
   position: relative;
   transition: all 0.2s ease;
 }
@@ -3606,7 +3606,7 @@ button.book-completed-date:hover {
 }
 
 .output-item p {
-  margin: 0.3rem 0 0;
+  margin: 0.2rem 0 0;
   white-space: pre-wrap;
 }
 
@@ -3650,7 +3650,7 @@ button.book-completed-date:hover {
 .output-date {
   color: var(--text-muted);
   font-size: 0.8125rem;
-  margin-top: 0.4rem;
+  margin-top: 0.25rem;
 }
 
 .hashtag-hint {

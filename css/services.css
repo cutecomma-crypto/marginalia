@@ -63,6 +63,16 @@
   font-size: 0.78rem;
 }
 
+/* display:flex 一樣會蓋掉瀏覽器內建的 [hidden]{display:none}（author 規則贏過
+   UA 規則，跟 .btn[hidden]／.batch-action-bar[hidden] 同一個成因）——這裡當初
+   漏補這一坑，導致 hide() 把 hidden 屬性設成 true 之後，工具列其實還是
+   display:flex，只是清空了 innerHTML，變成一個只剩 padding、背景是 --text
+   （深色）的小方塊，用單例元素預設的靜態定位（position:absolute 但從沒被
+   positionToolbar() 設過 top/left）疊在畫面左下角，看起來就像一個「小黑點」。 */
+.selection-toolbar[hidden] {
+  display: none;
+}
+
 .selection-toolbar button {
   display: inline-flex;
   align-items: center;
