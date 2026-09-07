@@ -8,7 +8,7 @@ import { escapeHtml, applyHashtagLinks, renderTagChip, renderTextWithHashtags } 
 export const MOTIVATION_TAGS = ['好奇', '解決問題', '工作需要', '自我成長', '主題學習', '別人推薦', '文案吸引', '隨意閱讀', '其他'];
 
 // 「功能簡化」精簡：書籍詳情頁原本「閱讀動機」「閱讀後輸出」「快速筆記」
-// 三個各自獨立的分頁／表單，已經全部合併成 notes.js 的「閱讀隨筆與心得」
+// 三個各自獨立的分頁／表單，已經全部合併成 notes.js 的「閱讀心得」
 // 單一乾淨文字輸入區塊，新增內容一律走 notes.js（存進 notes 表），這裡
 // 不再提供任何新增用的表單。保留在這個檔案的只剩匯出給 notes.js 合併清單
 // 重用的舊資料渲染函式——既有的 kind='reflection'／kind='motivation' 輸出
@@ -107,7 +107,7 @@ function renderReflectionMarkdown(rawText) {
   return parts.join('');
 }
 
-// 「閱讀隨筆與心得」合併清單裡，屬於舊 outputs／kind='reflection' 資料的那些
+// 「閱讀心得」合併清單裡，屬於舊 outputs／kind='reflection' 資料的那些
 // 項目沿用這個渲染邏輯（標籤 chip、HTML／Markdown 相容內文、可調整的日期
 // 欄位）——這幾樣是舊資料才有的欄位，合併後新增的筆記（notes.js）不會再有，
 // 所以呼叫端（notes.js 的 renderPersonalNotes）需要分別判斷一筆資料是從哪個

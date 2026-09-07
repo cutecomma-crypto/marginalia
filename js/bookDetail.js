@@ -85,7 +85,7 @@ export async function renderBookDetail(container, rawId) {
 
     <div class="main-tabs">
       <div class="main-tab-buttons">
-        <button type="button" class="main-tab-btn is-active" data-tab="notes">${ICON_NOTEBOOK}閱讀隨筆與心得</button>
+        <button type="button" class="main-tab-btn is-active" data-tab="notes">${ICON_NOTEBOOK}閱讀心得</button>
         <button type="button" class="main-tab-btn" data-tab="quotes">${ICON_QUOTE}佳句摘錄（<span id="quotes-tab-count">0</span> 條）</button>
       </div>
       <div class="main-tab-panel" data-tab-panel="notes">
@@ -139,7 +139,7 @@ export async function renderBookDetail(container, rawId) {
     });
   });
 
-  // 「閱讀隨筆與心得」選取文字存成佳句摘錄（見 notes.js 的 attachSelectionToolbar
+  // 「閱讀心得」選取文字存成佳句摘錄（見 notes.js 的 attachSelectionToolbar
   // onHighlight）之後，需要一個管道把「佳句摘錄」分頁的數量／列表也一起更新，
   // 不然那個分頁的內容是頁面一開始載入時就渲染好、之後不會再自己重繪的——使用者
   // 存了一句新佳句，畫面上完全沒反應，要重新整理整頁才看得到，這是實測抓到的

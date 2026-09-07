@@ -6,7 +6,7 @@ import { getOutputsByKind, renderLegacyReflectionItem, renderLegacyMotivationIte
 
 // 「功能簡化」精簡：原本分開的「閱讀動機」「閱讀後輸出」（outputs.js 的
 // 兩個表單）跟「快速筆記」（這個檔案）三個各自獨立的分頁，合併成單一個
-// 「閱讀隨筆與心得」區塊，介面上只留一個乾淨的純文字輸入框——不再有三組
+// 「閱讀心得」區塊，介面上只留一個乾淨的純文字輸入框——不再有三組
 // 各自獨立的表單、標題、動機／心得標籤、格式化工具列。既有的三種資料
 // 完全不遷移、不刪除：notes 表跟 outputs 表（kind='reflection'／
 // kind='motivation'）都繼續留著原本的欄位與內容，這裡只是把「讀取」跟
@@ -45,7 +45,7 @@ function noteItem(note, isEditing) {
           <button type="button" class="btn btn-primary output-save-edit" data-id="${note.id}">儲存</button>
           <button type="button" class="btn output-cancel-edit" data-id="${note.id}">取消</button>
         </div>
-        <textarea class="output-edit-textarea" rows="3">${escapeHtml(note.text)}</textarea>
+        <textarea class="output-edit-textarea" rows="8">${escapeHtml(note.text)}</textarea>
         <div class="output-date">${escapeHtml((note.createdAt || '').slice(0, 10))}</div>
       </div>
     `;
@@ -93,10 +93,10 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
 
   container.innerHTML = `
     <div class="notes-section">
-      <h4 class="section-heading icon-heading">${ICON_NOTEBOOK}閱讀隨筆與心得</h4>
+      <h4 class="section-heading icon-heading">${ICON_NOTEBOOK}閱讀心得</h4>
       <form id="note-form" class="book-form">
         <label>想到什麼就先寫下來，之後再整理
-          <textarea name="text" rows="2" placeholder="例如：這裡提到榮格，感覺跟之前看的那本書有關"></textarea>
+          <textarea name="text" rows="8" placeholder="例如：這裡提到榮格，感覺跟之前看的那本書有關"></textarea>
         </label>
         <p class="hashtag-hint">${ICON_LIGHTBULB}提示：內文中輸入 #標籤名稱（例如 #心理學），系統將自動分類並串聯相關書籍內容。</p>
         <div class="form-actions">

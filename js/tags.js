@@ -3,15 +3,15 @@ import { escapeHtml, extractHashtags, renderTextWithHashtags } from './utils.js'
 import { ICON_QUOTE, ICON_NOTEBOOK } from './icons.js';
 
 // 「閱讀動機」「閱讀後輸出」跟「快速筆記」已經合併成書籍詳情頁的單一個
-// 「閱讀隨筆與心得」分頁（見 notes.js 的 renderPersonalNotes），這裡的標籤
+// 「閱讀心得」分頁（見 notes.js 的 renderPersonalNotes），這裡的標籤
 // 只是給標籤搜尋結果分類用，三種來源資料（motivation／reflection／note）
-// 不再需要分開的中文標籤跟圖示，統一顯示成「閱讀隨筆與心得」，不然使用者
+// 不再需要分開的中文標籤跟圖示，統一顯示成「閱讀心得」，不然使用者
 // 會在搜尋結果裡看到畫面上已經不存在的分頁名稱。
 const KIND_LABEL = {
   quote: `${ICON_QUOTE}佳句摘錄`,
-  reflection: `${ICON_NOTEBOOK}閱讀隨筆與心得`,
-  note: `${ICON_NOTEBOOK}閱讀隨筆與心得`,
-  motivation: `${ICON_NOTEBOOK}閱讀隨筆與心得`,
+  reflection: `${ICON_NOTEBOOK}閱讀心得`,
+  note: `${ICON_NOTEBOOK}閱讀心得`,
+  motivation: `${ICON_NOTEBOOK}閱讀心得`,
 };
 
 function resultItemHtml(kind, text, bookId, extraHtml) {
@@ -28,7 +28,7 @@ function resultItemHtml(kind, text, bookId, extraHtml) {
   `;
 }
 
-// 標籤總覽／搜尋結果頁：把「佳句摘錄」跟「閱讀隨筆與心得」（notes 表＋outputs
+// 標籤總覽／搜尋結果頁：把「佳句摘錄」跟「閱讀心得」（notes 表＋outputs
 // 表的 reflection／motivation 兩種 kind）裡含有這個 #標籤的內容，依照出處
 // 書籍分組列出，達成跨書籍的概念串聯。
 export async function renderTagPage(container, rawTag) {

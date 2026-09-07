@@ -372,45 +372,11 @@ function bookGalleryHtml(list, favoriteAuthors, recordMap, selectedIds) {
   return `<div class="book-gallery">${list.map((book) => bookGalleryCard(book, favoriteAuthors, recordMap, selectedIds)).join('')}</div>`;
 }
 
-const PAGE_SIZE_OPTIONS = [
-  { value: '12', label: '每頁顯示：12 本' },
-  { value: '24', label: '每頁顯示：24 本' },
-  { value: '50', label: '每頁顯示：50 本' },
-  { value: 'all', label: '每頁顯示：全部' },
-];
-
-// 頁碼超過 7 頁時用「1 … 上一頁 目前頁 下一頁 … 末頁」的縮寫排法，
-// 不然書籍一多頁碼列會長到跟搜尋列一樣寬，反而看不出目前在第幾頁。
-function buildPageList(current, total) {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const keep = new Set([1, total, current - 1, current, current + 1]);
-  const sortedKeep = [...keep].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
-  const result = [];
-  let prev = null;
-  for (const p of sortedKeep) {
-    if (prev !== null && p - prev > 1) result.push('…');
-    result.push(p);
-    prev = p;
-  }
-  return result;
-}
-
-function paginationHtml(current, total) {
-  if (total <= 1) return '';
-  const pages = buildPageList(current, total);
-  return `
-    <nav class="pagination-bar" aria-label="分頁導覽">
-      <button type="button" class="pagination-btn" data-page="${current - 1}" ${current === 1 ? 'disabled' : ''}>‹ 上一頁</button>
-      <div class="pagination-pages">
-        ${pages.map((p) => (p === '…'
-    ? '<span class="pagination-ellipsis">…</span>'
-    : `<button type="button" class="pagination-page${p === current ? ' is-active' : ''}" data-page="${p}" ${p === current ? 'aria-current="page"' : ''}>${p}</button>`
-  )).join('')}
-      </div>
-      <button type="button" class="pagination-btn" data-page="${current + 1}" ${current === total ? 'disabled' : ''}>下一頁 ›</button>
-    </nav>
-  `;
-}
+// 「極致純粹版」精簡：分頁（頁碼列＋「每頁顯示」下拉選單）整個換成捲動到底
+// 自動載入更多——不用使用者自己算「這本書在第幾頁」，捲下去就有更多內容，
+// 符合「自動順暢載入」的要求。INITIAL_LOAD_COUNT 是每次「一批」載入的本數，
+// 初始渲染跟每次觸發自動載入都用同一個數字，不用另外維護兩套邏輯。
+const INITIAL_LOAD_COUNT = 20;
 
 const SORT_OPTIONS = [
   { value: 'created-desc', label: '建立時間：新到舊' },
@@ -581,16 +547,11 @@ export async function renderBookList(container) {
             <button type="button" class="search-clear-btn" aria-label="清空搜尋" hidden></button>
           </div>
           <div class="filter-batch-wrap">
-            <button type="button" class="btn filter-batch-toggle-btn" id="filter-batch-toggle-btn" aria-expanded="false" aria-controls="filter-batch-panel">${ICON_FILTER}篩選與批量</button>
+            <button type="button" class="btn filter-batch-toggle-btn" id="filter-batch-toggle-btn" aria-expanded="false" aria-controls="filter-batch-panel">${ICON_FILTER}篩選</button>
             <div class="filter-batch-panel" id="filter-batch-panel" hidden>
               <label class="filter-batch-field">排序
                 <select id="book-sort-select" class="sort-select">
                   ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
-                </select>
-              </label>
-              <label class="filter-batch-field">每頁顯示
-                <select id="book-page-size-select" class="sort-select">
-                  ${PAGE_SIZE_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
                 </select>
               </label>
               <label class="filter-batch-toggle-field">
@@ -602,7 +563,7 @@ export async function renderBookList(container) {
           <span class="book-list-count" id="book-list-count">共 ${books.length} 本</span>
         </div>
         <div id="book-list-body"></div>
-        <div id="book-pagination"></div>
+        <div id="book-list-sentinel" class="book-list-sentinel" hidden>載入更多書籍中…</div>
       </div>
     </div>
   `;
@@ -617,14 +578,13 @@ export async function renderBookList(container) {
   const searchInput = container.querySelector('#book-search');
   wireSearchClear(container);
   const sortSelect = container.querySelector('#book-sort-select');
-  const pageSizeSelect = container.querySelector('#book-page-size-select');
   const bodyEl = container.querySelector('#book-list-body');
-  const paginationEl = container.querySelector('#book-pagination');
+  const sentinelEl = container.querySelector('#book-list-sentinel');
   const countEl = container.querySelector('#book-list-count');
   const dashboardMainEl = container.querySelector('.dashboard-main');
 
-  // 「篩選與批量」按鈕：點下去才展開排序／每頁顯示／批量選取開關這個小面板，
-  // 平常收合不佔搜尋列版面。點面板外面或按 Esc 收起見模組最上面那兩個
+  // 「篩選」按鈕：點下去才展開排序／批量選取開關這個小面板，平常收合不佔
+  // 搜尋列版面。點面板外面或按 Esc 收起見模組最上面那兩個
   // document 監聽器（跟這裡的 .inline-status-popover 是同一套做法）。
   const filterBatchToggleBtn = container.querySelector('#filter-batch-toggle-btn');
   const filterBatchPanel = container.querySelector('#filter-batch-panel');
@@ -657,8 +617,10 @@ export async function renderBookList(container) {
   let categoryFilter = null;
   let authorFilter = readAndClearAuthorFilterFromHash();
   let viewMode = 'table';
-  let pageSize = 12;
-  let currentPage = 1;
+  // 捲動到底自動載入更多：跟舊版的 currentPage 一樣，每次搜尋／篩選／排序
+  // 條件改變都要重設回初始值，不然切換篩選後畫面還停在「已經捲到第 N 批」
+  // 的狀態，可能反而看不到剛套用篩選後排在最前面的結果。
+  let loadedCount = INITIAL_LOAD_COUNT;
   // 批量操作列（Batch Action Bar）勾選狀態：只存書籍 id，不存整份書籍物件——
   // 每次 renderList() 都會用這個 Set 重新決定每一列/每張卡片的勾選框要不要打勾，
   // 這個 Set 本身才是「唯一事實來源」，checkbox 的 checked 屬性只是照它畫出來的結果。
@@ -739,15 +701,24 @@ export async function renderBookList(container) {
     const trimmed = (name || '').trim();
     if (!trimmed) return;
     authorFilter = trimmed;
-    currentPage = 1;
+    loadedCount = INITIAL_LOAD_COUNT;
     renderList();
   }
 
-  // 平滑滾動回列表頂部，只有「切換每頁顯示數量」跟「換頁」這兩種操作才需要——
-  // 打字搜尋、切換篩選這些操作使用者視線本來就停在畫面上，不需要幫他們捲動。
-  function scrollListToTop() {
-    titleEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  // 捲動到底自動載入更多：sentinelEl 是列表最下方一個平常隱藏的哨兵元素
+  // （見上面樣板的 #book-list-sentinel），只有「還有更多筆數沒顯示」時才會
+  // 取消隱藏並交給這個 observer 監看。使用者捲到它快進入畫面（rootMargin
+  // 預先留 200px，不用等哨兵真的完全露出來才觸發，體感更順暢）就多載入
+  // INITIAL_LOAD_COUNT 筆並重新渲染——跟舊版「換頁」是同一種「重設會影響
+  // 結果的狀態、重新呼叫 renderList()」模式，只是觸發來源從點擊頁碼變成
+  // IntersectionObserver。renderList() 每次都會先 disconnect() 再視情況
+  // 重新 observe()，不會因為重複呼叫而疊加出好幾個監看同一個哨兵的 callback。
+  const loadMoreObserver = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) {
+      loadedCount += INITIAL_LOAD_COUNT;
+      renderList();
+    }
+  }, { rootMargin: '200px' });
 
   // 右側「動態篩選標籤」膠囊：每種篩選各自一顆，膠囊上的 ✕ 只取消該項篩選，
   // 沿用各自原本「再點一次左側原標籤即可取消」的邏輯（模擬點擊該 UI 元素），不用另外重寫一份取消規則。
@@ -776,7 +747,7 @@ export async function renderBookList(container) {
       const authorBookCount = books.filter((b) => (b.author || '').trim() === authorFilter).length;
       entries.push({ key: 'author', label: `作者：${authorFilter}（共 ${authorBookCount} 本）`, remove: () => {
         authorFilter = null;
-        currentPage = 1;
+        loadedCount = INITIAL_LOAD_COUNT;
         renderList();
       } });
     }
@@ -794,16 +765,17 @@ export async function renderBookList(container) {
     base = filterBooksByAuthor(base, authorFilter);
     const sorted = sortBooks(base, recordMap, sortSelect.value);
 
-    // 分頁永遠是「搜尋＋篩選＋排序都套用完之後」的最後一步，總頁數依 sorted（搜尋後的
-    // 結果）而不是 books（全部書籍）去算；currentPage 在這裡夾一次範圍，是防呆保險——
-    // 理論上每個會改變 sorted 內容的操作（搜尋、篩選、換排序、換每頁筆數）都已經在
-    // 各自的事件監聽器裡把 currentPage 重設回 1，這裡只是避免萬一漏掉某個角落。
-    const isShowAll = pageSize === 'all';
-    const effectivePageSize = isShowAll ? Math.max(sorted.length, 1) : pageSize;
-    const totalPages = Math.max(1, Math.ceil(sorted.length / effectivePageSize));
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-    const pageItems = isShowAll ? sorted : sorted.slice((currentPage - 1) * effectivePageSize, currentPage * effectivePageSize);
+    // 捲動到底自動載入更多：永遠是「搜尋＋篩選＋排序都套用完之後」的最後
+    // 一步，從 sorted（不是 books 全部書籍）裡切出「目前為止」該顯示的
+    // 前 loadedCount 筆。loadedCount 在這裡夾一次範圍，是防呆保險——理論上
+    // 每個會改變 sorted 內容的操作（搜尋、篩選、換排序）都已經在各自的事件
+    // 監聽器裡把 loadedCount 重設回 INITIAL_LOAD_COUNT，這裡只是避免萬一
+    // 漏掉某個角落，導致捲動觸發器切出來的範圍超出 sorted 實際長度。
+    if (loadedCount > sorted.length) loadedCount = Math.max(sorted.length, INITIAL_LOAD_COUNT);
+    const pageItems = sorted.slice(0, loadedCount);
+    const hasMore = loadedCount < sorted.length;
+
+    loadMoreObserver.disconnect();
 
     if (sorted.length === 0) {
       if (query) {
@@ -823,20 +795,14 @@ export async function renderBookList(container) {
       } else {
         bodyEl.innerHTML = '<p class="empty">還沒有任何書籍，點擊上方新增第一本。</p>';
       }
-      paginationEl.innerHTML = '';
+      sentinelEl.hidden = true;
     } else {
       bodyEl.innerHTML = viewMode === 'gallery'
         ? bookGalleryHtml(pageItems, favoriteAuthors, recordMap, selectedIds)
         : bookTableHtml(pageItems, favoriteAuthors, recordMap, selectedIds);
       bodyEl.querySelectorAll('.book-gallery-cover img').forEach(wireCoverImage);
-      paginationEl.innerHTML = paginationHtml(currentPage, totalPages);
-      paginationEl.querySelectorAll('[data-page]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          currentPage = Number(btn.dataset.page);
-          renderList();
-          scrollListToTop();
-        });
-      });
+      sentinelEl.hidden = !hasMore;
+      if (hasMore) loadMoreObserver.observe(sentinelEl);
     }
     countEl.textContent = sorted.length === books.length ? `共 ${books.length} 本` : `符合 ${sorted.length} 本（共 ${books.length} 本）`;
     titleEl.textContent = '所有書籍';
@@ -875,7 +841,7 @@ export async function renderBookList(container) {
     statusFilter = null;
     categoryFilter = null;
     authorFilter = null;
-    currentPage = 1;
+    loadedCount = INITIAL_LOAD_COUNT;
     searchInput.value = '';
     const yearSelect = container.querySelector('#sidebar-stats-year-select');
     if (yearSelect.value) {
@@ -895,17 +861,17 @@ export async function renderBookList(container) {
   await renderDashboardSidebar(container.querySelector('#dashboard-sidebar-inner'), {
     onYearChange: (year) => {
       yearFilter = year;
-      currentPage = 1;
+      loadedCount = INITIAL_LOAD_COUNT;
       renderList();
     },
     onStatusFilterChange: (status) => {
       statusFilter = status;
-      currentPage = 1;
+      loadedCount = INITIAL_LOAD_COUNT;
       renderList();
     },
     onCategoryFilterChange: (category) => {
       categoryFilter = category;
-      currentPage = 1;
+      loadedCount = INITIAL_LOAD_COUNT;
       renderList();
     },
   });
@@ -968,18 +934,12 @@ export async function renderBookList(container) {
   });
 
   searchInput.addEventListener('input', () => {
-    currentPage = 1;
+    loadedCount = INITIAL_LOAD_COUNT;
     renderList();
   });
   sortSelect.addEventListener('change', () => {
-    currentPage = 1;
+    loadedCount = INITIAL_LOAD_COUNT;
     renderList();
-  });
-  pageSizeSelect.addEventListener('change', () => {
-    pageSize = pageSizeSelect.value === 'all' ? 'all' : Number(pageSizeSelect.value);
-    currentPage = 1;
-    renderList();
-    scrollListToTop();
   });
   renderList();
 }

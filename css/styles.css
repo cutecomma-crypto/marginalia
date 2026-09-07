@@ -1283,8 +1283,7 @@ header h1 a {
 
 /* 斷點拉高到 1024px（不是 768px）：側邊欄 minmax(240px, 27%) 的下限 240px，
    在平板直立（常見 768～834px 寬）下已經佔掉快 1/3 版面，硬擠出來的主內容欄
-   （書籍表格五個欄位：書名／作者／類型／完成日期／書籍歸還）連書名都會被
-   截斷。這一版改成「原生 App 抽屜」架構，比之前「側邊欄整個搬到書籍列表
+   （書籍表格四個欄位：書名／作者／類型／完成日期）連書名都會被截斷。這一版改成「原生 App 抽屜」架構，比之前「側邊欄整個搬到書籍列表
    上面、單欄堆疊」更進一步：側邊欄在小螢幕預設完全不佔版面（.dashboard-main
    一個人獨佔 100% 寬度），要看藏書統計／分類才透過 Header 那顆「📊」按鈕
    叫出一個從左側滑出的抽屜（position:fixed + transform，不影響文件流），
@@ -1745,9 +1744,21 @@ header h1 a {
   box-shadow: var(--shadow-card);
 }
 
-.book-table .col-category,
-.book-table .col-completed {
+/* 「極致純粹版」精簡：拿掉「書籍歸還」欄位之後，釋出的橫向空間要平均分給
+   「書名」跟「完成日期」。「作者」「書籍類型」維持 width:1% 這個 hack（縮到
+   剛好容納內容的最小寬度）；書名／完成日期改成明確各佔一樣的百分比——
+   單靠「不鎖寬度、讓瀏覽器自動分配剩餘空間」沒辦法真的做到「平均」，
+   auto table layout 會照每欄內容的自然寬度按比例分配，書名文字通常比
+   「2026/08/18」這種固定格式的日期長很多，兩欄還是會分配到不一樣的寬度，
+   一定要明講兩欄要一樣寬才會是真的平均分配。 */
+.book-table .col-author,
+.book-table .col-category {
   width: 1%;
+}
+
+.book-table .col-title,
+.book-table .col-completed {
+  width: 40%;
 }
 
 .book-table th,
@@ -1759,19 +1770,19 @@ header h1 a {
 }
 
 /* 書名／作者是唯一長度真正不可預期的兩欄——曾經在這裡連同其餘欄位一起用
-   white-space: nowrap，賭「桌面版夠寬，不會需要換行」，這個賭注在資料只有
-   一頁 12 本時大致成立，但使用者把「每頁顯示」切到「全部」（一次顯示全部
-   304 本）時，304 本裡只要有任何一本書名或作者名夠長、又剛好沒有可以自然
-   斷行的空白，nowrap 就會逼著那一欄撐出比整個桌面版視窗還寬的最小寬度，
-   table-layout 預設的 auto 演算法只能眼睜睜看著整張表格被撐寬、超出容器，
-   右側「完成日期」「書籍歸還」被推到視窗外——這正是使用者在「顯示全部」時
-   看到的截斷，資料筆數越多、踩到這種書名的機率越高，才會在切到「全部」
-   之前一直沒發現。只讓這兩欄改成 normal + word-break（不是整張表格），
-   跟下面 3/4/5 欄「維持 nowrap，只給合理 min-width」的做法分開處理——
-   類型／日期／書籍歸還都是短且格式固定的內容，本來就不需要、也不該換行
-   （完成日期換行會變成「202／6/08／18」這種折斷數字的難看樣子，實測
-   「顯示全部」時真的會發生，見下面 min-width 那組規則旁的說明），只有
-   書名/作者這種長度真正不可控的自由文字才需要允許換行來避免撐爆版面。 */
+   white-space: nowrap，賭「桌面版夠寬，不會需要換行」，這個賭注在畫面上
+   只有一批（20 本）時大致成立，但捲動到底自動載入好幾批之後（見
+   js/bookList.js 的 loadMoreObserver），書一多，只要有任何一本書名或
+   作者名夠長、又剛好沒有可以自然斷行的空白，nowrap 就會逼著那一欄撐出
+   比整個桌面版視窗還寬的最小寬度，table-layout 預設的 auto 演算法只能
+   眼睜睜看著整張表格被撐寬、超出容器，右側「完成日期」被推到視窗外——
+   資料筆數越多、踩到這種書名的機率越高，才會在捲動載入夠多批之前一直
+   沒發現。只讓這兩欄改成 normal + word-break（不是整張表格），跟下面
+   3/4 欄「維持 nowrap，只給合理 min-width」的做法分開處理——類型／日期
+   都是短且格式固定的內容，本來就不需要、也不該換行（完成日期換行會
+   變成「202／6/08／18」這種折斷數字的難看樣子，書多到一定量真的會發生，
+   見下面 min-width 那組規則旁的說明），只有書名/作者這種長度真正不可控
+   的自由文字才需要允許換行來避免撐爆版面。 */
 .book-table th:nth-child(1),
 .book-table td:nth-child(1),
 .book-table th:nth-child(2),
@@ -1781,15 +1792,29 @@ header h1 a {
   overflow-wrap: break-word;
 }
 
-/* 類型／日期／書籍歸還維持單行不換行（格式固定、不需要也不該斷行），但
-   col 寬度是 1%（只吃內容需要的最小寬度）——書名/作者兩欄改成上面的
-   normal 之後，auto 表格演算法在算「內容需要的最小寬度」時，會把這三欄
-   的最小寬度算得極窄（因為書名/作者現在可以無限換行、不再需要為它們讓出
-   固定寬度），逼著這三欄的文字被壓縮到一個字一個字往下疊成直排的難看
-   樣子（例如「書籍類型」四個字疊成一直條，實測「顯示全部」304 本時真的
-   會發生）。加一個合理的 min-width 就能讓這三欄維持橫排單行，不分寬度都
-   生效（這條保護原本只包在 ≤1024px 斷點裡，桌面版現在也有同樣的風險，
-   所以移來這裡當基礎規則）。 */
+/* 作者欄現在跟書籍類型一樣是 width:1%（shrink-to-fit，見上面 .col-author
+   的說明）——但作者欄同時還套用了上面那條 normal + word-break（書名／
+   作者都允許換行），兩者疊在一起是實測抓到的真實 bug：中文字之間天生
+   到處都是合法斷行點，auto 表格演算法算「這一欄不換行也能繼續縮多窄」
+   時，會把 shrink-to-fit 的目標寬度一路砍到只剩一個字，逼著整個作者名
+   字一個字往下疊成一直條的難看直排（例如「詹姆斯．克利爾」疊成七行）。
+   一定要另外補一個明講的 min-width 卡住下限，才能讓瀏覽器沒辦法縮到
+   單字寬度，真的太長的作者名字仍然可以自然換行（word-break 沒有拿掉），
+   只是不會整欄窄到誇張的地步。 */
+.book-table th:nth-child(2),
+.book-table td:nth-child(2) {
+  min-width: 9em;
+}
+
+/* 類型／日期維持單行不換行（格式固定、不需要也不該斷行），書籍類型的
+   col 寬度是 1%（只吃內容需要的最小寬度，見上面 .col-category 的說明）——
+   書名/作者兩欄改成上面的 normal 之後，auto 表格演算法在算「內容需要的
+   最小寬度」時，會把這幾欄的最小寬度算得極窄（因為書名/作者現在可以
+   無限換行、不再需要為它們讓出固定寬度），逼著這幾欄的文字被壓縮到一個
+   字一個字往下疊成直排的難看樣子（例如「書籍類型」四個字疊成一直條，
+   捲動載入夠多批、書量夠大時真的會發生）。加一個合理的 min-width 就能讓
+   這幾欄維持橫排單行，不分寬度都生效（這條保護原本只包在 ≤1024px 斷點
+   裡，桌面版現在也有同樣的風險，所以移來這裡當基礎規則）。 */
 .book-table th:nth-child(3),
 .book-table td:nth-child(3) {
   white-space: nowrap;
@@ -1800,20 +1825,13 @@ header h1 a {
   white-space: nowrap;
   min-width: 4.6em;
 }
-.book-table th:nth-child(5),
-.book-table td:nth-child(5) {
-  white-space: nowrap;
-  min-width: 5.4em;
-}
 
-/* 書名／作者交給欄位自然撐開寬度、單行不換行；類型／完成日期／書籍歸還詞彙固定短，
-   col 給 1% 等於「只吃內容需要的最小寬度」，釋放出來的空間全部留給書名／作者。 */
+/* 書名／作者交給欄位自然撐開寬度、單行不換行；類型／完成日期詞彙固定短，
+   書籍類型 col 給 1% 等於「只吃內容需要的最小寬度」。 */
 .book-table th:nth-child(3),
 .book-table td:nth-child(3),
 .book-table th:nth-child(4),
-.book-table td:nth-child(4),
-.book-table th:nth-child(5),
-.book-table td:nth-child(5) {
+.book-table td:nth-child(4) {
   padding-left: 1.1rem;
   padding-right: 1.1rem;
   text-align: center;
@@ -1831,21 +1849,20 @@ header h1 a {
    那套演算法在這裡會出問題——nowrap 底下，1% 等於「只吃內容需要的最小
    寬度」，中文沒有空白可以斷詞，「書籍類型」這種短詞彙就會被逼到一個字
    一個字往下疊成直排（「心/理/學/理/論」），這正是這次要修的問題。
-   解法是不要再讓欄寬取決於內容多寡：直接用固定的百分比欄寬（書名 50%／
-   作者 25%／完成日期 25%，三欄加總 100%），並把 <table> 切成
-   table-layout:fixed——auto（預設值）的表格，百分比欄寬只是「參考值」，
-   瀏覽器仍會為了內容硬撐超過設定的寬度；fixed 才會強制每一欄剛好卡在
-   設定的百分比寬度。欄寬固定之後改用 white-space:normal + word-break:
-   break-word（不是先前版本的 nowrap+ellipsis）：長書名／長作者名（例如
-   「大衛·布魯克斯」）自然換行完整顯示，不再犧牲內容裁切成「…」，
-   table-layout:fixed 底下儲存格允許多行不會影響其他欄位的寬度，只會讓
-   那一列的高度自動撐高。
-   書籍類型／書籍歸還這兩欄在這個寬度直接讓位（見下面 nth-child(3)/(5)
-   display:none）：書籍類型改成貼在書名下方的小標籤（.book-table-category-badge，
-   HTML 由 bookList.js 的 bookRow() 準備好，平常預設隱藏，只在這裡顯示），
-   書籍歸還整欄隱藏——書名 50%＋作者 25%＋完成日期 25% 已經吃滿 100%，
-   沒有多餘寬度再留給第四、五欄，硬塞只會回到欄位擠壓的老問題；需要操作
-   書籍歸還的話，點進書籍詳情頁一樣找得到。 */
+   解法是不要再讓欄寬取決於內容多寡：直接用固定的百分比欄寬（書名 40%／
+   作者 20%／完成日期 40%，三欄加總 100%，跟桌機版「書名／完成日期平均
+   分配」同一個比例原則），並把 <table> 切成 table-layout:fixed——auto
+   （預設值）的表格，百分比欄寬只是「參考值」，瀏覽器仍會為了內容硬撐
+   超過設定的寬度；fixed 才會強制每一欄剛好卡在設定的百分比寬度。欄寬
+   固定之後改用 white-space:normal + word-break: break-word（不是先前
+   版本的 nowrap+ellipsis）：長書名／長作者名（例如「大衛·布魯克斯」）
+   自然換行完整顯示，不再犧牲內容裁切成「…」，table-layout:fixed 底下
+   儲存格允許多行不會影響其他欄位的寬度，只會讓那一列的高度自動撐高。
+   書籍類型這一欄在這個寬度直接讓位（見下面 nth-child(3) display:none）：
+   改成貼在書名下方的小標籤（.book-table-category-badge，HTML 由
+   bookList.js 的 bookRow() 準備好，平常預設隱藏，只在這裡顯示）——書名
+   40%＋作者 20%＋完成日期 40% 已經吃滿 100%，沒有多餘寬度再留給第三欄，
+   硬塞只會回到欄位擠壓的老問題。 */
 @media (min-width: 641px) and (max-width: 1024px) {
   /* main 的左右 padding 是「所有書籍」標題／搜尋框／下拉選單／書籍表格
      共用的唯一基準線（見上面 ≤1024px 那條 main padding 規則旁的說明）——
@@ -1890,20 +1907,23 @@ header h1 a {
      解法是雙管齊下，兩者都改成直接指定在最終會生效的地方，不再依賴任何
      一個瀏覽器「猜對」誰該贏：三個保留欄位（書名/作者/完成日期）的欄寬
      同時寫在 <col> 跟 <th> 上（兩邊寫的數字一致，不管哪個瀏覽器採用哪一
-     份都不會偏出 50/25/25 的比例），兩個被隱藏的欄位除了原本的儲存格
+     份都不會偏出這裡指定的比例），兩個被隱藏的欄位除了原本的儲存格
      display:none，連 <colgroup> 裡對應的 <col> 本身也一併 display:none——
      這是規範裡「整欄真正從表格移除」唯一乾淨的做法，不會像單獨隱藏儲存格
-     那樣讓瀏覽器對「這張表到底有幾欄」各自解讀出不同答案。 */
+     那樣讓瀏覽器對「這張表到底有幾欄」各自解讀出不同答案。
+     比例本身（20/40/40）配合「極致純粹版」把桌機版「書名／完成日期平均
+     分配剩餘空間」的原則帶到這個斷點，作者維持一個較窄、夠放大多數
+     名字的固定比例。 */
   .book-table .col-title {
-    width: 50% !important;
+    width: 40% !important;
   }
 
   .book-table .col-author {
-    width: 25% !important;
+    width: 20% !important;
   }
 
   .book-table .col-completed {
-    width: 25% !important;
+    width: 40% !important;
   }
 
   .book-table .col-category {
@@ -1912,17 +1932,17 @@ header h1 a {
 
   .book-table th:nth-child(1),
   .book-table td:nth-child(1) {
-    width: 50% !important;
+    width: 40% !important;
   }
 
   .book-table th:nth-child(2),
   .book-table td:nth-child(2) {
-    width: 25% !important;
+    width: 20% !important;
   }
 
   .book-table th:nth-child(4),
   .book-table td:nth-child(4) {
-    width: 25% !important;
+    width: 40% !important;
   }
 
   .book-table th:nth-child(3),
@@ -2013,19 +2033,19 @@ header h1 a {
 }
 
 /* 手機版把整張表格轉成一疊精緻的兩行卡片，不要硬擠成一張橫向捲動、字都被
-   壓扁的迷你表格，也不要五個欄位各佔一整行、卡片拉得又高又鬆散。做法是拿掉
+   壓扁的迷你表格，也不要四個欄位各佔一整行、卡片拉得又高又鬆散。做法是拿掉
    <table> 的表格語意（thead 藏起來），每一列 <tr> 變成一張獨立卡片、改用
    grid-template-columns: 1fr 1fr 讓 <td> 兩個兩個自動排成一行——書籍列表的
-   HTML 順序本來就是「書名／作者／類型／完成日期／書籍歸還」（見 bookList.js
-   的 bookRow()），5 個項目丟進兩欄 grid 自動排列，天生就會排成「第一行：
-   書名＋作者、第二行：類型＋完成日期、第三行（有的話）：書籍歸還」，不用
-   額外寫 grid-template-areas 手動指定每個欄位要落在哪一格。每個 <td> 內部
-   改成標籤在上、內容在下的直式排列（原本是標籤靠左、內容靠右的橫式），
-   兩欄變窄之後橫式會放不下，直式在半張卡寬度裡才讀得舒服。
+   HTML 順序本來就是「書名／作者／類型／完成日期」（見 bookList.js 的
+   bookRow()），4 個項目丟進兩欄 grid 自動排列，天生就會排成「第一行：
+   書名＋作者、第二行：類型＋完成日期」，不用額外寫 grid-template-areas
+   手動指定每個欄位要落在哪一格。每個 <td> 內部改成標籤在上、內容在下的
+   直式排列（原本是標籤靠左、內容靠右的橫式），兩欄變窄之後橫式會放不下，
+   直式在半張卡寬度裡才讀得舒服。
    斷點刻意是 640px（不是原本的 768px）：641～1024px（平板直向／中型螢幕）
    改走下面新增的「真正的 <table> ＋百分比欄寬」處理方式，不再轉成卡片——
    卡片模式一欄只有半張卡寬，書名稍長就會被截斷，百分比欄寬的真表格反而
-   更適合平板直向這種「比手機寬很多、但又擠不下桌機版全部五欄」的寬度。
+   更適合平板直向這種「比手機寬很多、但又擠不下桌機版全部欄位」的寬度。
    只有真正窄的手機（≤640px）才需要卡片這種更緊湊的呈現方式。 */
 @media (max-width: 640px) {
   /* thead 用 !important：這是「表格轉卡片」整套手法的第一步，一定要贏過
@@ -2087,15 +2107,14 @@ header h1 a {
     min-width: 0;
   }
 
-  /* 桌面版「書籍類型／完成日期／書籍歸還」三欄有專屬的置中＋左右內距規則
-     （.book-table td:nth-child(3)/(4)/(5)，見上面桌面版樣式），選擇器比這裡
+  /* 桌面版「書籍類型／完成日期」兩欄有專屬的置中＋左右內距規則
+     （.book-table td:nth-child(3)/(4)，見上面桌面版樣式），選擇器比這裡
      單純的 .book-table td 更精細（多了 :nth-child 偽類），優先度更高，不靠
      媒體查詢就會直接蓋掉上面那條卡片版的 padding:0——這裡用同一組 nth-child
      選擇器把內距蓋回去，text-align 則不在這裡統一設定，留給下面「左右分欄」
      那條規則個別決定（書名／類型維持左欄靠左，作者／完成日期是右欄要靠右）。 */
   .book-table td:nth-child(3),
-  .book-table td:nth-child(4),
-  .book-table td:nth-child(5) {
+  .book-table td:nth-child(4) {
     padding-left: 0;
     padding-right: 0;
   }
@@ -2232,74 +2251,19 @@ header h1 a {
   flex-shrink: 0;
 }
 
-/* 書籍列表分頁列：奶油底（--surface-alt）+ 深棕字，跟頁面上其他「素雅預設、
-   互動時才亮玫瑰棕」的按鈕語言一致（呼應 .btn:hover 的設計），不是另外發明一套配色。 */
-.pagination-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 1.5rem;
-}
-
-.pagination-pages {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.pagination-btn,
-.pagination-page {
-  min-width: 2.2rem;
-  height: 2.2rem;
-  padding: 0 0.6rem;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--surface-alt);
-  color: var(--text);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.pagination-btn:hover:not(:disabled),
-.pagination-page:hover:not(.is-active) {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
-  color: var(--accent-hover);
-  transform: translateY(-1px);
-}
-
-.pagination-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* 目前頁碼跟「已選中的標籤／作用中頁籤」是同一種「這個是目前選中的那個」
-   語意，收進同一套變數，不再是獨立一塊高彩度粉紅。外框刻意不跟背景同色
-   （不是純色玫瑰棕描邊），改用暖米灰（--tag-inactive-border），玫瑰棕實底
-   本身已經夠醒目，外框同色只會讓邊界糊在一起，暖米灰邊框反而讓色塊邊緣
-   更俐落乾淨。 */
-.pagination-page.is-active {
-  background: var(--color-tag-active-bg);
-  border-color: var(--tag-inactive-border);
-  color: var(--color-tag-active-text);
-  font-weight: 600;
-  cursor: default;
-}
-
-.pagination-ellipsis {
+/* 「極致純粹版」精簡：原本的分頁列（頁碼按鈕＋上一頁/下一頁）已經換成
+   捲動到底自動載入（見 js/bookList.js 的 #book-list-sentinel／
+   loadMoreObserver），這裡整組 .pagination-* 規則一起刪除，不留死碼。
+   哨兵元素本身的樣式見下面 .book-list-sentinel。 */
+.book-list-sentinel {
+  text-align: center;
+  padding: 1.25rem 0;
   color: var(--text-muted);
-  padding: 0 0.2rem;
+  font-size: 0.85rem;
 }
 
-@media (max-width: 768px) {
-  .pagination-btn,
-  .pagination-page {
-    min-height: 44px;
-    min-width: 44px;
-  }
+.book-list-sentinel[hidden] {
+  display: none;
 }
 
 .book-completed-date {
