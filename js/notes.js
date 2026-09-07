@@ -124,9 +124,27 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
     event.preventDefault();
     const text = textarea.value.trim();
     if (!text) return;
-    await DB.add('notes', { bookId, text });
-    isDirty = false;
-    await renderPersonalNotes(container, bookId, { onQuoteAdded });
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalLabel = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = '儲存中…';
+    try {
+      await DB.add('notes', { bookId, text });
+      isDirty = false;
+      await renderPersonalNotes(container, bookId, { onQuoteAdded });
+    } catch (error) {
+      // 不包 try/catch 的話，DB.add() 丟出的例外只會變成主控台看不見的
+      // unhandled rejection，畫面上按鈕停在「儲存中…」動彈不得，使用者
+      // 只會覺得「這個功能是不是壞了」，沒有線索可以回報——跟 graph.js
+      // showPersonPanel() 存檔失敗時的處理是同一套做法：Toast 直接顯示
+      // 錯誤內容本身（十之八九是雲端資料表欄位對不上、或網路問題），
+      // 不是「請稍後再試一次」這種空泛訊息，同時保留使用者剛打的文字，
+      // 不清空輸入框、不重繪，讓他改完直接再按一次儲存。
+      showToast(`儲存失敗：${error?.message || String(error)}`, 6000);
+      console.error('[Marginalia 閱讀心得] 新增筆記失敗：', error);
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalLabel;
+    }
   });
 
   textarea.addEventListener('keydown', (event) => {
@@ -147,8 +165,15 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
         danger: true,
       });
       if (!confirmed) return;
-      await DB.remove(btn.dataset.source, Number(btn.dataset.id));
-      await renderPersonalNotes(container, bookId, { onQuoteAdded });
+      btn.disabled = true;
+      try {
+        await DB.remove(btn.dataset.source, Number(btn.dataset.id));
+        await renderPersonalNotes(container, bookId, { onQuoteAdded });
+      } catch (error) {
+        showToast(`刪除失敗：${error?.message || String(error)}`, 6000);
+        console.error('[Marginalia 閱讀心得] 刪除失敗：', error);
+        btn.disabled = false;
+      }
     });
   });
 
@@ -167,6 +192,15 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
     });
   });
 
+  // 編輯狀態的「儲存」：加 Loading 狀態防止重複點擊、失敗時明確提示——
+  // 這裡曾經直接 await DB.update() 沒包 try/catch，一旦更新失敗（例如
+  // 雲端帳號網路不穩、或 RLS/欄位不對），例外會變成主控台看不見的
+  // unhandled rejection，畫面卡在編輯狀態、按鈕看起來像沒反應，使用者
+  // 感覺「儲存按了沒用」，卻沒有任何線索可以回報——這正是「靜默失敗」。
+  // 跟 graph.js showPersonPanel() 存檔失敗時的處理同一套做法：按鈕先鎖住
+  // 顯示「儲存中…」防止手癢連點兩次觸發兩次更新，成功才 Toast＋退出編輯
+  // 模式，失敗則 Toast 顯示錯誤內容本身＋主控台留完整紀錄，並解鎖按鈕、
+  // 保留使用者剛才修改的文字（不清空、不強制退出編輯），讓他能直接重試。
   container.querySelectorAll('.output-save-edit').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = Number(btn.dataset.id);
@@ -177,9 +211,22 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
         showToast('筆記內容不能是空的');
         return;
       }
-      await DB.update('notes', { ...note, text: newText, updatedAt: new Date().toISOString() });
-      showToast('筆記已更新');
-      await renderPersonalNotes(container, bookId, { onQuoteAdded });
+      const cancelBtn = container.querySelector(`.output-item[data-id="${id}"] .output-cancel-edit`);
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '儲存中…';
+      if (cancelBtn) cancelBtn.disabled = true;
+      try {
+        await DB.update('notes', { ...note, text: newText, updatedAt: new Date().toISOString() });
+        showToast('閱讀心得已儲存');
+        await renderPersonalNotes(container, bookId, { onQuoteAdded });
+      } catch (error) {
+        showToast(`儲存失敗：${error?.message || String(error)}`, 6000);
+        console.error('[Marginalia 閱讀心得] 更新筆記失敗：', error);
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+        if (cancelBtn) cancelBtn.disabled = false;
+      }
     });
   });
 
