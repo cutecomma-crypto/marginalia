@@ -931,6 +931,39 @@ header h1 a {
   padding: 1rem 0;
 }
 
+/* 「空白頁面與新手引導」：資料庫真的一本書都沒有時的插畫＋範例書籍按鈕
+   （見 js/bookList.js 的 emptyLibraryStateHtml()）。跟 .empty 一樣置中，
+   但份量重一些——這是新使用者第一次真正打開這個平台看到的畫面，值得多
+   一點視覺引導，不是隨便一行灰字帶過。 */
+.empty-library-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
+  padding: 2.5rem 1rem 2rem;
+}
+
+.empty-library-illustration {
+  width: 120px;
+  height: 100px;
+  margin-bottom: 0.5rem;
+}
+
+.empty-library-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.empty-library-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+  max-width: 32em;
+}
+
 /* 換頁骨架屏（見 js/app.js 的 skeletonHtml()）＋真正內容出現時的淡入動畫。
    #app > * 刻意不限定特定 class，因為每個頁面模組（bookList.js／backup.js…）
    render 完的樣板結構都不一樣，有的是單一個 <div class="dashboard-layout">
@@ -1873,8 +1906,7 @@ header h1 a {
 }
 
 .book-table .col-category,
-.book-table .col-completed,
-.book-table .col-actions {
+.book-table .col-completed {
   width: 1%;
 }
 
@@ -2034,8 +2066,7 @@ header h1 a {
     width: 25% !important;
   }
 
-  .book-table .col-category,
-  .book-table .col-actions {
+  .book-table .col-category {
     display: none !important;
   }
 
@@ -2055,9 +2086,7 @@ header h1 a {
   }
 
   .book-table th:nth-child(3),
-  .book-table td:nth-child(3),
-  .book-table th:nth-child(5),
-  .book-table td:nth-child(5) {
+  .book-table td:nth-child(3) {
     display: none !important;
   }
 
@@ -2113,48 +2142,6 @@ header h1 a {
   text-decoration: none;
   font-weight: 600;
   font-size: 1rem;
-}
-
-/* 一鍵歸還／已收回：表格／封面網格共用同一顆輕量小按鈕（<button> 或 <span>都套這個
-   class，實際文字跟目標狀態由 QUICK_RETENTION_ACTIONS 決定，見 bookForm.js），
-   借用既有的 --accent-green 語意色（原本註解就寫著這組顏色是留給「借閱狀態」用的），
-   跟危險操作的紅色、主要動作的品牌色都區隔開，讀起來像「完成、正向」的小動作。 */
-.quick-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.3rem 0.65rem;
-  border: none;
-  border-radius: 999px;
-  background: var(--accent-green-soft);
-  color: var(--accent-green);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: filter 0.15s ease;
-}
-
-.quick-action-btn:hover {
-  filter: brightness(0.94);
-}
-
-.book-gallery-info .quick-action-btn {
-  margin-top: 0.5rem;
-}
-
-/* 書籍詳情頁的快捷狀態切換按鈕放在跟「編輯」「刪除」同一排操作列，維持跟它們
-   一樣的 .btn 外框樣式，只把文字／邊框換成同一組 --accent-green 語意色。 */
-.btn.quick-action-btn {
-  border: 1px solid var(--accent-green);
-  background: var(--accent-green-soft);
-  color: var(--accent-green);
-}
-
-.btn.quick-action-btn:hover {
-  background: var(--accent-green);
-  border-color: var(--accent-green);
-  color: var(--surface);
 }
 
 /* 斑馬紋＋整列 hover：純白通篇一列列排下去容易看花眼，隔行淡淡的暖米色
@@ -2284,13 +2271,6 @@ header h1 a {
     text-align: right;
   }
 
-  /* 「書籍歸還」欄位大多數書都是空的（沒有快捷按鈕），卡片版不想每張卡片都
-     多留一格空白的「書籍歸還」——整格沒內容時直接從 grid 排列中移除，
-     有內容的那幾張卡片，這一格自然單獨落到第三行。 */
-  .book-table td.action-cell:empty {
-    display: none;
-  }
-
   .book-table td::before {
     content: attr(data-label);
     font-weight: 600;
@@ -2324,18 +2304,17 @@ header h1 a {
    !important 才蓋得過 !important。 */
 @media (max-width: 640px) {
   /* 用 grid-template-areas 而不是單純的兩欄自動排列：書名／作者／類型／
-     完成日期／書籍歸還在 HTML 裡的順序是固定的（見 bookList.js 的
-     bookRow()：書名、作者、類型、完成日期、書籍歸還），但這次要的視覺
-     順序是「書名獨佔一行→類型獨佔一行→作者跟完成日期並排在第三行」，
-     類型要跳到作者前面，單純兩欄自動流沒辦法做「跳過去」的重新排列，
-     一定要用具名區域明確指定每一格該落在哪裡，不受 DOM 順序限制。 */
+     完成日期在 HTML 裡的順序是固定的（見 bookList.js 的 bookRow()：書名、
+     作者、類型、完成日期），但這次要的視覺順序是「書名獨佔一行→類型獨佔
+     一行→作者跟完成日期並排在第三行」，類型要跳到作者前面，單純兩欄自動流
+     沒辦法做「跳過去」的重新排列，一定要用具名區域明確指定每一格該落在
+     哪裡，不受 DOM 順序限制。 */
   .book-table tr {
     grid-template-columns: 1fr 1fr !important;
     grid-template-areas:
       "title title"
       "category category"
-      "author date"
-      "action action" !important;
+      "author date" !important;
     gap: 4px !important;
     padding: 10px 14px !important;
   }
@@ -2358,16 +2337,11 @@ header h1 a {
     text-align: right !important;
   }
 
-  .book-table td.action-cell {
-    grid-area: action;
-  }
-
-  /* 隱藏作者／完成日期／書籍歸還的欄位小標題（書名的標籤在上面 768px 那個
+  /* 隱藏作者／完成日期的欄位小標題（書名的標籤在上面 768px 那個
      區塊已經先藏起來了）——這個斷點夠窄，直接呈現內容本身就夠直覺，不需要
      「作者：」「完成日期：」這種說明文字，反而佔位置、拖慢閱讀速度。 */
   .book-table td:nth-child(2)::before,
-  .book-table td:nth-child(4)::before,
-  .book-table td.action-cell::before {
+  .book-table td:nth-child(4)::before {
     display: none !important;
   }
 
@@ -5473,48 +5447,6 @@ button.book-completed-date:hover {
     width: 100%;
     max-width: 100%;
   }
-}
-
-/* 借出中／借入中快捷篩選：放在「各類型書籍數量」正上方，跟分類清單留一點距離區隔開來，
-   兩顆並排、互斥（同時只會有一個 is-active）。0 本時仍顯示（讓使用者知道有這個功能存在）但禁用，不能點出空清單。 */
-.retention-filter-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.9rem;
-}
-
-.retention-filter-btn {
-  flex: 1 1 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.55rem 0.5rem;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--surface-alt);
-  color: var(--text);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.retention-filter-btn:hover:not(:disabled) {
-  background: var(--border-soft);
-  transform: translateY(-1px);
-}
-
-.retention-filter-btn.is-active {
-  background: var(--primary-soft);
-  box-shadow: 0 0 0 2px var(--primary);
-  color: var(--primary-hover);
-}
-
-.retention-filter-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 
 /* 表格／網格檢視切換：跟「顯示全部書籍」重置鈕一樣是標題旁的次要小按鈕，

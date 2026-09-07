@@ -5,6 +5,7 @@ import { renderGraphPage } from './graph.js';
 import { renderQuotesPage } from './quotes.js';
 import { renderBackupPage } from './backup.js';
 import { renderTagPage } from './tags.js';
+import { isNetworkError, showToast, escapeHtml } from './utils.js';
 
 const app = document.getElementById('app');
 
@@ -78,8 +79,21 @@ async function route() {
     }
     await renderBookDetail(app, parts[1]);
   } catch (err) {
-    app.innerHTML = `<p class="empty">發生錯誤：${err.message}</p>`;
     console.error(err);
+    // 「架構安全性強化」：這是整個路由的保底防線，任何頁面渲染過程中沒被
+    // 自己 catch 掉的錯誤最後都會落到這裡——原本不分青紅皂白把整頁換成一句
+    // 原始英文錯誤訊息（例如「發生錯誤：Failed to fetch」），使用者看了不知道
+    // 該怎麼辦，也容易誤以為整個網站壞了。網路連線問題（isNetworkError 判斷式
+    // 見 utils.js，跟 cloudDb.js 每個 Supabase 呼叫外層共用同一份規則）換成
+    // 一句看得懂的中文提示＋Toast，其餘真正未預期的錯誤才維持顯示技術訊息
+    // （方便回報問題），但一樣用 Toast 補一句提示，不是單靠容易被忽略的頁面文字。
+    if (isNetworkError(err)) {
+      app.innerHTML = '<p class="empty">網路連線異常，請檢查您的網路連線後重新整理再試一次。</p>';
+      showToast('網路連線異常，請檢查您的網路連線後再試一次');
+    } else {
+      app.innerHTML = `<p class="empty">發生錯誤：${escapeHtml(err.message || String(err))}</p>`;
+      showToast('發生非預期的錯誤，請重新整理頁面再試一次');
+    }
   }
 }
 

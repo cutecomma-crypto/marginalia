@@ -2,17 +2,19 @@ import { DB } from './db.js';
 import { escapeHtml, renderTextWithHashtags, showToast, confirmModal, guardUnsavedChanges } from './utils.js';
 import { ICON_NOTEBOOK, ICON_LIGHTBULB, ICON_EDIT, ICON_DELETE } from './icons.js';
 import { attachSelectionToolbar } from './services/selectionToolbarService.js';
-import { getOutputsByKind, renderLegacyReflectionItem } from './outputs.js';
+import { getOutputsByKind, renderLegacyReflectionItem, renderLegacyMotivationItem } from './outputs.js';
 
-// 「UI 極簡化」精簡：原本分開的「快速筆記」（這個檔案）跟「閱讀後輸出」
-// （outputs.js 的所見即所得表單）合併成單一個「個人筆記」區塊，介面上只留
-// 一個乾淨的純文字輸入框——不再有兩組各自獨立的表單、標題、心得標籤、
-// 格式化工具列。既有的兩種資料完全不遷移、不刪除：notes 表跟 outputs 表
-// （kind='reflection'）都繼續留著原本的欄位與內容，這裡只是把「讀取」跟
+// 「功能簡化」精簡：原本分開的「閱讀動機」「閱讀後輸出」（outputs.js 的
+// 兩個表單）跟「快速筆記」（這個檔案）三個各自獨立的分頁，合併成單一個
+// 「閱讀隨筆與心得」區塊，介面上只留一個乾淨的純文字輸入框——不再有三組
+// 各自獨立的表單、標題、動機／心得標籤、格式化工具列。既有的三種資料
+// 完全不遷移、不刪除：notes 表跟 outputs 表（kind='reflection'／
+// kind='motivation'）都繼續留著原本的欄位與內容，這裡只是把「讀取」跟
 // 「新增」的入口收斂成一個——新增一律寫進 notes 表（本來就是比較單純的
-// 那張表，之後也只有一種資料格式要維護），既有的 outputs 心得資料則繼續用
-// outputs.js 匯出的 renderLegacyReflectionItem() 顯示（標籤 chip／HTML或
-// Markdown 相容內文／可調整日期都保留），兩種來源合併成同一份時間排序清單。
+// 那張表，之後也只有一種資料格式要維護），既有的 outputs 資料則繼續用
+// outputs.js 匯出的 renderLegacyReflectionItem()／renderLegacyMotivationItem()
+// 顯示（標籤 chip／HTML或 Markdown 相容內文／可調整日期都保留），三種來源
+// 合併成同一份時間排序清單。
 async function getNotesForBook(bookId) {
   const notes = await DB.getByIndex('notes', 'bookId', bookId);
   return notes.map((n) => ({ ...n, _source: 'notes' }));
@@ -20,7 +22,12 @@ async function getNotesForBook(bookId) {
 
 async function getLegacyReflectionsForBook(bookId) {
   const reflections = await getOutputsByKind(bookId, 'reflection');
-  return reflections.map((r) => ({ ...r, _source: 'outputs' }));
+  return reflections.map((r) => ({ ...r, _source: 'outputs', _kind: 'reflection' }));
+}
+
+async function getLegacyMotivationsForBook(bookId) {
+  const motivations = await getOutputsByKind(bookId, 'motivation');
+  return motivations.map((m) => ({ ...m, _source: 'outputs', _kind: 'motivation' }));
 }
 
 // isEditing：這張卡片是不是正在被編輯——是的話整個 <p> 內文換成一個帶原始
@@ -71,15 +78,22 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
   // 已經被換掉的舊輸入框內容，可能一路累加、卡在假警報（同一個成因跟
   // bookList.js 的 inline-status-popover 都處理過的問題一樣）。
   container._unsavedGuardDestroy?.();
-  const [notes, reflections] = await Promise.all([
+  const [notes, reflections, motivations] = await Promise.all([
     getNotesForBook(bookId),
     getLegacyReflectionsForBook(bookId),
+    getLegacyMotivationsForBook(bookId),
   ]);
-  const merged = [...notes, ...reflections].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const merged = [...notes, ...reflections, ...motivations].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+  function renderItem(item) {
+    if (item._source === 'notes') return noteItem(item, item.id === editingId);
+    if (item._kind === 'motivation') return renderLegacyMotivationItem(item);
+    return renderLegacyReflectionItem(item);
+  }
 
   container.innerHTML = `
     <div class="notes-section">
-      <h4 class="section-heading icon-heading">${ICON_NOTEBOOK}個人筆記</h4>
+      <h4 class="section-heading icon-heading">${ICON_NOTEBOOK}閱讀隨筆與心得</h4>
       <form id="note-form" class="book-form">
         <label>想到什麼就先寫下來，之後再整理
           <textarea name="text" rows="2" placeholder="例如：這裡提到榮格，感覺跟之前看的那本書有關"></textarea>
@@ -90,9 +104,7 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
         </div>
       </form>
       <div class="output-list">
-        ${merged.length === 0
-          ? '<p class="empty">還沒有任何筆記。</p>'
-          : merged.map((item) => (item._source === 'notes' ? noteItem(item, item.id === editingId) : renderLegacyReflectionItem(item))).join('')}
+        ${merged.length === 0 ? '<p class="empty">還沒有任何筆記。</p>' : merged.map(renderItem).join('')}
       </div>
     </div>
   `;

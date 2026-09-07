@@ -2,13 +2,17 @@
 // LocalDB 完全對齊，兩者都由 db.js 的路由器依登入狀態擇一呼叫——除了這裡跟
 // localDb.js，全站其他檔案都不知道、也不需要知道現在資料存在本機還是雲端。
 //
-// 每個方法都以「目前登入的使用者」為邊界：insert 時帶入 user_id，query／delete 時
-// 額外用 .eq('user_id', ...) 篩一次。資料庫端的 Row Level Security（見
+// 每個方法都以「目前登入的使用者」為邊界：insert 時帶入 user_id，query／update／
+// delete 時額外用 .eq('user_id', ...) 篩一次。資料庫端的 Row Level Security（見
 // supabase/schema.sql）已經會強制做這件事，這裡重複篩一次是「防禦性寫兩層」，
 // 不是依賴單一防線——RLS policy 設錯的話，這裡的 .eq() 至少還能擋住同一個 client
-// 意外撈到別人資料的情況（換一台裝置、換一個帳號都還是安全的）。
+// 意外讀到／改到／刪到別人資料的情況（換一台裝置、換一個帳號都還是安全的）。
+// 「架構安全性強化」這次的重點：getById／update／remove 這三個先前只靠
+// .eq('id', id) 定位、完全沒有 .eq('user_id', ...) 這一層的方法補上這道防線
+// ——原本 getByIndex／removeByIndex／clear 已經有，這三個是這次稽核抓到的漏網之魚。
 import { getSupabaseClient } from './services/supabaseClient.js';
 import { getCurrentUser } from './services/authService.js';
+import { showToast, isNetworkError } from './utils.js';
 import {
   isCacheable, readCacheIfPresent, writeCache, patchCacheRecord,
   removeCacheRecord, removeCacheRecordsWhere, clearCacheStore, ensureCacheOwnedByUser,
@@ -26,23 +30,53 @@ function requireUserId() {
   return user.id;
 }
 
+// 「架構安全性強化」的另一半：網路連線失敗時不要讓整頁跟著崩潰（呼叫端的
+// await 一路往上炸，最後被 app.js 的 route() 接住、整頁換成一句原始錯誤訊息）。
+// 這裡在每個方法外層加一層 try-catch，抓到「看起來像網路問題」的錯誤（判斷式
+// 見 utils.js 的 isNetworkError，跟 app.js 的保底 catch 共用同一份規則）就先跳
+// 一句淡雅的 Toast 提示，再照樣把錯誤往外丟——呼叫端原本各自的錯誤處理（例如
+// wishlist.js／bookForm.js 自己 catch 了會顯示更精確的訊息）完全不受影響，
+// 這裡只是「多加一層通用、使用者看得懂的提示」，不是取代掉原本的錯誤處理。
+
+// 短時間內同一批畫面渲染常常會並發好幾個請求（見下面 getAll 的三層防重複說明），
+// 網路真的斷線時這些請求幾乎會同時失敗——沒有這個節流，使用者會在同一瞬間
+// 看到一整排疊起來的相同 Toast，這裡限制最短間隔，同一次斷線只提示一次。
+let lastNetworkToastAt = 0;
+function reportIfNetworkError(error) {
+  if (!isNetworkError(error)) return;
+  const now = Date.now();
+  if (now - lastNetworkToastAt < 4000) return;
+  lastNetworkToastAt = now;
+  showToast('網路連線異常，請檢查您的網路連線後再試一次');
+}
+
 async function add(storeName, record) {
-  const supabase = await client();
-  const { id, ...rest } = record; // id 由 Postgres 的 identity 欄位指派，不接受呼叫端帶入本機 id
-  const payload = { ...rest, user_id: requireUserId(), createdAt: record.createdAt || new Date().toISOString() };
-  const { data, error } = await supabase.from(storeName).insert(payload).select().single();
-  if (error) throw error;
-  // 順手把這筆新記錄也寫進本機快取（見 cloudCache.js 開頭說明），下一次
-  // 重新整理不用等背景刷新完成就能看到這筆剛新增的資料。
-  await patchCacheRecord(storeName, data);
-  return data.id;
+  try {
+    const supabase = await client();
+    const { id, ...rest } = record; // id 由 Postgres 的 identity 欄位指派，不接受呼叫端帶入本機 id
+    const payload = { ...rest, user_id: requireUserId(), createdAt: record.createdAt || new Date().toISOString() };
+    const { data, error } = await supabase.from(storeName).insert(payload).select().single();
+    if (error) throw error;
+    // 順手把這筆新記錄也寫進本機快取（見 cloudCache.js 開頭說明），下一次
+    // 重新整理不用等背景刷新完成就能看到這筆剛新增的資料。
+    await patchCacheRecord(storeName, data);
+    return data.id;
+  } catch (error) {
+    reportIfNetworkError(error);
+    throw error;
+  }
 }
 
 async function getById(storeName, id) {
-  const supabase = await client();
-  const { data, error } = await supabase.from(storeName).select('*').eq('id', id).maybeSingle();
-  if (error) throw error;
-  return data || undefined;
+  try {
+    const supabase = await client();
+    const { data, error } = await supabase.from(storeName).select('*').eq('id', id).eq('user_id', requireUserId()).maybeSingle();
+    if (error) throw error;
+    return data || undefined;
+  } catch (error) {
+    reportIfNetworkError(error);
+    throw error;
+  }
 }
 
 // 同一個 store 短時間內常常被好幾個地方呼叫 getAll()（例如書籍列表頁載入時，
@@ -102,20 +136,25 @@ function getAll(storeName) {
   if (pendingGetAlls.has(storeName)) return pendingGetAlls.get(storeName);
 
   const promise = (async () => {
-    await ensureCacheOwnedByUser(userId);
-    const cached = await readCacheIfPresent(storeName);
-    if (cached) {
-      const supabase = await client();
-      refreshCacheInBackground(storeName, supabase, userId); // 故意不 await：背景刷新，不阻塞這次回傳
-      return cached;
-    }
+    try {
+      await ensureCacheOwnedByUser(userId);
+      const cached = await readCacheIfPresent(storeName);
+      if (cached) {
+        const supabase = await client();
+        refreshCacheInBackground(storeName, supabase, userId); // 故意不 await：背景刷新，不阻塞這次回傳
+        return cached;
+      }
 
-    const supabase = await client();
-    const { data, error } = await supabase.from(storeName).select('*').eq('user_id', userId);
-    if (error) throw error;
-    const records = data || [];
-    if (isCacheable(storeName)) await writeCache(storeName, records);
-    return records;
+      const supabase = await client();
+      const { data, error } = await supabase.from(storeName).select('*').eq('user_id', userId);
+      if (error) throw error;
+      const records = data || [];
+      if (isCacheable(storeName)) await writeCache(storeName, records);
+      return records;
+    } catch (error) {
+      reportIfNetworkError(error);
+      throw error;
+    }
   })();
 
   pendingGetAlls.set(storeName, promise);
@@ -124,10 +163,15 @@ function getAll(storeName) {
 }
 
 async function getByIndex(storeName, indexName, value) {
-  const supabase = await client();
-  const { data, error } = await supabase.from(storeName).select('*').eq('user_id', requireUserId()).eq(indexName, value);
-  if (error) throw error;
-  return data || [];
+  try {
+    const supabase = await client();
+    const { data, error } = await supabase.from(storeName).select('*').eq('user_id', requireUserId()).eq(indexName, value);
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    reportIfNetworkError(error);
+    throw error;
+  }
 }
 
 // 對照現有呼叫端的實際用法（bookForm.js／readingRecords.js……都只在記錄已存在時
@@ -148,33 +192,54 @@ async function getByIndex(storeName, indexName, value) {
 // （IndexedDB 的 put() 靠 id 這個 keyPath 找到要更新的是哪一列），所以快取
 // 那份物件另外把 id 加回來，兩份用途不同、不能共用同一個 payload 變數。
 async function update(storeName, record) {
-  const supabase = await client();
-  const { id, ...fields } = record;
-  const payload = { ...fields, user_id: requireUserId() };
-  const { error } = await supabase.from(storeName).update(payload).eq('id', id);
-  if (error) throw error;
-  await patchCacheRecord(storeName, { ...payload, id });
+  try {
+    const supabase = await client();
+    const { id, ...fields } = record;
+    const userId = requireUserId();
+    const payload = { ...fields, user_id: userId };
+    const { error } = await supabase.from(storeName).update(payload).eq('id', id).eq('user_id', userId);
+    if (error) throw error;
+    await patchCacheRecord(storeName, { ...payload, id });
+  } catch (error) {
+    reportIfNetworkError(error);
+    throw error;
+  }
 }
 
 async function remove(storeName, id) {
-  const supabase = await client();
-  const { error } = await supabase.from(storeName).delete().eq('id', id);
-  if (error) throw error;
-  await removeCacheRecord(storeName, id);
+  try {
+    const supabase = await client();
+    const { error } = await supabase.from(storeName).delete().eq('id', id).eq('user_id', requireUserId());
+    if (error) throw error;
+    await removeCacheRecord(storeName, id);
+  } catch (error) {
+    reportIfNetworkError(error);
+    throw error;
+  }
 }
 
 async function removeByIndex(storeName, indexName, value) {
-  const supabase = await client();
-  const { error } = await supabase.from(storeName).delete().eq('user_id', requireUserId()).eq(indexName, value);
-  if (error) throw error;
-  await removeCacheRecordsWhere(storeName, (record) => record[indexName] === value);
+  try {
+    const supabase = await client();
+    const { error } = await supabase.from(storeName).delete().eq('user_id', requireUserId()).eq(indexName, value);
+    if (error) throw error;
+    await removeCacheRecordsWhere(storeName, (record) => record[indexName] === value);
+  } catch (error) {
+    reportIfNetworkError(error);
+    throw error;
+  }
 }
 
 async function clear(storeName) {
-  const supabase = await client();
-  const { error } = await supabase.from(storeName).delete().eq('user_id', requireUserId());
-  if (error) throw error;
-  await clearCacheStore(storeName);
+  try {
+    const supabase = await client();
+    const { error } = await supabase.from(storeName).delete().eq('user_id', requireUserId());
+    if (error) throw error;
+    await clearCacheStore(storeName);
+  } catch (error) {
+    reportIfNetworkError(error);
+    throw error;
+  }
 }
 
 export const CloudDB = {

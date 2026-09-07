@@ -1,8 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml } from './utils.js';
 import { buildRecordByBookMap, isCompletedInYear } from './bookStats.js';
-import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
-import { ICON_UPLOAD, ICON_DOWNLOAD } from './icons.js';
 
 // 對照 PROJECT_SPEC.md 第 3 節與 B 原則 6：全部自動計算，不可手動輸入。
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -182,69 +180,11 @@ function categoryEntriesForYear(books, recordByBook, year) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]);
 }
 
-// 「借出中／借入未還」按鈕的圖示＋中文標籤，初始渲染（retentionButtonsHtml）跟
-// 之後的即時補丁（patchRetentionCountBadge）共用同一份，文案以後要改只用改這裡一處。
-const RETENTION_BADGE_LABELS = {
-  [LENT_OUT_RETENTION_STATUS]: `${ICON_UPLOAD}借出中`,
-  [BORROWED_RETENTION_STATUS]: `${ICON_DOWNLOAD}借入未還`,
-};
-
-function retentionBadgeText(retentionStatus, count) {
-  return `${RETENTION_BADGE_LABELS[retentionStatus]}（${count} 本）`;
-}
-
-// 「借出中／借入未還」快捷篩選按鈕：放在「各類型書籍數量」正上方，不受年份選擇影響
-// （存留狀態是書籍當下的狀態，不是某一年才成立的事）。0 本時仍顯示，但不能點。
-// 兩顆按鈕共用同一個 retentionFilter 狀態、互斥（跟閱讀狀態方塊同一套「單選＋再點一次取消」邏輯）。
-// 「借入未還」的本數口徑必須跟 bookStats.js 的 filterBooksByRetentionStatus 一致
-// （同時符合來源是圖書館借閱＋存留狀態是借入未還），已歸還的書不計入這個數字。
-function retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention) {
-  return `
-    <div class="retention-filter-row">
-      <button type="button" class="retention-filter-btn${activeRetention === LENT_OUT_RETENTION_STATUS ? ' is-active' : ''}" data-retention="${LENT_OUT_RETENTION_STATUS}" ${lentOutCount === 0 ? 'disabled' : ''}>
-        ${retentionBadgeText(LENT_OUT_RETENTION_STATUS, lentOutCount)}
-      </button>
-      <button type="button" class="retention-filter-btn${activeRetention === BORROWED_RETENTION_STATUS ? ' is-active' : ''}" data-retention="${BORROWED_RETENTION_STATUS}" ${borrowedCount === 0 ? 'disabled' : ''}>
-        ${retentionBadgeText(BORROWED_RETENTION_STATUS, borrowedCount)}
-      </button>
-    </div>
-  `;
-}
-
-// 一鍵歸還／已收回（bookDetail.js／bookList.js）把某本書的存留狀態改掉之後，直接補一筆
-// 數字上去，不用整個側邊欄重新抓資料庫、重新渲染——那樣會把使用者當下展開的分類清單、
-// 選到的年份等狀態全部打回預設值，殺雞用牛刀。retentionStatus 傳「借出」或「借入未還」，
-// 兩種快捷操作共用這一個函式，不用各寫一份幾乎一樣的 DOM 補丁邏輯。
-export function patchRetentionCountBadge(sidebarContainer, retentionStatus, newCount) {
-  const btn = sidebarContainer.querySelector(`.retention-filter-btn[data-retention="${retentionStatus}"]`);
-  if (!btn) return;
-  btn.innerHTML = retentionBadgeText(retentionStatus, newCount);
-  btn.disabled = newCount === 0;
-}
-
-// 「借出中／借入未還」按鈕原本印在這個函式裡（每次年份切換都重繪一次），現在
-// 移到 renderSidebarStats() 的「查看更多數據」收合區塊裡、只渲染＋綁定一次——
-// 這兩顆按鈕本來就「不受年份選擇影響」（見 retentionButtonsHtml 上面的說明），
-// 跟著年份重繪純粹是因為以前跟「各類型書籍數量」擠在同一段 HTML 裡，現在拆開
-// 剛好也一併把這個沒必要的重繪去掉，不是這次調整的重點，只是順手的副作用。
 function categorySectionHtml(categoryEntries, year, activeCategory) {
   return `
     <h4>各類型書籍數量${year ? `<span class="sidebar-year-tag">${escapeHtml(year)} 年已讀完</span>` : ''}</h4>
     ${categoryProgressListHtml(categoryEntries, activeCategory)}
   `;
-}
-
-function wireRetentionButtons(container, onRetentionFilterChange, setActiveRetention) {
-  container.querySelectorAll('.retention-filter-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const nowActive = !btn.classList.contains('is-active');
-      container.querySelectorAll('.retention-filter-btn').forEach((b) => b.classList.remove('is-active'));
-      if (nowActive) btn.classList.add('is-active');
-      const retention = nowActive ? btn.dataset.retention : null;
-      setActiveRetention(retention);
-      onRetentionFilterChange(retention);
-    });
-  });
 }
 
 function wireCategoryToggle(container) {
@@ -283,7 +223,6 @@ export async function renderSidebarStats(container, options = {}) {
   const onYearChange = options.onYearChange || (() => {});
   const onStatusFilterChange = options.onStatusFilterChange || (() => {});
   const onCategoryFilterChange = options.onCategoryFilterChange || (() => {});
-  const onRetentionFilterChange = options.onRetentionFilterChange || (() => {});
   const [books, records] = await Promise.all([DB.getAll('books'), DB.getAll('reading_records')]);
   const stats = computeStats(books, records);
   const currentYear = String(new Date().getFullYear());
@@ -296,18 +235,15 @@ export async function renderSidebarStats(container, options = {}) {
   const completed = books.filter((b) => (recordByBook.get(b.id) || {}).status === '已讀完').length;
 
   const defaultYearStats = statsForYear(stats, completed, defaultYear);
-  const lentOutCount = books.filter((b) => b.retentionStatus === LENT_OUT_RETENTION_STATUS).length;
-  const borrowedCount = books.filter((b) => b.format === LIBRARY_SOURCE_FORMAT && b.retentionStatus === BORROWED_RETENTION_STATUS).length;
   let activeCategory = null;
-  let activeRetention = null;
 
   // 「UI 極簡化」精簡：閱讀中／尚未閱讀／已讀完這三顆狀態方塊使用者反映
   // 「不想收起來」——本來就是最常用、一打開就想看的第一層資訊（也兼作
   // 篩選按鈕），移回「我的藏書概況」標題正下方的原始位置，維持一律可見。
-  // 其餘三項（平均評分、最常閱讀類型、借出中／借入未還）維持收進「查看
-  // 更多數據」——不是拿掉，點開還是完整看得到、篩選功能也都還在，只是
-  // 不佔用一打開頁面就看到的第一版面。「各類型書籍數量」維持獨立卡片
-  // 一律可見，不受這裡的收合影響。
+  // 其餘兩項（平均評分、最常閱讀類型）維持收進「查看更多數據」——不是拿掉，
+  // 點開還是完整看得到，只是不佔用一打開頁面就看到的第一版面。借出中／
+  // 借入未還的統計按鈕已經隨著「借閱追蹤」整個功能一起移除（見 bookForm.js
+  // 開頭的說明）。「各類型書籍數量」維持獨立卡片一律可見，不受這裡的收合影響。
   container.innerHTML = `
     <div class="sidebar-panel">
       <h4>我的藏書概況</h4>
@@ -329,7 +265,6 @@ export async function renderSidebarStats(container, options = {}) {
       <div class="sidebar-more-panel" id="sidebar-more-panel" hidden>
         <div class="sidebar-stat-row"><span>平均評分</span><span id="sidebar-stats-rating">${defaultYearStats.averageRating !== null ? defaultYearStats.averageRating.toFixed(1) : '—'}</span></div>
         <div class="sidebar-stat-row"><span>最常閱讀類型</span><span id="sidebar-stats-category">${escapeHtml(defaultYearStats.mostReadCategory || '—')}</span></div>
-        ${retentionButtonsHtml(lentOutCount, borrowedCount, activeRetention)}
       </div>
     </div>
     <div class="sidebar-panel" id="sidebar-category-panel"></div>
@@ -344,8 +279,6 @@ export async function renderSidebarStats(container, options = {}) {
     moreToggle.classList.toggle('is-expanded', nowExpanded);
     moreToggle.setAttribute('aria-expanded', String(nowExpanded));
   });
-  wireRetentionButtons(container, onRetentionFilterChange, (retention) => { activeRetention = retention; });
-
   const categoryPanel = container.querySelector('#sidebar-category-panel');
   function renderCategoryPanel(year) {
     categoryPanel.innerHTML = categorySectionHtml(categoryEntriesForYear(books, recordByBook, year), year, activeCategory);

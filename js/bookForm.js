@@ -17,41 +17,39 @@ import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 const FORMAT_OPTIONS = ['紙本購買', '電子書', '有聲書', '圖書館借閱', '其他'];
 export const LIBRARY_SOURCE_FORMAT = '圖書館借閱';
 
-// 存留狀態改成單純描述「這本書現在的持有狀態」，跟來源脫鉤：
-// 保存中（手上留著）／借入未還（跟圖書館借的，還沒還）／已歸還（跟圖書館借的，已經還了）／
-// 借出（借給朋友，還沒拿回來）／已售出/贈送（不再是我的書了）。
-const RETENTION_STATUS_OPTIONS = ['保存中', '借入未還', '已歸還', '借出', '已售出/贈送'];
+// 「架構安全性強化與功能簡化」精簡：存留狀態原本還有「借入未還／已歸還／
+// 借出」三個描述「書現在流通在外」的狀態（連同對應的一鍵歸還／已收回快捷
+// 操作、側邊欄借出借入統計、書籍表單的「借給誰」欄位），使用者反映這一整套
+// 「借閱追蹤」不是核心需求，要求拿掉，回歸單純的藏書管理——現在存留狀態
+// 只剩「保存中」（手上留著）跟「已售出/贈送」（不再是我的書了）兩種。
+// 「書籍形式／來源」欄位的「圖書館借閱」選項（連同借閱管道／圖書館名稱
+// 兩個欄位）維持不變：那是「這本書從哪裡來」的描述性資訊，跟「現在有沒有
+// 流通在外」是兩件事（這個解耦本來就是更早一輪改版的既有設計，見下面
+// migrateLegacyBookFields 的說明），不屬於這次要拿掉的「借閱狀態追蹤」。
+const RETENTION_STATUS_OPTIONS = ['保存中', '已售出/贈送'];
 export const DEFAULT_RETENTION_STATUS = '保存中';
-export const BORROWED_RETENTION_STATUS = '借入未還';
-export const RETURNED_RETENTION_STATUS = '已歸還';
-export const LENT_OUT_RETENTION_STATUS = '借出';
 export const SOLD_RETENTION_STATUS = '已售出/贈送';
 const LIBRARY_BORROW_TYPE_OPTIONS = ['實體圖書館', '線上圖書館 / 電子書'];
 
 // 存留狀態的選項字串改名／合併後，既有書籍資料庫裡存的還是舊字串，不會自動跟著變。
 // 「借閱」比較特殊：解耦之前它同時代表「這本書是圖書館借的」跟「現在還沒還」兩件事，
-// 拆開後「現在還沒還」變成新的「借入未還」，但「這本書是圖書館借的」這個來源資訊
-// 也要順便搬到「書籍形式／來源」欄位，不然舊資料的來源會維持原本 format 值
-// （例如「紙本」→「紙本購買」），沒辦法反映出它其實是跟圖書館借的。
+// 拆開後「這本書是圖書館借的」這個來源資訊要搬到「書籍形式／來源」欄位，不然舊資料的
+// 來源會維持原本 format 值（例如「紙本」→「紙本購買」），沒辦法反映出它其實是跟圖書館借的。
+// 「借入未還」「已歸還」「借出」這三個更是直接退回「保存中」——拿掉借閱狀態追蹤之後，
+// 新選項清單裡已經沒有對應的概念，這三個舊值不能放著不管（會變成下拉選單裡選不到、
+// 畫面顯示空白的殘影值），統一收斂回最安全的預設狀態。
 const LEGACY_RETENTION_RENAMES = {
   保存: DEFAULT_RETENTION_STATUS,
-  借閱: BORROWED_RETENTION_STATUS,
+  借閱: DEFAULT_RETENTION_STATUS,
+  借入未還: DEFAULT_RETENTION_STATUS,
+  已歸還: DEFAULT_RETENTION_STATUS,
+  借出: DEFAULT_RETENTION_STATUS,
   售出: SOLD_RETENTION_STATUS,
   轉贈: SOLD_RETENTION_STATUS,
   待售: DEFAULT_RETENTION_STATUS, // 新選項清單沒有對應的「待售」概念，退回保存中。
 };
 const LEGACY_FORMAT_RENAMES = {
   紙本: '紙本購買',
-};
-
-// 「一鍵歸還」（借入未還→已歸還）跟「已收回」（借出→保存中）是同一種操作模式：
-// 從某個「暫時流通在外」的狀態，一鍵切回它的終點狀態，只改 retentionStatus 這一個欄位，
-// 書籍其他資料（作者、筆記、閱讀進度……）完全不動。書籍列表（bookList.js）跟書籍詳情頁
-// （bookDetail.js）共用同一份設定，不各自重複定義一次「這個狀態該切到哪裡、按鈕文字
-// 是什麼、Toast 說什麼」，以後要調整文案或行為只用改這一個地方，兩處不會此後跟著不同步。
-export const QUICK_RETENTION_ACTIONS = {
-  [BORROWED_RETENTION_STATUS]: { targetStatus: RETURNED_RETENTION_STATUS, label: '↩ 一鍵歸還', toast: '已更新為已歸還' },
-  [LENT_OUT_RETENTION_STATUS]: { targetStatus: DEFAULT_RETENTION_STATUS, label: '↩ 已收回', toast: '書籍已順利收回' },
 };
 
 export async function migrateLegacyBookFields() {
@@ -178,14 +176,9 @@ function readAndClearWishlistPrefillFromHash() {
 
 function wireSourceAndRetentionToggles(form) {
   const formatSelect = form.elements.format;
-  const retentionSelect = form.elements.retentionStatus;
   const borrowFields = form.querySelector('#library-borrow-fields');
-  const lentOutFields = form.querySelector('#lent-out-fields');
   formatSelect.addEventListener('change', () => {
     borrowFields.hidden = formatSelect.value !== LIBRARY_SOURCE_FORMAT;
-  });
-  retentionSelect.addEventListener('change', () => {
-    lentOutFields.hidden = retentionSelect.value !== LENT_OUT_RETENTION_STATUS;
   });
 }
 
@@ -255,11 +248,6 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
             ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
           </select>
         </label>
-        <div class="field-wide library-borrow-fields" id="lent-out-fields" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === LENT_OUT_RETENTION_STATUS ? '' : 'hidden'}>
-          <label class="field-wide" for="field-lent-to">借給誰 / 借出備註
-            <input id="field-lent-to" name="lentTo" value="${escapeHtml(book.lentTo)}" placeholder="例如：小明，或「小明（2026/08/27 借出）」">
-          </label>
-        </div>
       </fieldset>
 
       ${isNew ? `
@@ -343,16 +331,7 @@ export async function renderBookForm(container, rawId) {
       return;
     }
 
-    // 新增書籍時如果一次把「來源」設成圖書館借閱、「存留狀態」設成借入未還、
-    // 「閱讀狀態」又直接選已讀完（例如補登一本早就看完的借閱書），三個條件同時成立
-    // 就順手問一句要不要直接存成「已歸還」，跟 readingRecords.js 更新閱讀進度時
-    // 觸發的提示是同一個情境、同一句用語，只是這裡發生在新增當下。
-    let retentionStatus = data.retentionStatus || DEFAULT_RETENTION_STATUS;
-    if (isNew && data.format === LIBRARY_SOURCE_FORMAT && retentionStatus === BORROWED_RETENTION_STATUS && data.status === '已讀完') {
-      if (window.confirm('這本書的來源是「圖書館借閱」，閱讀狀態也已經是「已讀完」，要順便把存留狀態切換成「已歸還」嗎？')) {
-        retentionStatus = RETURNED_RETENTION_STATUS;
-      }
-    }
+    const retentionStatus = data.retentionStatus || DEFAULT_RETENTION_STATUS;
 
     const payload = {
       title,
@@ -365,7 +344,6 @@ export async function renderBookForm(container, rawId) {
       retentionStatus,
       libraryBorrowType: data.libraryBorrowType || '',
       libraryName: (data.libraryName || '').trim(),
-      lentTo: (data.lentTo || '').trim(),
       category: data.category || '',
       coverImage: data.coverImage || '',
     };

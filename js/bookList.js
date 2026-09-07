@@ -2,13 +2,12 @@ import { DB } from './db.js';
 import { getFavoriteAuthorMap } from './authors.js';
 import { escapeHtml, showToast, wireSearchClear, wireCoverImage, confirmModal, updateBatchActionBar } from './utils.js';
 import { renderDashboardSidebar } from './dashboardSidebar.js';
-import { patchRetentionCountBadge } from './stats.js';
-import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByRetentionStatus, filterBooksByAuthor } from './bookStats.js';
-import { LENT_OUT_RETENTION_STATUS, BORROWED_RETENTION_STATUS, RETURNED_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
+import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByCategory, filterBooksByAuthor } from './bookStats.js';
 import { STATUS_OPTIONS } from './readingRecords.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
+import { DEFAULT_RETENTION_STATUS } from './bookForm.js';
 import { ICON_SPARKLES, ICON_BOOK_OPEN, ICON_X, ICON_FILTER } from './icons.js';
 
 // 「篩選與批量」下拉面板：跟這個檔案上面 .inline-status-popover 是同一種
@@ -87,13 +86,6 @@ window.addEventListener('marginalia:cloud-cache-updated', (event) => {
   showToast('雲端書籍資料已更新，重新整理即可看到最新內容');
 });
 
-// 借出中／借入未還兩顆快捷篩選按鈕共用同一個 retentionFilter 狀態，這裡統一決定標題上要顯示哪個中文標籤。
-function retentionFilterLabel(retention) {
-  if (retention === LENT_OUT_RETENTION_STATUS) return '借出中';
-  if (retention === BORROWED_RETENTION_STATUS) return '借入未還';
-  return retention;
-}
-
 function formatDateSlash(dateStr) {
   return dateStr ? dateStr.replaceAll('-', '/') : '';
 }
@@ -131,9 +123,9 @@ function completedDateCell(book, record) {
 }
 
 // 封面網格版維持純文字、不可點擊——整張卡片本身已經是 <a>，<button> 巢狀在
-// <a> 裡面是不合法的 HTML（互動元素不能巢狀互動元素），跟 authorNameHtmlInline／
-// quickActionBtnHtmlInline 用 <span> 走 event delegation 是同一個考量，但這裡
-// 沒有到「一定要在網格檢視也支援快速編輯」的必要性，維持原本簡單的純顯示即可。
+// <a> 裡面是不合法的 HTML（互動元素不能巢狀互動元素），跟 authorNameHtmlInline
+// 用 <span> 走 event delegation 是同一個考量，但這裡沒有到「一定要在網格檢視
+// 也支援快速編輯」的必要性，維持原本簡單的純顯示即可。
 function completedDateTextOnly(record) {
   const text = record && record.endDate ? formatDateSlash(record.endDate) : '—';
   return `<span class="book-completed-date">${escapeHtml(text)}</span>`;
@@ -156,23 +148,6 @@ function authorNameHtmlInline(book) {
   return `<span class="author-name-link" data-author="${escapeHtml(book.author)}" title="篩選出「${escapeHtml(book.author)}」的所有藏書">${escapeHtml(book.author)}</span>`;
 }
 
-// 快捷狀態切換按鈕：「借入未還」顯示「一鍵歸還」、「借出」顯示「已收回」，
-// 其餘狀態不顯示——QUICK_RETENTION_ACTIONS（bookForm.js）決定某個狀態該顯示
-// 什麼文字、點下去要切到哪個目標狀態，這裡只負責照設定把 HTML 印出來。
-// 跟作者名稱一樣走 event delegation（見下方 bodyEl.addEventListener），
-// 表格版用 <button>、封面網格版因為外層卡片本身已經是 <a>，
-// 一樣改用 <span> 避免巢狀 <button> 的 HTML 語意問題。
-function quickActionBtnHtml(book) {
-  const action = QUICK_RETENTION_ACTIONS[book.retentionStatus];
-  if (!action) return '';
-  return `<button type="button" class="quick-action-btn" data-book-id="${book.id}" data-target-status="${escapeHtml(action.targetStatus)}" data-toast="${escapeHtml(action.toast)}" title="${escapeHtml(action.label)}">${escapeHtml(action.label)}</button>`;
-}
-
-function quickActionBtnHtmlInline(book) {
-  const action = QUICK_RETENTION_ACTIONS[book.retentionStatus];
-  if (!action) return '';
-  return `<span class="quick-action-btn" data-book-id="${book.id}" data-target-status="${escapeHtml(action.targetStatus)}" data-toast="${escapeHtml(action.toast)}" title="${escapeHtml(action.label)}">${escapeHtml(action.label)}</span>`;
-}
 
 // 列表頁快速更新閱讀狀態／完成日期（Inline Status Switcher）：點擊「完成日期」
 // 欄位跳出一個小面板，只放「狀態」跟「完成日期」這兩個最常需要臨場調整的欄位
@@ -276,17 +251,6 @@ function openStatusPopover(anchorBtn, book, recordMap, onSaved) {
       saved = { ...payload, id: newId };
     }
     recordMap.set(book.id, saved);
-
-    // 圖書館借閱的書標成已讀完，很可能代表書已經還了——這裡跟 readingRecords.js
-    // 完整表單同一句提示，兩個入口改的是同一個「順手詢問」使用者體驗，不能只有
-    // 詳情頁的表單有這個貼心提醒、快速面板卻沒有。
-    if (payload.status === '已讀完' && book.format === LIBRARY_SOURCE_FORMAT && book.retentionStatus === BORROWED_RETENTION_STATUS) {
-      if (window.confirm('這本書的來源是「圖書館借閱」，要順便把存留狀態切換成「已歸還」嗎？')) {
-        await DB.update('books', { ...book, retentionStatus: RETURNED_RETENTION_STATUS });
-        book.retentionStatus = RETURNED_RETENTION_STATUS;
-        showToast('已更新為已歸還');
-      }
-    }
     showToast('已更新閱讀狀態');
     hideStatusPopover();
     onSaved();
@@ -316,7 +280,6 @@ function bookRow(book, favoriteAuthors, recordMap, selectedIds) {
       <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
       <td data-label="書籍類型">${escapeHtml(book.category)}</td>
       <td data-label="完成日期">${completedDateCell(book, record)}</td>
-      <td class="action-cell" data-label="書籍歸還">${quickActionBtnHtml(book)}</td>
     </tr>
   `;
 }
@@ -362,10 +325,9 @@ function bookTableHtml(list, favoriteAuthors, recordMap, selectedIds) {
         <col class="col-author">
         <col class="col-category">
         <col class="col-completed">
-        <col class="col-actions">
       </colgroup>
       <thead>
-        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th><th>書籍歸還</th></tr>
+        <tr><th>書名</th><th>作者</th><th>書籍類型</th><th>完成日期</th></tr>
       </thead>
       <tbody>
         ${list.map((book) => bookRow(book, favoriteAuthors, recordMap, selectedIds)).join('')}
@@ -400,7 +362,6 @@ function bookGalleryCard(book, favoriteAuthors, recordMap, selectedIds) {
             ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
             ${completedDateTextOnly(record)}
           </div>
-          ${quickActionBtnHtmlInline(book)}
         </div>
       </a>
     </div>
@@ -503,6 +464,77 @@ function sortBooks(books, recordMap, sortMode) {
     list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // created-desc（預設）
   }
   return list;
+}
+
+// 「空白頁面與新手引導」：資料庫真的一本書都沒有時（不是搜尋/篩選篩到剩零筆——
+// 那種情況維持原本簡短的文字提示，見下面 renderList() 的判斷式），比起單純一行
+// 「還沒有任何書籍」的文字，一張莫蘭迪風格的插畫＋一顆「載入範例書籍」按鈕
+// 更能讓剛註冊、還沒開始建立藏書的新使用者馬上摸得到「這個平台實際長什麼樣子」，
+// 不用自己想書名、慢慢建立才看得到列表、統計、分類這些功能運作起來的樣子。
+// 插畫刻意純用行內 SVG＋CSS 變數上色（跟全站 icons.js 的線條圖示同一種筆觸：
+// stroke-width 1.5、圓角端點），不是外部圖檔——完全繼承目前的莫蘭迪配色（含
+// 深色模式），不用另外準備、维護一張點陣圖素材。
+function emptyLibraryStateHtml() {
+  return `
+    <div class="empty-library-state">
+      <svg class="empty-library-illustration" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="14" y="70" width="92" height="6" rx="3" fill="var(--border-soft)"></rect>
+        <path d="M24 70V32a4 4 0 0 1 4-4h20a4 4 0 0 1 4 4v38" stroke="var(--color-primary-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M52 70V24a4 4 0 0 1 4-4h20a4 4 0 0 1 4 4v46" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M80 70V38a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v32" stroke="var(--accent-green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <line x1="32" y1="46" x2="40" y2="46" stroke="var(--color-primary-accent)" stroke-width="2" stroke-linecap="round"></line>
+        <line x1="60" y1="38" x2="70" y2="38" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"></line>
+        <circle cx="90" cy="52" r="3" fill="var(--gold)"></circle>
+      </svg>
+      <p class="empty-library-title">還沒有任何藏書</p>
+      <p class="empty-library-subtitle">點擊上方「＋ 新增書籍」開始記錄，或先載入幾本範例書籍熟悉一下功能。</p>
+      <button type="button" class="btn btn-primary" id="load-sample-books-btn">${ICON_SPARKLES}載入 3 本範例書籍</button>
+    </div>
+  `;
+}
+
+// 範例書籍刻意挑三種不同閱讀狀態（已讀完＋評分／閱讀中／尚未閱讀）跟三個不同
+// 分類，讓新使用者一載入就能同時看到列表、側邊欄「年度已讀進度」「藏書分類
+// 統計」這幾個核心功能實際運作起來的樣子，不是三本內容完全相同、只有書名不同
+// 的空殼資料。
+const SAMPLE_BOOKS = [
+  { title: '原子習慣', author: '詹姆斯．克利爾', category: '自我提升', status: '已讀完', rating: 5, daysAgo: 20 },
+  { title: '人類大歷史', author: '哈拉瑞', category: '社會科學', status: '閱讀中', rating: 0, daysAgo: 0 },
+  { title: '小王子', author: '安東尼．聖修伯里', category: '歐美文學', status: '尚未閱讀', rating: 0, daysAgo: 0 },
+];
+
+function isoDateDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function loadSampleBooks() {
+  for (const sample of SAMPLE_BOOKS) {
+    const bookId = await DB.add('books', {
+      title: sample.title,
+      author: sample.author,
+      publisher: '',
+      publishDate: '',
+      purchaseDate: '',
+      purchasePrice: null,
+      format: '紙本購買',
+      retentionStatus: DEFAULT_RETENTION_STATUS,
+      libraryBorrowType: '',
+      libraryName: '',
+      category: sample.category,
+      coverImage: '',
+    });
+    await DB.add('reading_records', {
+      bookId,
+      status: sample.status,
+      startDate: '',
+      endDate: sample.status === '已讀完' ? isoDateDaysAgo(sample.daysAgo) : '',
+      currentPage: null,
+      readCount: sample.status === '已讀完' ? 1 : 0,
+      rating: sample.rating,
+    });
+  }
 }
 
 export async function renderBookList(container) {
@@ -616,14 +648,13 @@ export async function renderBookList(container) {
     }
   });
 
-  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量／借出中，跟右側書籍列表是同一份狀態，
-  // 五種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
-  // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書，借出中／借入中只留符合的存留狀態，
+  // 左側「閱讀統計」的年份選單／閱讀狀態方塊／各類型書籍數量，跟右側書籍列表是同一份狀態，
+  // 四種篩選各自獨立、可以同時套用（AND 組合）：年份只留「該年完成日期在該年份且已讀完」的書，
+  // 狀態只留符合閱讀中／尚未閱讀／已讀完的書，分類只留符合該分類的書，
   // 作者只留符合該作者的書（見下面 applyAuthorFilter）。
   let yearFilter = null;
   let statusFilter = null;
   let categoryFilter = null;
-  let retentionFilter = null;
   let authorFilter = readAndClearAuthorFilterFromHash();
   let viewMode = 'table';
   let pageSize = 12;
@@ -637,8 +668,13 @@ export async function renderBookList(container) {
   // updateBatchActionBar()），離開這頁（切到書籍詳情頁、資料管理頁……）
   // 要記得清空選取＋收起面板，不然面板會跟著單例元素一起「越權」浮在
   // 別的頁面上——跟這個檔案上面 hideStatusPopover 的 hashchange 監聽器
-  // 是同一種必要防線，不是預防性猜測。
-  window.addEventListener('hashchange', () => selectedIds.clear());
+  // 是同一種必要防線，不是預防性猜測（這裡曾經只清空 selectedIds 這個
+  // Set，沒有真的呼叫 updateBatchActionBar() 讓面板跟著收起，畫面上的
+  // 面板其實不會消失，是實測抓到的真實問題，不是預防性猜測）。
+  window.addEventListener('hashchange', () => {
+    selectedIds.clear();
+    updateBatchActionBar(selectedIds, []);
+  });
 
   function refreshBatchBar() {
     updateBatchActionBar(selectedIds, [
@@ -736,12 +772,6 @@ export async function renderBookList(container) {
         if (item) item.click();
       } });
     }
-    if (retentionFilter) {
-      entries.push({ key: 'retention', label: retentionFilterLabel(retentionFilter), remove: () => {
-        const btn = container.querySelector('.retention-filter-btn.is-active');
-        if (btn) btn.click();
-      } });
-    }
     if (authorFilter) {
       const authorBookCount = books.filter((b) => (b.author || '').trim() === authorFilter).length;
       entries.push({ key: 'author', label: `作者：${authorFilter}（共 ${authorBookCount} 本）`, remove: () => {
@@ -761,7 +791,6 @@ export async function renderBookList(container) {
     let base = filterBooksCompletedInYear(searched, recordMap, yearFilter);
     base = filterBooksByStatus(base, recordMap, statusFilter);
     base = filterBooksByCategory(base, categoryFilter);
-    base = filterBooksByRetentionStatus(base, retentionFilter);
     base = filterBooksByAuthor(base, authorFilter);
     const sorted = sortBooks(base, recordMap, sortSelect.value);
 
@@ -777,9 +806,23 @@ export async function renderBookList(container) {
     const pageItems = isShowAll ? sorted : sorted.slice((currentPage - 1) * effectivePageSize, currentPage * effectivePageSize);
 
     if (sorted.length === 0) {
-      bodyEl.innerHTML = query
-        ? `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`
-        : `<p class="empty">${(yearFilter || statusFilter || categoryFilter || retentionFilter || authorFilter) ? '沒有符合目前篩選條件的書籍。' : '還沒有任何書籍，點擊上方新增第一本。'}</p>`;
+      if (query) {
+        bodyEl.innerHTML = `<p class="empty">找不到符合「${escapeHtml(searchInput.value.trim())}」的書籍。</p>`;
+      } else if (yearFilter || statusFilter || categoryFilter || authorFilter) {
+        bodyEl.innerHTML = '<p class="empty">沒有符合目前篩選條件的書籍。</p>';
+      } else if (books.length === 0) {
+        // 真正的「資料庫一本書都沒有」（不是篩選/搜尋篩到剩零筆），見上面
+        // emptyLibraryStateHtml() 的完整說明。
+        bodyEl.innerHTML = emptyLibraryStateHtml();
+        bodyEl.querySelector('#load-sample-books-btn').addEventListener('click', async (event) => {
+          event.target.disabled = true;
+          await loadSampleBooks();
+          showToast('已載入 3 本範例書籍');
+          await renderBookList(container);
+        });
+      } else {
+        bodyEl.innerHTML = '<p class="empty">還沒有任何書籍，點擊上方新增第一本。</p>';
+      }
       paginationEl.innerHTML = '';
     } else {
       bodyEl.innerHTML = viewMode === 'gallery'
@@ -831,7 +874,6 @@ export async function renderBookList(container) {
     yearFilter = null;
     statusFilter = null;
     categoryFilter = null;
-    retentionFilter = null;
     authorFilter = null;
     currentPage = 1;
     searchInput.value = '';
@@ -844,8 +886,6 @@ export async function renderBookList(container) {
     if (activeStatusCell) activeStatusCell.click();
     const activeCategoryItem = container.querySelector('.category-progress-item.is-active');
     if (activeCategoryItem) activeCategoryItem.click();
-    const activeRetentionBtn = container.querySelector('.retention-filter-btn.is-active');
-    if (activeRetentionBtn) activeRetentionBtn.click();
     renderList();
   });
 
@@ -865,11 +905,6 @@ export async function renderBookList(container) {
     },
     onCategoryFilterChange: (category) => {
       categoryFilter = category;
-      currentPage = 1;
-      renderList();
-    },
-    onRetentionFilterChange: (retention) => {
-      retentionFilter = retention;
       currentPage = 1;
       renderList();
     },
@@ -919,31 +954,6 @@ export async function renderBookList(container) {
     if (checkbox.checked) selectedIds.add(id);
     else selectedIds.delete(id);
     refreshBatchBar();
-  });
-
-  // 一鍵歸還／已收回：只改 books 陣列裡對應那本書的 retentionStatus 欄位（不用整批
-  // 重新向資料庫要一次，其他欄位——作者、筆記、閱讀進度全部不動），renderList() 讀的
-  // 就是同一份陣列，篩選／統計／操作欄按鈕立刻反映最新狀態；側邊欄「借出中／借入未還」
-  // 按鈕的本數是另一棵獨立的渲染樹，同時補一個小 DOM 更新（patchRetentionCountBadge）
-  // 避免整個側邊欄重繪，打斷使用者當下展開的分類清單、選到的年份等狀態。
-  bodyEl.addEventListener('click', async (event) => {
-    const btn = event.target.closest('.quick-action-btn');
-    if (!btn) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const id = Number(btn.dataset.bookId);
-    const book = books.find((b) => b.id === id);
-    if (!book) return;
-    const targetStatus = btn.dataset.targetStatus;
-    await DB.update('books', { ...book, retentionStatus: targetStatus });
-    book.retentionStatus = targetStatus;
-    showToast(btn.dataset.toast);
-    renderList();
-    const sidebarEl = container.querySelector('#dashboard-sidebar');
-    const newBorrowedCount = books.filter((b) => b.format === LIBRARY_SOURCE_FORMAT && b.retentionStatus === BORROWED_RETENTION_STATUS).length;
-    const newLentOutCount = books.filter((b) => b.retentionStatus === LENT_OUT_RETENTION_STATUS).length;
-    patchRetentionCountBadge(sidebarEl, BORROWED_RETENTION_STATUS, newBorrowedCount);
-    patchRetentionCountBadge(sidebarEl, LENT_OUT_RETENTION_STATUS, newLentOutCount);
   });
 
   // 完成日期欄位點下去跳出快速更新面板（見上面 openStatusPopover() 的說明）。

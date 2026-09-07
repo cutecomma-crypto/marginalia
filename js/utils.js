@@ -207,6 +207,20 @@ export function confirmModal({ title = '請確認', message = '', confirmText = 
 
 // 全站共用的一次性提示：目前只有「作者已無書籍，自動更新列表」這類防禦性訊息會用到，
 // 用單一個固定在畫面底部的元素重複利用，不用每個呼叫端各自組一份 DOM。
+// 「架構安全性強化」：判斷一個錯誤是不是「網路連線異常」，讓 cloudDb.js（每個
+// Supabase 呼叫外層）跟 app.js（route() 最外層的保底 catch）共用同一份判斷式，
+// 不用各自維護一份可能漸漸不一致的規則。刻意保守：navigator.onLine === false
+// 是瀏覽器直接告知離線；TypeError + "fetch"／"network" 字樣是各瀏覽器 fetch()
+// 失敗時常見的錯誤訊息特徵（Chrome 的「Failed to fetch」、Firefox 的
+// 「NetworkError」、Safari 的「Load failed」）。刻意不比對 Supabase 自己的錯誤
+// （RLS 拒絕、欄位驗證失敗……），那些不是「網路連線異常」，套用同一句提示只會
+// 誤導使用者去檢查網路，反而看不到真正的問題。
+export function isNetworkError(error) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  const message = String((error && error.message) || error || '');
+  return /Failed to fetch|NetworkError|network request failed|Load failed/i.test(message);
+}
+
 export function showToast(message, duration = 2600) {
   let toastEl = document.querySelector('#app-toast');
   if (!toastEl) {

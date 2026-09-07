@@ -1,12 +1,11 @@
 import { DB } from './db.js';
 import { renderReadingSection } from './readingRecords.js';
-import { renderMotivation } from './outputs.js';
 import { renderPersonalNotes } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml, renderTagChip, showToast, confirmModal, wireCoverImage } from './utils.js';
-import { DEFAULT_RETENTION_STATUS, LENT_OUT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT, QUICK_RETENTION_ACTIONS } from './bookForm.js';
-import { ICON_GRAPH, ICON_EDIT, ICON_DELETE, ICON_LIGHTBULB, ICON_NOTEBOOK, ICON_QUOTE } from './icons.js';
+import { escapeHtml, renderTagChip, confirmModal, wireCoverImage } from './utils.js';
+import { DEFAULT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
+import { ICON_GRAPH, ICON_EDIT, ICON_DELETE, ICON_NOTEBOOK, ICON_QUOTE } from './icons.js';
 
 // rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
 // 的欄位可以傳這個代替純文字 value，呼叫端要自己先 escapeHtml() 過使用者輸入的部分。
@@ -27,13 +26,8 @@ function formatDisplay(book) {
   return format;
 }
 
-// 存留狀態單純顯示狀態本身，借出狀態附上「（借給 XX）」。
 function retentionStatusDisplay(book) {
-  const status = book.retentionStatus || DEFAULT_RETENTION_STATUS;
-  if (status === LENT_OUT_RETENTION_STATUS && book.lentTo) {
-    return `${status}（借給 ${book.lentTo}）`;
-  }
-  return status;
+  return book.retentionStatus || DEFAULT_RETENTION_STATUS;
 }
 
 export async function renderBookDetail(container, rawId) {
@@ -45,10 +39,6 @@ export async function renderBookDetail(container, rawId) {
   }
   const favoriteAuthors = await getFavoriteAuthorMap();
   const isFavoriteAuthor = book.author && favoriteAuthors.has(book.author);
-  // 「借入未還」顯示「一鍵歸還」、「借出」顯示「已收回」，跟書籍列表操作欄共用
-  // 同一份 QUICK_RETENTION_ACTIONS 設定（見 bookForm.js），按鈕文字／目標狀態／
-  // Toast 文案兩邊不會各自維護一份、久了長出落差。
-  const quickAction = QUICK_RETENTION_ACTIONS[book.retentionStatus];
 
   // 手機版詳情頁整套重構（封面置中放大、資訊改直式排列、進度卡單欄化……）
   // 只鎖定書籍詳情頁這一種頁面，其他頁面共用的 main／.toolbar 都不該被連帶
@@ -61,7 +51,6 @@ export async function renderBookDetail(container, rawId) {
     <div class="toolbar detail-toolbar">
       <a href="#/books" class="detail-back-link">← 回列表</a>
       <div class="toolbar-actions">
-        ${quickAction ? `<button type="button" class="btn quick-action-btn" id="quick-action-btn">${escapeHtml(quickAction.label)}</button>` : ''}
         <a class="btn detail-action-btn" href="#/books/${bookId}/graph" title="關係圖譜">${ICON_GRAPH}<span class="btn-label">關係圖譜</span></a>
         <a class="btn detail-action-btn" href="#/books/${bookId}/edit" title="編輯">${ICON_EDIT}<span class="btn-label">編輯</span></a>
         <button type="button" class="btn btn-danger detail-action-btn" id="delete-book" title="刪除">${ICON_DELETE}<span class="btn-label">刪除</span></button>
@@ -96,14 +85,10 @@ export async function renderBookDetail(container, rawId) {
 
     <div class="main-tabs">
       <div class="main-tab-buttons">
-        <button type="button" class="main-tab-btn is-active" data-tab="motivation">${ICON_LIGHTBULB}閱讀動機</button>
-        <button type="button" class="main-tab-btn" data-tab="notes">${ICON_NOTEBOOK}個人筆記</button>
+        <button type="button" class="main-tab-btn is-active" data-tab="notes">${ICON_NOTEBOOK}閱讀隨筆與心得</button>
         <button type="button" class="main-tab-btn" data-tab="quotes">${ICON_QUOTE}佳句摘錄（<span id="quotes-tab-count">0</span> 條）</button>
       </div>
-      <div class="main-tab-panel" data-tab-panel="motivation">
-        <div id="motivation-container"></div>
-      </div>
-      <div class="main-tab-panel" data-tab-panel="notes" hidden>
+      <div class="main-tab-panel" data-tab-panel="notes">
         <div id="notes-section"></div>
       </div>
       <div class="main-tab-panel" data-tab-panel="quotes" hidden>
@@ -123,28 +108,6 @@ export async function renderBookDetail(container, rawId) {
   if (authorLinkBtn) {
     authorLinkBtn.addEventListener('click', () => {
       window.location.hash = `#/books?author=${encodeURIComponent(authorLinkBtn.dataset.author)}`;
-    });
-  }
-
-  // 「一鍵歸還」跟閱讀進度區塊觸發的「切換成已歸還」提示，改完存留狀態後都需要重新
-  // 反映在頁面上；直接整頁重新呼叫 renderBookDetail 最保險（保證跟資料庫實際狀態一致，
-  // 不用自己手動同步每一處用到 book 資料的地方），唯一要顧慮的是使用者手上分頁籤
-  // （閱讀動機／閱讀後輸出／筆記／佳句）不要被重繪打斷跳回第一個分頁，所以重繪前後
-  // 記錄＋還原目前選到的分頁籤。
-  async function refreshDetail() {
-    const activeTab = container.querySelector('.main-tab-btn.is-active')?.dataset.tab;
-    await renderBookDetail(container, rawId);
-    if (activeTab && activeTab !== 'motivation') {
-      container.querySelector(`.main-tab-btn[data-tab="${activeTab}"]`)?.click();
-    }
-  }
-
-  const quickActionBtn = container.querySelector('#quick-action-btn');
-  if (quickActionBtn) {
-    quickActionBtn.addEventListener('click', async () => {
-      await DB.update('books', { ...book, retentionStatus: quickAction.targetStatus });
-      showToast(quickAction.toast);
-      await refreshDetail();
     });
   }
 
@@ -176,13 +139,13 @@ export async function renderBookDetail(container, rawId) {
     });
   });
 
-  // 「個人筆記」選取文字存成佳句摘錄（見 notes.js 的 attachSelectionToolbar
+  // 「閱讀隨筆與心得」選取文字存成佳句摘錄（見 notes.js 的 attachSelectionToolbar
   // onHighlight）之後，需要一個管道把「佳句摘錄」分頁的數量／列表也一起更新，
   // 不然那個分頁的內容是頁面一開始載入時就渲染好、之後不會再自己重繪的——使用者
   // 存了一句新佳句，畫面上完全沒反應，要重新整理整頁才看得到，這是實測抓到的
   // 真實問題。抽成獨立函式讓 renderPersonalNotes() 存完佳句後可以直接呼叫，只重繪
-  // 佳句摘錄那個分頁本身（不是整個 renderBookDetail()／refreshDetail()），不會
-  // 連帶打斷使用者在個人筆記輸入框裡還沒存檔的草稿或游標位置。
+  // 佳句摘錄那個分頁本身（不是整個 renderBookDetail()），不會連帶打斷使用者在
+  // 輸入框裡還沒存檔的草稿或游標位置。
   async function refreshQuotesTab() {
     await renderQuotesWorkspace(container.querySelector('#quotes-container'), bookId, {
       onCountChange: (count) => {
@@ -191,8 +154,7 @@ export async function renderBookDetail(container, rawId) {
     });
   }
 
-  await renderReadingSection(container.querySelector('#reading-section'), bookId, book, { onReturnedSuggestionAccepted: refreshDetail });
-  await renderMotivation(container.querySelector('#motivation-container'), bookId);
+  await renderReadingSection(container.querySelector('#reading-section'), bookId, book);
   await renderPersonalNotes(container.querySelector('#notes-section'), bookId, { onQuoteAdded: refreshQuotesTab });
   await refreshQuotesTab();
 }

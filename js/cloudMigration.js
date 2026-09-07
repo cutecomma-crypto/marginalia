@@ -136,7 +136,6 @@ function sanitizeBookPayload(book) {
     retentionStatus: book.retentionStatus,
     libraryBorrowType: book.libraryBorrowType,
     libraryName: book.libraryName,
-    lentTo: book.lentTo,
     publishDate: book.publishDate,
     purchaseDate: book.purchaseDate,
     purchasePrice: toNullableNumber(book.purchasePrice),

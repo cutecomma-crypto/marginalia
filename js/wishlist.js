@@ -98,7 +98,6 @@ function refreshBatchBar() {
             retentionStatus: DEFAULT_RETENTION_STATUS,
             libraryBorrowType: '',
             libraryName: '',
-            lentTo: '',
             category: '',
             coverImage: '',
           });
