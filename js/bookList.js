@@ -458,7 +458,7 @@ function emptyLibraryStateHtml() {
         <circle cx="90" cy="52" r="3" fill="var(--gold)"></circle>
       </svg>
       <p class="empty-library-title">還沒有任何藏書</p>
-      <p class="empty-library-subtitle">點擊上方「＋ 新增書籍」開始記錄，或先載入幾本範例書籍熟悉一下功能。</p>
+      <p class="empty-library-subtitle">點擊上方「＋ 新增書籍」開始記錄，<br>或先載入幾本範例書籍熟悉一下功能。</p>
       <button type="button" class="btn btn-primary" id="load-sample-books-btn">${ICON_SPARKLES}載入 3 本範例書籍</button>
     </div>
   `;
