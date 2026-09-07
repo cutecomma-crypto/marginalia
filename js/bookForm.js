@@ -1,9 +1,8 @@
 import { DB } from './db.js';
 import { STATUS_OPTIONS } from './readingRecords.js';
-import { MOTIVATION_TAGS } from './outputs.js';
 import { getFavoriteAuthorMap, toggleFavoriteAuthor } from './authors.js';
 import { escapeHtml, wireCoverImage, showToast } from './utils.js';
-import { ICON_BOOK_OPEN, ICON_CART, ICON_BOOK, ICON_IMAGE, ICON_DELETE } from './icons.js';
+import { ICON_BOOK_OPEN, ICON_BOOK, ICON_IMAGE, ICON_DELETE } from './icons.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 
 // 「書籍形式／來源」跟「存留狀態」解耦：來源只回答「這本書從哪裡來」（買的、圖書館借的…），
@@ -208,6 +207,28 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
               </select>
             </label>
           </div>
+          <div class="basic-fields-row">
+            <label for="field-format">書籍形式／來源
+              <select id="field-format" name="format">
+                ${FORMAT_OPTIONS.map((f) => `<option value="${escapeHtml(f)}" ${book.format === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
+              </select>
+            </label>
+            <label for="retention-status-select">存留狀態
+              <select name="retentionStatus" id="retention-status-select">
+                ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <div class="library-borrow-fields" id="library-borrow-fields" ${book.format === LIBRARY_SOURCE_FORMAT ? '' : 'hidden'}>
+            <label for="field-library-borrow-type">借閱管道
+              <select id="field-library-borrow-type" name="libraryBorrowType">
+                ${LIBRARY_BORROW_TYPE_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${book.libraryBorrowType === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+              </select>
+            </label>
+            <label for="field-library-name">圖書館名稱
+              <input id="field-library-name" name="libraryName" value="${escapeHtml(book.libraryName)}" placeholder="例如：市立圖書館、HyRead 電子書平台">
+            </label>
+          </div>
         </div>
         <div class="cover-upload-col">
           <span class="cover-upload-label">封面圖片（選填）</span>
@@ -224,32 +245,6 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
         </div>
       </fieldset>
 
-      <fieldset class="form-section form-section-quiet book-purchase-grid">
-        <legend class="icon-heading">${ICON_CART}擁有／購買資料</legend>
-        <label for="field-purchase-date">購買日期<input id="field-purchase-date" type="date" name="purchaseDate" value="${escapeHtml(book.purchaseDate)}"></label>
-        <label for="field-purchase-price">購買價格<input id="field-purchase-price" type="number" name="purchasePrice" min="0" value="${escapeHtml(book.purchasePrice)}"></label>
-        <label for="field-format">書籍形式／來源
-          <select id="field-format" name="format">
-            ${FORMAT_OPTIONS.map((f) => `<option value="${escapeHtml(f)}" ${book.format === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
-          </select>
-        </label>
-        <div class="field-wide library-borrow-fields" id="library-borrow-fields" ${book.format === LIBRARY_SOURCE_FORMAT ? '' : 'hidden'}>
-          <label for="field-library-borrow-type">借閱管道
-            <select id="field-library-borrow-type" name="libraryBorrowType">
-              ${LIBRARY_BORROW_TYPE_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${book.libraryBorrowType === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-            </select>
-          </label>
-          <label for="field-library-name">圖書館名稱
-            <input id="field-library-name" name="libraryName" value="${escapeHtml(book.libraryName)}" placeholder="例如：市立圖書館、HyRead 電子書平台">
-          </label>
-        </div>
-        <label for="retention-status-select">存留狀態
-          <select name="retentionStatus" id="retention-status-select">
-            ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-          </select>
-        </label>
-      </fieldset>
-
       ${isNew ? `
       <fieldset class="form-section">
         <legend class="icon-heading">${ICON_BOOK}我的閱讀</legend>
@@ -257,12 +252,6 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
           <select id="field-status" name="status">
             ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${s === '尚未閱讀' ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
           </select>
-        </label>
-        <label class="field-wide">閱讀動機（可複選，選填）
-          <span class="tag-checkboxes motivation-tags">${MOTIVATION_TAGS.map((m) => `<label class="motivation-tag"><input type="checkbox" name="motivationTags" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('')}</span>
-        </label>
-        <label class="field-wide" for="field-motivation-text">我現在為什麼想讀它？
-          <textarea id="field-motivation-text" name="motivationText" rows="2" placeholder="低壓力，想到什麼寫什麼，不寫也沒關係"></textarea>
         </label>
       </fieldset>
       ` : ''}
@@ -333,13 +322,17 @@ export async function renderBookForm(container, rawId) {
 
     const retentionStatus = data.retentionStatus || DEFAULT_RETENTION_STATUS;
 
+    // 使用者反映「購買日期」「購買價格」用不到，表單簡化拿掉了——payload 不再
+    // 帶這兩個欄位，既有書籍上如果已經存過值，{ ...book, ...payload } 這種
+    // 「先鋪 book 原值、payload 蓋上去」的寫法會讓沒出現在 payload 裡的欄位
+    // 原封不動留著，不會被這裡的表單改動悄悄清空舊資料；只是介面上再也沒有
+    // 地方能看到或修改它們了。「書籍形式／來源」「存留狀態」兩個欄位這次只是
+    // 搬進上面「書籍基本資料」的版面位置，邏輯完全沒變。
     const payload = {
       title,
       author: (data.author || '').trim(),
       publisher: (data.publisher || '').trim(),
       publishDate: data.publishDate || '',
-      purchaseDate: data.purchaseDate || '',
-      purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : null,
       format: data.format || '其他',
       retentionStatus,
       libraryBorrowType: data.libraryBorrowType || '',
@@ -353,8 +346,6 @@ export async function renderBookForm(container, rawId) {
       await DB.update('books', { ...book, ...payload, id: bookId });
     } else {
       targetBookId = await DB.add('books', payload);
-      const motivationTags = Array.from(form.querySelectorAll('input[name="motivationTags"]:checked')).map((el) => el.value);
-      const motivationText = (data.motivationText || '').trim();
       await DB.add('reading_records', {
         bookId: targetBookId,
         status: data.status || '尚未閱讀',
@@ -364,9 +355,6 @@ export async function renderBookForm(container, rawId) {
         readCount: 0,
         rating: 0,
       });
-      if (motivationTags.length > 0 || motivationText) {
-        await DB.add('outputs', { bookId: targetBookId, kind: 'motivation', tags: motivationTags, text: motivationText });
-      }
       // 從願望清單「轉為藏書」轉過來的新書：推薦來源／備註原本只是願望清單自己的
       // 欄位，books 表沒有對應欄位可以存，改成順手存成一則快速筆記，資訊不會憑空
       // 消失；願望清單裡的這筆項目也才真的移除——特意等到書籍「確定送出成功」才刪，
@@ -379,13 +367,12 @@ export async function renderBookForm(container, rawId) {
       }
       // 送出這一刻書就已經真的存進書庫了（上面的 DB.add('books', ...)），接下來
       // 跳轉去的書籍詳情頁只是「順便可以繼續補資料」的地方，不是還沒完成的下一步——
-      // 但詳情頁預設停在「閱讀動機」分頁（見 bookDetail.js），那個分頁本身就是一個
+      // 但詳情頁預設停在「閱讀心得」分頁（見 bookDetail.js），那個分頁本身就是一個
       // 帶著「儲存」按鈕的空白表單，使用者剛送出表單就立刻看到另一個表單＋儲存鍵，
       // 很容易誤以為「還要再按一次儲存才算加入書庫」。這裡明確跳一個成功提示，
-      // 讓使用者不用靠自己讀懂分頁邏輯就知道書已經加好了，後面的閱讀動機、快速筆記
-      // 這些都是選填、可以隨時再回來補。編輯既有書籍（上面的 if (bookId) 分支）
-      // 不需要這則提示——那個情境本來就是使用者主動點進來修改，不會有「這樣算完成
-      // 了嗎」的疑惑。
+      // 讓使用者不用靠自己讀懂分頁邏輯就知道書已經加好了，後面的閱讀心得都是選填、
+      // 可以隨時再回來補。編輯既有書籍（上面的 if (bookId) 分支）不需要這則提示——
+      // 那個情境本來就是使用者主動點進來修改，不會有「這樣算完成了嗎」的疑惑。
       showToast(`已將「${title}」加入書庫`);
     }
     window.location.hash = `#/books/${targetBookId}`;
