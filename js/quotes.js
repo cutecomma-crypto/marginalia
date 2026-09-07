@@ -1,5 +1,6 @@
 import { DB } from './db.js';
-import { escapeHtml, renderTextWithHashtags, confirmModal, wireSearchClear, guardUnsavedChanges } from './utils.js';
+import { escapeHtml, renderTextWithHashtags, confirmModal, guardUnsavedChanges, showToast } from './utils.js';
+import { ICON_CLIPBOARD, ICON_EDIT, ICON_DELETE } from './icons.js';
 
 // 頁碼欄位是自由文字（例如「45-47」），排序時只抓第一串數字當排序依據。
 function parsePageNumber(page) {
@@ -8,6 +9,10 @@ function parsePageNumber(page) {
   return match ? Number(match[0]) : null;
 }
 
+// 「珍貴典藏」精簡：搜尋框／排序選單／「共 X 條」提示都拿掉了（見
+// renderQuotesWorkspace 開頭的說明），排序不再讓使用者選，固定用頁碼排序——
+// 佳句本來就是跟著書本身的頁數走，翻書複習時照頁碼由小到大排列最直覺，
+// 「依新增時間排序」那個選項連同 sortByNewest() 一起刪除，不留死碼。
 function sortByPage(quotes) {
   return [...quotes].sort((a, b) => {
     const pageA = parsePageNumber(a.page);
@@ -17,10 +22,6 @@ function sortByPage(quotes) {
     if (pageA == null && pageB != null) return 1;
     return (a.createdAt || '').localeCompare(b.createdAt || '');
   });
-}
-
-function sortByNewest(quotes) {
-  return [...quotes].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
 
 async function getQuotesByBook(bookId) {
@@ -37,25 +38,31 @@ async function copyText(text) {
   }
 }
 
-// ---------- 佳句工作區（新增／搜尋／排序／列表）----------
+// ---------- 佳句典藏（新增／單欄式列表）----------
 // 獨立佳句頁面（/books/:id/quotes）跟書籍詳情頁的「佳句摘錄」Tab 共用同一份邏輯，
 // 差別只在外層有沒有包一層「回列表」的 toolbar，所以拆成這個函式讓兩邊都能呼叫。
 
+// 卡片右下角頁碼是淡化的純文字（不再是有底色的標籤），「複製／編輯／刪除」
+// 三顆操作改成極簡圖示，平常整組隱藏（見 .quote-actions 的 opacity:0），
+// 只有滑鼠移到卡片上才浮現——列表變成安靜的典藏陳列，不是隨時掛滿功能按鈕
+// 的管理介面。引號裝飾只留左上角的開頭引號，收尾的右引號拿掉：一句話裡
+// 出現兩個裝飾性引號在「單欄沉浸閱讀」的排版裡略嫌多餘，只留開頭這一個
+// 更貼近「翻開書頁看到摘錄」的感覺。
 function quoteCardHtml(quote) {
   return `
     <div class="quote-card" data-id="${quote.id}">
-      <div class="quote-card-top">
-        <span class="quote-mark" aria-hidden="true">“</span>
-        ${quote.page ? `<span class="quote-page-badge">P. ${escapeHtml(quote.page)}</span>` : ''}
-      </div>
+      <span class="quote-mark" aria-hidden="true">“</span>
       <div class="quote-content-wrap">
-        <p class="quote-content is-clamped">${renderTextWithHashtags(quote.content)}<span class="quote-mark-close" aria-hidden="true">”</span></p>
+        <p class="quote-content is-clamped">${renderTextWithHashtags(quote.content)}</p>
         <button type="button" class="quote-expand-btn" style="display:none;">展開全文</button>
       </div>
-      <div class="quote-actions">
-        <button type="button" class="quote-copy-btn" data-id="${quote.id}">複製內文</button>
-        <button type="button" class="quote-edit-btn" data-id="${quote.id}">編輯</button>
-        <button type="button" class="quote-delete-btn" data-id="${quote.id}">刪除</button>
+      <div class="quote-card-footer">
+        <div class="quote-actions">
+          <button type="button" class="quote-icon-btn quote-copy-btn" data-id="${quote.id}" title="複製內文" aria-label="複製內文">${ICON_CLIPBOARD}</button>
+          <button type="button" class="quote-icon-btn quote-edit-btn" data-id="${quote.id}" title="編輯" aria-label="編輯">${ICON_EDIT}</button>
+          <button type="button" class="quote-icon-btn quote-delete-btn" data-id="${quote.id}" title="刪除" aria-label="刪除">${ICON_DELETE}</button>
+        </div>
+        ${quote.page ? `<span class="quote-page-note">p.${escapeHtml(quote.page)}</span>` : ''}
       </div>
     </div>
   `;
@@ -86,81 +93,51 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
   container._unsavedGuardDestroy?.();
   const onCountChange = options.onCountChange || (() => {});
   let editingId = null;
-  let searchQuery = '';
-  let sortMode = 'page';
 
+  // 「珍貴典藏」精簡：使用者反映佳句摘錄頁籤管理元件太多（搜尋框、「共 X 條」
+  // 提示、排序選單），要求整組拿掉，回歸單欄沉浸式的閱讀/收藏體驗——列表
+  // 固定用頁碼排序（見上面 sortByPage 的說明），不再需要搜尋跟排序狀態，
+  // 也不需要另外一段文字告訴使用者「共幾條」，捲一下列表本身就看得到。
+  // 左右兩欄（新增表單／佳句列表）的 .quotes-page-layout grid 也一併拿掉，
+  // 改成新增區在上、列表在下的單欄「垂直流」佈局。
   container.innerHTML = `
-    <div class="quotes-page-layout">
-      <div class="quotes-page-form-col">
-        <div class="graph-panel">
-          <h4>新增佳句</h4>
-          <form id="quote-form" class="book-form">
-            <label>佳句內容
-              <textarea name="content" rows="6" placeholder="輸入書中打動你的句子……" required></textarea>
-            </label>
-            <label class="quote-page-label">頁碼（選填）
-              <input name="page" class="quote-page-input" placeholder="例如：45 或 45-47">
-            </label>
-            <div class="form-actions"><button type="submit" class="btn btn-primary">＋ 新增佳句</button></div>
-          </form>
+    <div class="quote-composer">
+      <form id="quote-form">
+        <textarea name="content" class="quote-composer-input" rows="3" placeholder="輸入書中打動你的句子……" required></textarea>
+        <div class="quote-composer-actions">
+          <input name="page" class="quote-page-input" placeholder="頁碼（選填）">
+          <button type="submit" class="btn btn-primary">＋ 新增佳句</button>
         </div>
-      </div>
-      <div class="quotes-page-list-col">
-        <div class="quotes-toolbar">
-          <div class="search-input">
-            <input type="search" id="quote-search" class="search-input-field" placeholder="搜尋佳句內容…">
-            <button type="button" class="search-clear-btn" aria-label="清空搜尋" hidden></button>
-          </div>
-          <select id="quote-sort" class="quote-sort-select">
-            <option value="page">依頁碼排序</option>
-            <option value="newest">依新增時間排序</option>
-          </select>
-        </div>
-        <p class="graph-hint" id="quote-count-hint"></p>
-        <div class="quote-list" id="quote-list"></div>
-      </div>
+      </form>
     </div>
+    <div class="quote-list" id="quote-list"></div>
   `;
 
   const form = container.querySelector('#quote-form');
   const listEl = container.querySelector('#quote-list');
-  const countHint = container.querySelector('#quote-count-hint');
-  const searchInput = container.querySelector('#quote-search');
-  wireSearchClear(container);
-  const sortSelect = container.querySelector('#quote-sort');
 
   async function redrawList() {
-    let quotes = await getQuotesByBook(bookId);
-    const total = quotes.length;
-    onCountChange(total);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      quotes = quotes.filter((item) => item.content.toLowerCase().includes(q));
-    }
-    quotes = sortMode === 'newest' ? sortByNewest(quotes) : sortByPage(quotes);
-
-    countHint.textContent = searchQuery
-      ? `符合 ${quotes.length} 條（共 ${total} 條）`
-      : `共 ${total} 條`;
+    const quotes = sortByPage(await getQuotesByBook(bookId));
+    onCountChange(quotes.length);
 
     listEl.innerHTML = quotes.length === 0
-      ? `<p class="empty">${total === 0 ? '還沒有摘錄任何佳句。' : '找不到符合的佳句。'}</p>`
+      ? '<p class="empty">還沒有摘錄任何佳句。</p>'
       : quotes.map((q) => (q.id === editingId ? quoteEditFormHtml(q) : quoteCardHtml(q))).join('');
 
     wireListEvents();
   }
 
   function wireListEvents() {
+    // 圖示按鈕本身沒有文字可以拿來閃「已複製」這種暫時性回饋（不像原本
+    // 「複製內文」是一顆有文字的按鈕，可以直接把文字換掉一下子），改用
+    // 全站共用的 showToast——跟複製其他內容（分享連結、匯出結果……）用
+    // 同一種確認方式，使用者不用盯著圖示看才知道有沒有複製成功。
     listEl.querySelectorAll('.quote-copy-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const quote = await DB.getById('quotes', Number(btn.dataset.id));
         if (!quote) return;
         const ok = await copyText(quote.content);
-        if (ok) {
-          const original = btn.textContent;
-          btn.textContent = '已複製';
-          setTimeout(() => { btn.textContent = original; }, 1200);
-        }
+        if (ok) showToast('已複製佳句內容');
       });
     });
 
@@ -242,16 +219,6 @@ export async function renderQuotesWorkspace(container, bookId, options = {}) {
     form.reset();
     isDirty = false;
     await redrawList();
-  });
-
-  searchInput.addEventListener('input', () => {
-    searchQuery = searchInput.value.trim();
-    redrawList();
-  });
-
-  sortSelect.addEventListener('change', () => {
-    sortMode = sortSelect.value;
-    redrawList();
   });
 
   await redrawList();

@@ -697,7 +697,6 @@ header h1 a {
   .book-form textarea,
   .search-input,
   .sort-select,
-  .quote-sort-select,
   .sidebar-year-select {
     min-height: 44px;
   }
@@ -3672,89 +3671,99 @@ button.book-completed-date:hover {
   line-height: 1.35;
 }
 
-/* 選擇器對到的是 #quote-form 這個 id，不是 class="quote-form"（表單實際上帶的是
-   .book-form）——這條規則原本一直沒生效，佳句內容欄位只吃到 rows="6" 的隱含高度。
-   改成 id 選擇器，並把最小高度拉到 160px，長句子才有足夠的垂直＋水平空間可以閱讀。 */
-#quote-form textarea {
-  min-height: 160px;
+/* 「珍貴典藏」精簡：新增區改成上方一個滿寬度、預設只有 2-3 行高的輕盈
+   輸入框，不再是套進 .book-form／.graph-panel 那種厚重的表單卡片外殼——
+   邊框/字級/焦點光暈都在這裡重新寫一份簡化版，不依賴 .book-form 的規則。 */
+.quote-composer {
+  margin-bottom: 1.75rem;
 }
 
-.quote-page-label {
-  max-width: 200px;
+.quote-composer-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.quote-composer-input:focus {
+  outline: none;
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+}
+
+/* 「頁碼」欄位＋「＋ 新增佳句」按鈕並排放在輸入框下方右側，極簡呈現——
+   頁碼欄位窄窄一格就好，不需要像其他表單欄位那樣佔一整行。 */
+.quote-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
 }
 
 .quote-page-input,
 .quote-page-edit-input {
-  max-width: 200px;
+  width: 130px;
+  box-sizing: border-box;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: inherit;
 }
 
+.quote-page-input:focus,
+.quote-page-edit-input:focus {
+  outline: none;
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
+}
+
+/* 取消左右分割雙欄，改成單欄「垂直流」：一句句佳句由上往下靜靜排列，
+   不再是並排的格狀卡片牆——沉浸閱讀／翻頁瀏覽的感覺比「一次掃視一整排
+   卡片」更貼近「珍貴典藏」的定位，卡片之間留比格狀排列更寬鬆的間距，
+   讓每一句都有自己完整的呼吸空間。 */
 .quote-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 0.85rem;
-  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 }
 
+/* 拿掉原本的左側色條與陰影浮起效果——那是「功能性 UI 卡片」的視覺語言，
+   跟這裡想要的「安靜陳列」不搭；改成僅有一圈極細的邊框，卡片本身低調到
+   幾乎融進背景，讓佳句文字自己說話。hover 只做一件事：讓底部操作圖示
+   淡入（見 .quote-actions），不再有位移/陰影這種提醒「這是可互動元件」
+   的動態效果，維持典藏陳列該有的靜態感。 */
 .quote-card {
   background: var(--surface);
   border: 1px solid var(--border-hairline);
-  border-left: 3px solid var(--primary);
-  border-radius: 10px;
-  padding: 0.85rem 0.95rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  transition: all 0.2s ease;
+  border-radius: 12px;
+  padding: 1.5rem 1.75rem 1rem;
 }
 
-.quote-card:hover {
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
-}
-
-.quote-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-/* 佳句卡片的引號裝飾：原本是一個平淡的直角引號字元 "，改用真正的彎引號
-   （左引號 “／右引號 ”），字級拉大、換成襯線字體，比較有編輯排版裡
-   「大引號、輕份量」的文學感，顏色用莫蘭迪玫瑰棕（跟 Header 書籤圖示、
-   閱讀動機標籤同一組 --icon-rose token，全站裝飾性圖示統一同一個色相），
-   而不是跟按鈕邊框同色的 --primary-soft，讓佳句卡片在視覺上有自己的
-   「文學摘錄」身份，跟一般功能性 UI 區隔開來。 */
+/* 左上角微小、淡色的引號裝飾——字級跟力度都刻意壓低（原本是 2rem／
+   opacity:0.55／字重 700 的顯眼大引號），這裡只是一個安靜的視覺提示
+   「這是一段摘錄」，不會搶在正文前面吸走視線。 */
 .quote-mark {
-  font-size: 2rem;
+  display: block;
+  font-size: 1.5rem;
   line-height: 1;
   font-family: Georgia, "Songti TC", "STSong", serif;
   color: var(--icon-rose);
-  opacity: 0.55;
-  font-weight: 700;
-}
-
-/* 右引號跟著本文一起排版（不是像左引號那樣獨立佔一行），字級只比本文
-   略大一點，份量做輕，純粹當作句子結尾的裝飾收尾，不會喧賓奪主。 */
-.quote-mark-close {
-  font-family: Georgia, "Songti TC", "STSong", serif;
-  font-size: 1.1em;
-  color: var(--icon-rose);
-  opacity: 0.7;
-  margin-left: 0.1em;
-}
-
-/* 頁碼小標籤是「標籤」語意，用 Accent 系列（現在別名指回品牌玫瑰棕/深棕，
-   見 :root 的說明，不再是獨立的粉杏色）跟本文／按鈕的主色區分開來。 */
-.quote-page-badge {
-  flex-shrink: 0;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--accent-hover);
-  background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 0.15rem 0.55rem;
-  white-space: nowrap;
+  opacity: 0.35;
+  margin-bottom: 0.2rem;
 }
 
 .quote-content-wrap {
@@ -3763,15 +3772,17 @@ button.book-completed-date:hover {
   gap: 0.35rem;
 }
 
-/* 微斜體：中文字型大多沒有真的傾斜的斜體字形，瀏覽器對中文套用 italic
-   基本上不會有視覺變化，這裡加上主要是為了佳句裡偶爾夾雜的英文字詞／
-   標點會有效果，額外的文學感是「順便」的，不是主要靠這個屬性撐場面。 */
+/* 佳句文字是這張卡片真正的主角：字級拉大到 1.1rem（原本 0.9rem，跟一般
+   內文同級，不夠有「摘錄」的份量感）、字距略微拉開、換成跟引號同一組
+   襯線字體＋斜體，讀起來更像書頁上的一句摘錄，不是介面裡的一般文字。 */
 .quote-content {
   margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 1.1rem;
+  line-height: 1.75;
+  letter-spacing: 0.01em;
   white-space: pre-wrap;
   font-style: italic;
+  font-family: Georgia, "Songti TC", "STSong", serif;
 }
 
 .quote-content.is-clamped {
@@ -3787,6 +3798,7 @@ button.book-completed-date:hover {
   border: none;
   color: var(--primary);
   font-size: 0.8125rem;
+  font-style: normal;
   cursor: pointer;
   padding: 0;
 }
@@ -3795,35 +3807,116 @@ button.book-completed-date:hover {
   text-decoration: underline;
 }
 
+/* 卡片底部：操作圖示靠右、頁碼淡化文字收在最右下角——兩者共用同一個
+   flex-end 排列，操作圖示平常整組透明（opacity:0 + pointer-events:none），
+   只有滑鼠移到卡片上才淡入浮現（見下面 .quote-card:hover），維持「安靜
+   陳列」的預設樣貌，需要動手操作時才靠近一步。 */
+.quote-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+
 .quote-actions {
   display: flex;
-  gap: 0.9rem;
-  margin-top: 0.1rem;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
-.quote-actions button {
-  background: none;
+.quote-card:hover .quote-actions,
+.quote-card:focus-within .quote-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.quote-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
   border: none;
+  border-radius: 6px;
+  background: none;
   color: var(--text-muted);
-  font-size: 0.8125rem;
   cursor: pointer;
   padding: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.quote-actions button:hover {
+.quote-icon-btn .ui-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.quote-icon-btn:hover {
+  background: var(--surface-alt);
   color: var(--primary);
 }
 
-.quote-actions .quote-delete-btn:hover {
+.quote-delete-btn:hover {
   color: var(--danger);
 }
 
+/* 頁碼淡化顯示在卡片右下角——純文字、不再是有底色的標籤膠囊，跟操作
+   圖示比起來更輕、更像書頁邊緣印的頁碼，不是一個需要注意的資訊標籤。 */
+.quote-page-note {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+/* 頁碼小標籤是「標籤」語意，用 Accent 系列（現在別名指回品牌玫瑰棕/深棕，
+   見 :root 的說明，不再是獨立的粉杏色）跟本文／按鈕的主色區分開來——
+   佳句摘錄頁籤本身的卡片已經改用上面 .quote-page-note 的淡化文字，這個
+   類別現在只有 tags.js 的全站標籤搜尋結果（顯示佳句所在頁碼）還在用。 */
+.quote-page-badge {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  white-space: nowrap;
+}
+
+.quote-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
 .quote-edit-form textarea {
-  min-height: 90px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 100px;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.quote-edit-form textarea:focus {
+  outline: none;
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 0 3px rgba(166, 124, 116, 0.15);
 }
 
 .quote-edit-form .form-actions {
-  margin-top: 0.3rem;
+  margin-top: 0.1rem;
 }
 
 .quote-summary-list {
@@ -3939,66 +4032,10 @@ button.book-completed-date:hover {
   font-size: 0.9rem;
 }
 
-/* 左側「新增佳句」跟右側「佳句列表」改成 5:7 的彈性比例（呼應 12 欄網格的
-   col-span-5／col-span-7），取代原本固定 320px 的左欄——長句子在輸入框裡
-   不會再被擠得頻繁斷行，寬螢幕下左欄也能跟著一起變寬，不會卡在同一個死寬度。 */
-.quotes-page-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 1.5rem;
-  align-items: start;
-}
-
-@media (max-width: 900px) {
-  .quotes-page-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* 精簡過後只剩搜尋框＋排序選單兩個控制項（原本還有「複製全部」「匯出文字檔」
-   「匯出為 Markdown」三顆按鈕，已整組移除，見 quotes.js 的說明）——版面不用
-   再遷就四五個元件擠成一排，改成搜尋框吃滿剩餘寬度、排序選單固定寬度靠右，
-   兩者統一給 40px 高度，視覺上乾淨對齊成一排，跟書籍列表頁「搜尋＋排序」
-   那排的高度基準一致。 */
-.quotes-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.5rem;
-}
-
-.quotes-toolbar .search-input {
-  flex: 1;
-  max-width: none;
-  height: 40px;
-  box-sizing: border-box;
-}
-
-.quote-sort-select {
-  flex-shrink: 0;
-  width: 160px;
-  height: 40px;
-  box-sizing: border-box;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  background: var(--surface);
-  color: var(--text);
-}
-
-/* 窄螢幕（手機）兩個控制項改成上下堆疊、各自滿版寬——並排在手機寬度會被
-   壓得太窄，搜尋框打字空間不夠、排序選單的文字也容易被截斷。 */
-@media (max-width: 640px) {
-  .quotes-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .quote-sort-select {
-    width: 100%;
-  }
-}
+/* 「珍貴典藏」精簡：左右分欄的 .quotes-page-layout（新增表單／佳句列表
+   5:7 grid）跟搜尋＋排序的 .quotes-toolbar／.quote-sort-select 都拿掉了，
+   改成單欄「新增區在上、典藏列表在下」的垂直流（見 quotes.js 的說明），
+   不再需要任何分欄或工具列排版規則。 */
 
 .graph-layout {
   width: 100%;

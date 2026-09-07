@@ -41,9 +41,10 @@ export async function applyRemoteData(data) {
 
 // §5：全域鍵盤快捷鍵。Cmd/Ctrl+F 聚焦搜尋框；Esc 交給目前開著的 Modal／Drawer
 // （用 pushEscapeHandler 註冊過的那些）處理，沒有任何東西註冊過的話就什麼也不做，
-// 不影響瀏覽器原生的 Esc 行為（例如退出全螢幕）。
+// 不影響瀏覽器原生的 Esc 行為（例如退出全螢幕）。#quote-search 已經隨著「佳句
+// 摘錄」頁籤的精簡拿掉（見 quotes.js 的說明），不再是有效的搜尋框選擇器。
 export function initKeyboardShortcuts() {
-  installGlobalShortcuts({ searchInputSelector: '#book-search, #quote-search' });
+  installGlobalShortcuts({ searchInputSelector: '#book-search' });
 }
 
 // §1a：持久化儲存。第一次造訪且瀏覽器支援時主動問一次；已經問過就不會每次重複跳出。
