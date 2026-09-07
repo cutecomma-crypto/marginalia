@@ -363,12 +363,17 @@ const SORT_OPTIONS = [
 // 「每頁顯示」下拉選單：使用者反映捲動到底自動載入更多不方便掌握「大數據量
 // 時要怎麼跳著看」，要求換回明確的分頁——PAGE_SIZE_OPTIONS／buildPageList／
 // paginationHtml 都是照原本（拿掉之前）的版本原樣復原（見下面 renderList()
-// 的分頁切片邏輯），不是重新設計一套。
+// 的分頁切片邏輯），不是重新設計一套。option 文字不再重複「每頁顯示」
+// 四個字——工具列攤平成單行之後，這個下拉選單前面已經有一顆同樣文字的
+// 小標籤（見 formTemplate 裡的 <label class="toolbar-control-field">
+// 每頁：），選單裡的文字只要留數字本身（12 本／24 本／50 本／全部），
+// 兩者合起來讀「每頁： 12 本」，不會變成「每頁顯示 每頁顯示：12 本」
+// 這種疊字重複。
 const PAGE_SIZE_OPTIONS = [
-  { value: '12', label: '每頁顯示：12 本' },
-  { value: '24', label: '每頁顯示：24 本' },
-  { value: '50', label: '每頁顯示：50 本' },
-  { value: 'all', label: '每頁顯示：全部' },
+  { value: '12', label: '12 本' },
+  { value: '24', label: '24 本' },
+  { value: '50', label: '50 本' },
+  { value: 'all', label: '全部' },
 ];
 
 // 頁碼超過 7 頁時用「1 … 上一頁 目前頁 下一頁 … 末頁」的縮寫排法，
@@ -552,7 +557,7 @@ export async function renderBookList(container) {
                 ${SORT_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
               </select>
             </label>
-            <label class="toolbar-control-field">每頁顯示
+            <label class="toolbar-control-field">每頁：
               <select id="book-page-size-select" class="sort-select">
                 ${PAGE_SIZE_OPTIONS.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}
               </select>

@@ -1504,16 +1504,26 @@ header h1 a {
   white-space: nowrap;
 }
 
+/* 使用者反映搜尋框／排序／每頁顯示／批量選取／總本數這幾個控制項會在
+   一般桌面寬度下擠出換行、切成上下兩排，視覺被切割——拿掉 flex-wrap，
+   搜尋框改用 flex:1 吃滿剩餘寬度（見下面 .search-row .search-input），
+   其餘控制項維持各自的內容寬度不縮水，永遠是一條單一水平線，寬度真的
+   不夠時是搜尋框自己變窄，不會讓整排跳到下一行。 */
 .search-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1.25rem;
-  flex-wrap: wrap;
+}
+
+.search-row .search-input {
+  flex: 1;
+  max-width: none;
 }
 
 .search-row .book-list-count {
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* 使用者反映排序／每頁顯示／批量選取收進一個要點開才看得到的「篩選」
@@ -1527,7 +1537,6 @@ header h1 a {
   align-items: center;
   gap: 0.85rem;
   flex-shrink: 0;
-  flex-wrap: wrap;
 }
 
 /* 排序／每頁顯示：小標籤文字＋下拉選單同一行並排、垂直置中，跟搜尋框、
@@ -1676,14 +1685,16 @@ header h1 a {
   max-width: 100%;
 }
 
-/* 桌面版四欄改成明講的固定百分比寬度（書名 35／作者 25／書籍類型 20／
-   完成日期 20，加總 100%），配 table-layout:fixed——單靠 auto（預設值）
+/* 桌面版四欄改成明講的固定百分比寬度（書名 42／作者 28／書籍類型 15／
+   完成日期 15，加總 100%），配 table-layout:fixed——單靠 auto（預設值）
    加上百分比只是「參考值」，瀏覽器仍會為了內容硬撐超過設定的寬度，
    一定要 fixed 才會強制每一欄剛好卡在設定的百分比，欄寬不再受任何一欄
    內容多寡影響，也才能讓下面「書名／作者單行截斷＋…」真的按這個固定
-   寬度裁切，不會因為某一批書名特別長就把整張表格撐寬、擠壓其他欄位
-   （這正是這次要修的問題：舊版作者欄只有 width:1% shrink-to-fit，遇到
-   「大衛．布魯克斯」這種較長的作者名字仍然會被換行成兩行）。 */
+   寬度裁切，不會因為某一批書名特別長就把整張表格撐寬、擠壓其他
+   欄位。書名／作者是使用者最在意「完整呈現、不要動不動就截斷」的兩欄，
+   這次把比例再往這兩欄傾斜（35/25 調整成 42/28），類型／日期本來就是
+   短且格式固定的內容（例如「心理學理論」「2026/08/18」），15% 已經綽綽
+   有餘，不需要跟書名／作者搶版面。 */
 .book-table {
   width: 100%;
   max-width: 100%;
@@ -1696,10 +1707,10 @@ header h1 a {
   box-shadow: var(--shadow-card);
 }
 
-.book-table .col-title { width: 35%; }
-.book-table .col-author { width: 25%; }
-.book-table .col-category { width: 20%; }
-.book-table .col-completed { width: 20%; }
+.book-table .col-title { width: 42%; }
+.book-table .col-author { width: 28%; }
+.book-table .col-category { width: 15%; }
+.book-table .col-completed { width: 15%; }
 
 .book-table th,
 .book-table td {
