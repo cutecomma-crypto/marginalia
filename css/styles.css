@@ -160,6 +160,49 @@
   box-sizing: border-box;
 }
 
+/* 全站「無名稱小圖示」快速提示（Icon Button Tooltip）：取代原生 title 屬性
+   ——原生 title 要等瀏覽器內建的 1-2 秒延遲才跳出來、樣式也完全不受控，
+   對一顆沒有文字說明、只靠圖示猜意思的按鈕來說，這個延遲感覺特別明顯。
+   任何元素只要把 title="X" 換成 data-tooltip="X"，滑鼠移過去（或鍵盤
+   focus、手機長按住不放對應 :active）幾乎立刻浮現一個簡約黑底小標籤，
+   浮在元素正上方——只留 0.12s 的淡入位移，不是等待延遲，是動畫時間。
+   這個寫法原本只用在關係圖譜的「群組顏色」色塊（.group-color-swatch），
+   這裡把它從個別元件抽成全站共用的屬性選擇器規則，色塊那邊之後直接沿用
+   這一份、不再自己重複定義一次。
+   position:relative 是給下面 ::after 絕對定位用的錨點，寫在這裡當全站
+   預設值——如果某個元件自己另外需要別的 position（例如本來就是
+   position:absolute 的浮動按鈕），該元件自己的規則在原始碼順序上排在
+   後面，一樣會照 CSS cascade 蓋過這裡，兩邊不會打架。 */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 300;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:active::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* 全站文字都用 rem，所以只要調這個根字級，所有字體就會照比例一起放大，
    不用一個一個改，也不會破壞既有的排版比例——這次「排版與字體系統」全站
    響應式優化把根字級從 17px 調回 16px，落在使用者明確要求的 15px-16px
@@ -3769,7 +3812,16 @@ button.book-completed-date:hover {
 
 /* 左上角微小、淡色的引號裝飾——字級跟力度都刻意壓低（原本是 2rem／
    opacity:0.55／字重 700 的顯眼大引號），這裡只是一個安靜的視覺提示
-   「這是一段摘錄」，不會搶在正文前面吸走視線。 */
+   「這是一段摘錄」，不會搶在正文前面吸走視線。
+   pointer-events:none 是這次修 Tooltip 附帶抓到的問題：opacity 只要不是 1，
+   就會讓這個原本 position:static 的 <span> 自己形成一個新的 stacking
+   context，跟下面 position:absolute 的 .quote-actions 被排進同一個繪製
+   層——兩者同層時比的是 DOM 先後順序，.quote-mark 寫在後面，結果整條
+   浮在卡片右上角、透明底色撐滿卡片全寬的引號裝飾，實際上蓋住了
+   複製／編輯／刪除三顆圖示，滑鼠點下去點到的其實是這個裝飾用的引號，
+   不是圖示按鈕本身（在瀏覽器實測會直接點不到）。這個裝飾本來就
+   aria-hidden、不需要接受任何滑鼠事件，直接關掉指標事件最乾淨，不用
+   為了繞開層級问题去調整 z-index 或搬動 DOM 順序。 */
 .quote-mark {
   display: block;
   font-size: 1.5rem;
@@ -3778,6 +3830,7 @@ button.book-completed-date:hover {
   color: var(--icon-rose);
   opacity: 0.35;
   margin-bottom: 0.2rem;
+  pointer-events: none;
 }
 
 .quote-content-wrap {
@@ -4533,33 +4586,8 @@ button.book-completed-date:hover {
   box-shadow: 0 0 0 2px var(--surface);
 }
 
-/* 色塊懸停提示：色名短小的簡約黑底小標籤，浮在色塊正上方，取代原生 title
-   （原生提示要等一秒才跳、樣式又不受控）。手機用 :active（按住不放）觸發同一個提示。 */
-.group-color-swatch::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: 130%;
-  left: 50%;
-  transform: translateX(-50%) translateY(3px);
-  background: var(--text);
-  color: var(--surface);
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  white-space: nowrap;
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease, transform 0.12s ease;
-  z-index: 40;
-}
-
-.group-color-swatch:hover::after,
-.group-color-swatch:active::after,
-.group-color-swatch:focus-visible::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
+/* 色塊懸停提示（複製顯示 data-tooltip 內容的小黑標籤）已經抽成全站共用規則
+   ——見檔案開頭的 [data-tooltip] 區塊，這裡不用重複定義。 */
 
 .group-delete-btn {
   border: none;

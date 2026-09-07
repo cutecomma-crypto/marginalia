@@ -255,7 +255,7 @@ function bookRow(book, favoriteAuthors, recordMap, selectedIds) {
   return `
     <tr>
       <td data-label="書名"><input type="checkbox" class="row-select-checkbox book-select-checkbox" data-select-id="${book.id}" aria-label="選取《${escapeHtml(book.title || '未命名')}》" ${selectedIds.has(book.id) ? 'checked' : ''}><a href="#/books/${book.id}" title="${escapeHtml(book.title || '（未命名）')}">${escapeHtml(book.title || '（未命名）')}</a>${book.category ? `<span class="book-table-category-badge">${escapeHtml(book.category)}</span>` : ''}</td>
-      <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" title="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
+      <td class="author-cell" data-label="作者"><span class="author-cell-value"><span class="author-star${isFavoriteAuthor ? '' : ' is-hidden'}" data-tooltip="喜愛的作者" aria-label="喜愛的作者">♥</span>${authorNameHtml(book)}</span></td>
       <td data-label="書籍類型">${escapeHtml(book.category)}</td>
       <td data-label="完成日期">${completedDateCell(book, record)}</td>
     </tr>
@@ -335,7 +335,7 @@ function bookGalleryCard(book, favoriteAuthors, recordMap, selectedIds) {
         </div>
         <div class="book-gallery-info">
           <div class="book-gallery-title">${escapeHtml(book.title || '（未命名）')}</div>
-          <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" title="喜愛的作者">♥</span> ' : ''}${authorNameHtmlInline(book)}</div>
+          <div class="book-gallery-author">${isFavoriteAuthor ? '<span class="author-star" data-tooltip="喜愛的作者" aria-label="喜愛的作者">♥</span> ' : ''}${authorNameHtmlInline(book)}</div>
           <div class="book-gallery-meta">
             ${book.category ? `<span class="book-gallery-category">${escapeHtml(book.category)}</span>` : ''}
             ${completedDateTextOnly(record)}
@@ -535,7 +535,7 @@ export async function renderBookList(container) {
         <div class="toolbar">
           <div class="toolbar-title-row">
             <h2 id="book-list-title">所有書籍</h2>
-            <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" title="切換為封面網格檢視">${GRID_ICON}</button>
+            <button type="button" class="view-mode-toggle-btn" id="view-mode-toggle-btn" data-tooltip="切換為封面網格檢視" aria-label="切換為封面網格檢視">${GRID_ICON}</button>
           </div>
           <div class="toolbar-actions">
             <button type="button" class="btn" id="open-wishlist-btn">${ICON_SPARKLES}願望清單</button>
@@ -818,7 +818,9 @@ export async function renderBookList(container) {
   viewModeBtn.addEventListener('click', () => {
     viewMode = viewMode === 'table' ? 'gallery' : 'table';
     viewModeBtn.innerHTML = viewMode === 'table' ? GRID_ICON : LIST_ICON;
-    viewModeBtn.title = viewMode === 'table' ? '切換為封面網格檢視' : '切換為表格檢視';
+    const viewModeLabel = viewMode === 'table' ? '切換為封面網格檢視' : '切換為表格檢視';
+    viewModeBtn.setAttribute('data-tooltip', viewModeLabel);
+    viewModeBtn.setAttribute('aria-label', viewModeLabel);
     viewModeBtn.classList.toggle('is-active', viewMode === 'gallery');
     renderList();
   });

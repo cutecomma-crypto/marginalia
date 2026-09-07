@@ -201,7 +201,7 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
             <label for="field-author">作者
               <span class="author-input-row">
                 <input id="field-author" name="author" value="${escapeHtml(book.author)}">
-                <button type="button" id="author-favorite-btn" class="star-btn${isFavoriteAuthor ? ' filled' : ''}" title="標記為喜愛的作者">♥</button>
+                <button type="button" id="author-favorite-btn" class="star-btn${isFavoriteAuthor ? ' filled' : ''}" data-tooltip="標記為喜愛的作者" aria-label="標記為喜愛的作者">♥</button>
               </span>
             </label>
           </div>

@@ -190,9 +190,9 @@ function itemRowHtml(item) {
         ${itemMetaLine(item)}
       </div>
       <div class="wishlist-item-actions">
-        <button type="button" class="wishlist-icon-btn wishlist-convert-btn" title="轉為藏書">${ICON_BOOK_OPEN}</button>
-        <button type="button" class="wishlist-icon-btn wishlist-edit-btn" title="編輯「${escapeHtml(item.title || '')}」">${ICON_EDIT}</button>
-        <button type="button" class="wishlist-icon-btn wishlist-delete-btn" title="刪除「${escapeHtml(item.title || '')}」">${ICON_DELETE}</button>
+        <button type="button" class="wishlist-icon-btn wishlist-convert-btn" data-tooltip="轉為藏書" aria-label="轉為藏書">${ICON_BOOK_OPEN}</button>
+        <button type="button" class="wishlist-icon-btn wishlist-edit-btn" data-tooltip="編輯「${escapeHtml(item.title || '')}」" aria-label="編輯「${escapeHtml(item.title || '')}」">${ICON_EDIT}</button>
+        <button type="button" class="wishlist-icon-btn wishlist-delete-btn" data-tooltip="刪除「${escapeHtml(item.title || '')}」" aria-label="刪除「${escapeHtml(item.title || '')}」">${ICON_DELETE}</button>
       </div>
     </li>
   `;

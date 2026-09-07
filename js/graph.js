@@ -154,7 +154,7 @@ function colorSwatchPickerHtml(group) {
   const current = group.color || DEFAULT_GROUP_COLOR;
   return `
     <div class="group-color-picker" data-group-id="${group.id}">
-      <button type="button" class="group-color-trigger" style="background: ${escapeHtml(current)};" title="群組顏色" aria-label="選擇群組顏色"></button>
+      <button type="button" class="group-color-trigger" style="background: ${escapeHtml(current)};" data-tooltip="群組顏色" aria-label="選擇群組顏色"></button>
       <div class="group-color-swatches" hidden>
         ${GROUP_COLOR_PALETTE.map((c) => `
           <button type="button" class="group-color-swatch${c.hex === current ? ' is-selected' : ''}" data-hex="${c.hex}" style="background: ${c.hex};" data-tooltip="${escapeHtml(c.name)}" aria-label="選擇群組顏色 ${escapeHtml(c.name)}"></button>
@@ -172,10 +172,10 @@ function groupCardHtml(group, people, fallbackX, fallbackY) {
     <div class="group-card" data-group-id="${group.id}" style="--group-color: ${escapeHtml(group.color || DEFAULT_GROUP_COLOR)}; left: ${x}px; top: ${y}px;">
       <div class="group-card-header">
         <div class="group-card-header-main">
-          <span class="group-drag-handle" title="按住拖曳到畫布任何位置">⠿</span>
+          <span class="group-drag-handle" data-tooltip="按住拖曳到畫布任何位置" aria-label="按住拖曳到畫布任何位置">⠿</span>
           <input class="group-name-input" data-group-id="${group.id}" value="${escapeHtml(group.name)}">
           ${colorSwatchPickerHtml(group)}
-          <button type="button" class="group-delete-btn" data-group-id="${group.id}" title="刪除群組">×</button>
+          <button type="button" class="group-delete-btn" data-group-id="${group.id}" data-tooltip="刪除群組" aria-label="刪除群組">×</button>
         </div>
         <input class="group-subtitle-input" data-group-id="${group.id}" value="${escapeHtml(group.subtitle || '')}" placeholder="副標（選填）">
       </div>
@@ -452,7 +452,7 @@ function edgeColorSwatchesHtml(currentColor) {
     <input type="hidden" name="color" value="${escapeHtml(current)}">
     <div class="edge-color-swatches">
       ${EDGE_COLOR_PALETTE.map((c) => `
-        <button type="button" class="edge-color-swatch${c.hex.toLowerCase() === current.toLowerCase() ? ' is-selected' : ''}" data-hex="${c.hex}" style="background: ${c.hex};" title="${escapeHtml(c.name)}" aria-label="選擇關係線顏色 ${escapeHtml(c.name)}">
+        <button type="button" class="edge-color-swatch${c.hex.toLowerCase() === current.toLowerCase() ? ' is-selected' : ''}" data-hex="${c.hex}" style="background: ${c.hex};" data-tooltip="${escapeHtml(c.name)}" aria-label="選擇關係線顏色 ${escapeHtml(c.name)}">
           <span class="edge-color-check">✓</span>
         </button>
       `).join('')}
@@ -521,9 +521,9 @@ export async function renderGraphPage(container, rawBookId) {
         </div>
         <div class="toolbar-actions graph-toolbar-right">
           <div class="canvas-zoom-toolbar" id="canvas-zoom-toolbar">
-            <button type="button" class="canvas-tool-btn" id="zoom-out-btn" title="縮小">－</button>
+            <button type="button" class="canvas-tool-btn" id="zoom-out-btn" data-tooltip="縮小" aria-label="縮小">－</button>
             <span class="canvas-zoom-level" id="zoom-level">100%</span>
-            <button type="button" class="canvas-tool-btn" id="zoom-in-btn" title="放大">＋</button>
+            <button type="button" class="canvas-tool-btn" id="zoom-in-btn" data-tooltip="放大" aria-label="放大">＋</button>
             <button type="button" class="canvas-tool-btn" id="zoom-reset-btn" title="重設縮放">重設</button>
           </div>
           <button type="button" class="btn graph-toolbar-secondary-btn drawer-toggle-btn" id="drawer-toggle-btn">${ICON_LINK}關係／編輯面板</button>

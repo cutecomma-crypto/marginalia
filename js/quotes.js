@@ -52,9 +52,9 @@ function quoteCardHtml(quote) {
   return `
     <div class="quote-card" data-id="${quote.id}">
       <div class="quote-actions">
-        <button type="button" class="quote-icon-btn quote-copy-btn" data-id="${quote.id}" title="複製內文" aria-label="複製內文">${ICON_CLIPBOARD}</button>
-        <button type="button" class="quote-icon-btn quote-edit-btn" data-id="${quote.id}" title="編輯" aria-label="編輯">${ICON_EDIT}</button>
-        <button type="button" class="quote-icon-btn quote-delete-btn" data-id="${quote.id}" title="刪除" aria-label="刪除">${ICON_DELETE}</button>
+        <button type="button" class="quote-icon-btn quote-copy-btn" data-id="${quote.id}" data-tooltip="複製內文" aria-label="複製內文">${ICON_CLIPBOARD}</button>
+        <button type="button" class="quote-icon-btn quote-edit-btn" data-id="${quote.id}" data-tooltip="編輯" aria-label="編輯">${ICON_EDIT}</button>
+        <button type="button" class="quote-icon-btn quote-delete-btn" data-id="${quote.id}" data-tooltip="刪除" aria-label="刪除">${ICON_DELETE}</button>
       </div>
       <span class="quote-mark" aria-hidden="true">“</span>
       <div class="quote-content-wrap">

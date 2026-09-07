@@ -30,7 +30,7 @@ function renderLoggedOut(slot) {
 function renderLoggedIn(slot, user) {
   slot.innerHTML = `
     <div class="auth-status">
-      <span class="auth-avatar" title="${escapeHtml(user.email || '')}">${escapeHtml(initialOf(user))}</span>
+      <span class="auth-avatar" data-tooltip="${escapeHtml(user.email || '')}">${escapeHtml(initialOf(user))}</span>
       <span class="auth-nickname"><span class="emoji-tint">👤</span> ${escapeHtml(nicknameOf(user))}</span>
       <button type="button" class="auth-logout-btn" id="auth-logout-btn">登出</button>
     </div>

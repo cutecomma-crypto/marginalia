@@ -274,8 +274,8 @@ function openCustomCategoryModal() {
           <li data-name="${escapeHtml(c.name)}">
             <span class="cm-item-name">${escapeHtml(c.name)}</span>
             <span class="cm-item-group">${escapeHtml(c.group || '未分組')}</span>
-            <button type="button" class="cm-icon-btn cm-edit-btn" title="編輯「${escapeHtml(c.name)}」">${ICON_EDIT}</button>
-            <button type="button" class="cm-icon-btn cm-delete-btn" title="刪除「${escapeHtml(c.name)}」">${ICON_DELETE}</button>
+            <button type="button" class="cm-icon-btn cm-edit-btn" data-tooltip="編輯「${escapeHtml(c.name)}」" aria-label="編輯「${escapeHtml(c.name)}」">${ICON_EDIT}</button>
+            <button type="button" class="cm-icon-btn cm-delete-btn" data-tooltip="刪除「${escapeHtml(c.name)}」" aria-label="刪除「${escapeHtml(c.name)}」">${ICON_DELETE}</button>
           </li>
         `).join('');
 

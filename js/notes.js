@@ -53,8 +53,8 @@ function noteItem(note, isEditing) {
   return `
     <div class="output-item" data-id="${note.id}" data-source="notes">
       <div class="output-item-actions">
-        <button type="button" class="btn output-edit" data-id="${note.id}" title="編輯">${ICON_EDIT}</button>
-        <button type="button" class="btn btn-danger output-delete" data-id="${note.id}" data-source="notes" title="刪除">${ICON_DELETE}</button>
+        <button type="button" class="btn output-edit" data-id="${note.id}" data-tooltip="編輯" aria-label="編輯">${ICON_EDIT}</button>
+        <button type="button" class="btn btn-danger output-delete" data-id="${note.id}" data-source="notes" data-tooltip="刪除" aria-label="刪除">${ICON_DELETE}</button>
       </div>
       <p>${renderTextWithHashtags(note.text)}</p>
       <div class="output-date">${escapeHtml((note.createdAt || '').slice(0, 10))}</div>

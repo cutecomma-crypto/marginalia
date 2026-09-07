@@ -51,9 +51,9 @@ export async function renderBookDetail(container, rawId) {
     <div class="toolbar detail-toolbar">
       <a href="#/books" class="detail-back-link">← 回列表</a>
       <div class="toolbar-actions">
-        <a class="btn detail-action-btn" href="#/books/${bookId}/graph" title="關係圖譜">${ICON_GRAPH}<span class="btn-label">關係圖譜</span></a>
-        <a class="btn detail-action-btn" href="#/books/${bookId}/edit" title="編輯">${ICON_EDIT}<span class="btn-label">編輯</span></a>
-        <button type="button" class="btn btn-danger detail-action-btn" id="delete-book" title="刪除">${ICON_DELETE}<span class="btn-label">刪除</span></button>
+        <a class="btn detail-action-btn" href="#/books/${bookId}/graph" data-tooltip="關係圖譜">${ICON_GRAPH}<span class="btn-label">關係圖譜</span></a>
+        <a class="btn detail-action-btn" href="#/books/${bookId}/edit" data-tooltip="編輯">${ICON_EDIT}<span class="btn-label">編輯</span></a>
+        <button type="button" class="btn btn-danger detail-action-btn" id="delete-book" data-tooltip="刪除">${ICON_DELETE}<span class="btn-label">刪除</span></button>
       </div>
     </div>
     <div class="book-header-panel">

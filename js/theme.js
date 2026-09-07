@@ -36,8 +36,12 @@ function applyButtonIcon(btn, isDark) {
   // 慣例一致：現在是淺色，按鈕顯示月亮，暗示「點了會變暗」；反之亦然），
   // 不是顯示「目前所在的模式」。
   btn.innerHTML = isDark ? ICON_SUN : ICON_MOON;
-  btn.title = isDark ? '切換為日間模式' : '切換為夜間模式';
-  btn.setAttribute('aria-label', btn.title);
+  const label = isDark ? '切換為日間模式' : '切換為夜間模式';
+  // 用 data-tooltip 取代原生 title——原生提示要等 1-2 秒才跳出來，這顆
+  // 按鈕又是純圖示沒有文字，切換当下最需要「立刻」看得懂圖示的意思。
+  // 樣式定義見 css/styles.css 開頭的 [data-tooltip] 全站共用規則。
+  btn.setAttribute('data-tooltip', label);
+  btn.setAttribute('aria-label', label);
 }
 
 export function initThemeToggle() {
