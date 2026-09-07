@@ -1,12 +1,6 @@
 import { DB } from './db.js';
 import { escapeHtml, applyHashtagLinks, renderTagChip, renderTextWithHashtags } from './utils.js';
 
-// 對照 PROJECT_SPEC.md 第 4 節：低壓力、選填，不要求填完。
-// 仍然匯出給 bookForm.js 新增書籍表單裡的「閱讀動機（可複選，選填）」欄位
-// 使用——那是「新增書籍當下」順手記錄的入口，跟這次「書籍詳情頁分頁」的
-// 整併是兩件事，不受這次調整影響（見下面 renderLegacyMotivationItem 的說明）。
-export const MOTIVATION_TAGS = ['好奇', '解決問題', '工作需要', '自我成長', '主題學習', '別人推薦', '文案吸引', '隨意閱讀', '其他'];
-
 // 「功能簡化」精簡：書籍詳情頁原本「閱讀動機」「閱讀後輸出」「快速筆記」
 // 三個各自獨立的分頁／表單，已經全部合併成 notes.js 的「閱讀心得」
 // 單一乾淨文字輸入區塊，新增內容一律走 notes.js（存進 notes 表），這裡
@@ -21,12 +15,13 @@ export async function getOutputsByKind(bookId, kind) {
   return all.filter((o) => o.kind === kind);
 }
 
-// 「唯讀展示」版的動機標籤——跟 bookForm.js 新增書籍表單裡可勾選的版本共用
-// 同一個 .motivation-tag class（見 css/styles.css 的說明），純粹是沒有
-// <input> 的 <span>，給下面 renderLegacyMotivationItem() 這種「只是要顯示
-// 這本書選過哪些動機、不能互動」的場合用，不要再套用 utils.js 的
-// renderTagChip()（那組是給書籍/心得的「自由文字標籤」用的高彩度粉/橘/黃
-// 三色階，跟這裡的莫蘭迪配色是兩回事）。
+// 「唯讀展示」版的動機標籤——新增書籍表單的「閱讀動機」勾選欄位已經整個
+// 移除（見 bookForm.js 的表單精簡），這裡純粹是沒有 <input> 的 <span>，
+// 套用 .motivation-tag class（見 css/styles.css 的說明），給下面
+// renderLegacyMotivationItem() 這種「只是要顯示這本書從前選過哪些動機、
+// 不能互動」的場合用，不要再套用 utils.js 的 renderTagChip()（那組是給
+// 書籍/心得的「自由文字標籤」用的高彩度粉/橘/黃三色階，跟這裡的莫蘭迪
+// 配色是兩回事）。
 export function renderMotivationTagChip(tag) {
   return `<span class="motivation-tag">${escapeHtml(tag)}</span>`;
 }

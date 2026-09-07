@@ -39,7 +39,6 @@
   --accent-hover: var(--primary);
   --accent-soft: var(--color-tag-bg);
   --accent-green: #7c9473;
-  --accent-green-soft: #e7ede1;
   --danger: #b3492f;
   --danger-soft: #f5e2d9;
   --gold: #d9973f;
@@ -145,7 +144,6 @@
   --tag-inactive-border: #4a433d;
   --tab-active-bg: #3a332e;
   --accent-green: #9bb08e;
-  --accent-green-soft: #333a2e;
   --danger: #e0a199;
   --danger-soft: #4a332f;
   --gold: #e0b876;
@@ -1064,81 +1062,6 @@ header h1 a {
   100% { background-position: 0% 50%; }
 }
 
-.stats-panel {
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  padding: 1.1rem 1.25rem;
-  margin-bottom: 1.5rem;
-}
-
-.stats-year-row select {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  background: var(--surface);
-  color: var(--text);
-}
-
-.stat-headline {
-  font-size: 1.3rem;
-  font-weight: 600;
-  margin: 0.6rem 0 0.9rem;
-}
-
-.stat-month-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.stat-month {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  background: var(--surface-alt);
-  border-radius: 6px;
-  padding: 0.4rem 0.2rem;
-}
-
-.stat-month-count {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.stat-card {
-  background: var(--surface-alt);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-}
-
-.stat-card-label {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  margin-bottom: 0.2rem;
-}
-
-.stat-card-value {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.stats-category h4 {
-  margin: 0.5rem 0 0.5rem;
-}
-
 .stat-category-list {
   list-style: none;
   margin: 0;
@@ -1494,18 +1417,6 @@ header h1 a {
 .sidebar-stat-cell .l {
   font-size: 0.8125rem;
   color: var(--text-muted);
-}
-
-.sidebar-stat-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.82rem;
-  padding: 0.3rem 0;
-  border-top: 1px solid var(--border-soft);
-}
-
-.sidebar-stat-row:first-of-type {
-  border-top: none;
 }
 
 .favorite-author-list {
@@ -3994,42 +3905,6 @@ button.book-completed-date:hover {
 
 .quote-edit-form .form-actions {
   margin-top: 0.1rem;
-}
-
-.quote-summary-list {
-  list-style: none;
-  margin: 0 0 0.75rem;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.quote-summary-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  border-top: 1px solid var(--border-soft);
-  padding-top: 0.5rem;
-}
-
-.quote-summary-list li:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-.quote-summary-text {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quote-summary-link {
-  display: block;
-  text-align: center;
-  width: 100%;
 }
 
 /* #Hashtag 膠囊：出現在佳句／輸出／筆記的內文裡，點了直接跳去該標籤的跨書籍總覽頁。
