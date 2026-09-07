@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { STATUS_OPTIONS } from './readingRecords.js';
 import { getFavoriteAuthorMap, toggleFavoriteAuthor } from './authors.js';
 import { escapeHtml, wireCoverImage, showToast } from './utils.js';
-import { ICON_BOOK_OPEN, ICON_BOOK, ICON_IMAGE, ICON_DELETE } from './icons.js';
+import { ICON_BOOK_OPEN, ICON_IMAGE, ICON_DELETE } from './icons.js';
 import { categoryOptionsHtml, wireCategorySelect } from './categories.js';
 
 // 「書籍形式／來源」跟「存留狀態」解耦：來源只回答「這本書從哪裡來」（買的、圖書館借的…），
@@ -181,41 +181,45 @@ function wireSourceAndRetentionToggles(form) {
   });
 }
 
+// 使用者要求更緊湊的雙欄版面：書名/作者、出版社/出版日期、分類/來源、
+// 存留狀態/閱讀狀態，兩兩一列。新增書籍原本獨立成一個「我的閱讀」
+// fieldset 的「閱讀狀態」欄位，為了跟「存留狀態」同一列並排，合併進這個
+// 唯一的 fieldset——不用另外開一個 fieldset 再靠 CSS 硬跨欄，兩者本來就
+// 只差在 isNew 才有「閱讀狀態」，讓 basic-fields-row 自己決定要不要多渲染
+// 第二個 <label> 就好，比維護一個獨立的 <fieldset><legend> 只為了一個欄位
+// 划算，垂直空間也省下一整組 fieldset 的邊框/padding/legend。編輯既有
+// 書籍時這一列只有「存留狀態」，右側欄位留白，不特別處理成單欄置中——
+// 跟表單其他「有時候只有一個欄位」的列（例如來源沒有借閱細節時）一致。
 function formTemplate(book, isNew, isFavoriteAuthor) {
   return `
     <form id="book-form" class="book-form" novalidate>
       <fieldset class="form-section book-basic-grid">
         <legend class="icon-heading">${ICON_BOOK_OPEN}書籍基本資料</legend>
         <div class="basic-fields-col">
-          <label class="field-required" for="field-title">書名 *<input id="field-title" name="title" required value="${escapeHtml(book.title)}" placeholder="這本書叫什麼名字？"></label>
-          <p class="field-hint field-warning" id="title-duplicate-warning" hidden>資料庫中已存在同名書籍</p>
           <div class="basic-fields-row">
+            <label class="field-required" for="field-title">書名 *<input id="field-title" name="title" required value="${escapeHtml(book.title)}" placeholder="這本書叫什麼名字？"></label>
             <label for="field-author">作者
               <span class="author-input-row">
                 <input id="field-author" name="author" value="${escapeHtml(book.author)}">
                 <button type="button" id="author-favorite-btn" class="star-btn${isFavoriteAuthor ? ' filled' : ''}" title="標記為喜愛的作者">♥</button>
               </span>
             </label>
+          </div>
+          <p class="field-hint field-warning" id="title-duplicate-warning" hidden>資料庫中已存在同名書籍</p>
+          <div class="basic-fields-row">
             <label for="field-publisher">出版社<input id="field-publisher" name="publisher" value="${escapeHtml(book.publisher)}"></label>
+            <label for="field-publish-date">出版日期<input id="field-publish-date" type="date" name="publishDate" value="${escapeHtml(book.publishDate)}"></label>
           </div>
           <div class="basic-fields-row">
-            <label for="field-publish-date">出版日期<input id="field-publish-date" type="date" name="publishDate" value="${escapeHtml(book.publishDate)}"></label>
             <label for="field-category">分類
               <select id="field-category" name="category">
                 <option value="">（先不分類）</option>
                 ${categoryOptionsHtml(book.category)}
               </select>
             </label>
-          </div>
-          <div class="basic-fields-row">
             <label for="field-format">書籍形式／來源
               <select id="field-format" name="format">
                 ${FORMAT_OPTIONS.map((f) => `<option value="${escapeHtml(f)}" ${book.format === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
-              </select>
-            </label>
-            <label for="retention-status-select">存留狀態
-              <select name="retentionStatus" id="retention-status-select">
-                ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
               </select>
             </label>
           </div>
@@ -228,6 +232,20 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
             <label for="field-library-name">圖書館名稱
               <input id="field-library-name" name="libraryName" value="${escapeHtml(book.libraryName)}" placeholder="例如：市立圖書館、HyRead 電子書平台">
             </label>
+          </div>
+          <div class="basic-fields-row">
+            <label for="retention-status-select">存留狀態
+              <select name="retentionStatus" id="retention-status-select">
+                ${RETENTION_STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${(book.retentionStatus || DEFAULT_RETENTION_STATUS) === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+              </select>
+            </label>
+            ${isNew ? `
+            <label for="field-status">閱讀狀態
+              <select id="field-status" name="status">
+                ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${s === '尚未閱讀' ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+              </select>
+            </label>
+            ` : ''}
           </div>
         </div>
         <div class="cover-upload-col">
@@ -244,17 +262,6 @@ function formTemplate(book, isNew, isFavoriteAuthor) {
           <input type="hidden" name="coverImage" id="cover-image-value" value="${escapeHtml(book.coverImage || '')}">
         </div>
       </fieldset>
-
-      ${isNew ? `
-      <fieldset class="form-section">
-        <legend class="icon-heading">${ICON_BOOK}我的閱讀</legend>
-        <label for="field-status">閱讀狀態
-          <select id="field-status" name="status">
-            ${STATUS_OPTIONS.map((s) => `<option value="${escapeHtml(s)}" ${s === '尚未閱讀' ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
-          </select>
-        </label>
-      </fieldset>
-      ` : ''}
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">${isNew ? '加入我的書庫' : '儲存'}</button>

@@ -2354,11 +2354,14 @@ button.book-completed-date:hover {
 
 /* 全站 RWD 統一用 768px 當「電腦 vs. 平板/手機」的分界（對齊常見的 Tailwind md），
    書籍表單／詳情頁的每一組響應式網格都共用這個門檻，行為才會一致好預期。 */
+/* 現在全站只剩「書籍基本資料」這一個 fieldset 還在用（「我的閱讀」已經
+   合併進來，見上面 formTemplate 的說明），這裡的 grid 版面純粹是給
+   .book-basic-grid 用的基礎樣式，欄數交給下面那條更高優先度的規則決定。 */
 .book-form fieldset {
   border: 1px solid var(--border);
   border-radius: 8px;
-  margin-bottom: 1.1rem;
-  padding: 0.85rem 1.1rem 1rem;
+  margin-bottom: 0.85rem;
+  padding: 0.7rem 1rem 0.85rem;
   background: var(--surface);
   display: grid;
   grid-template-columns: 1fr;
@@ -2366,20 +2369,12 @@ button.book-completed-date:hover {
   align-items: start;
 }
 
-/* 「我的閱讀」是唯一還在用這個通用版面的 fieldset（另一個 .book-basic-grid 有自己的
-   覆蓋規則），電腦版給它 2 欄，讓單獨一個「閱讀狀態」下拉不會被拉成滿版寬。 */
-@media (min-width: 768px) {
-  .book-form fieldset {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 .library-borrow-fields {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0 1.25rem;
   border-top: 1px dashed var(--border-soft);
-  padding-top: 0.9rem;
+  padding-top: 0.7rem;
   margin-top: 0.1rem;
 }
 
@@ -2413,7 +2408,7 @@ button.book-completed-date:hover {
 .basic-fields-col {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.45rem;
   min-width: 0;
 }
 
@@ -2432,9 +2427,16 @@ button.book-completed-date:hover {
 
 /* grid/flex 子項目預設 min-width:auto，會被裡面 <input> 的內建最小寬度撐開，
    造成整排硬是比容器還寬而溢出——這裡逐層補上 min-width:0 讓它們真的能縮
-   （即使現在雙欄只在 >=768px 才出現，這條當防呆留著成本很低）。 */
+   （即使現在雙欄只在 >=768px 才出現，這條當防呆留著成本很低）。
+   margin-bottom:0 蓋掉 .book-form label 通用規則的 0.6rem 下邊距：兩兩一列的
+   欄位本來就已經靠 .basic-fields-col 的 gap 控制列與列之間的間距，label 自己
+   還留著下邊距等於同一段垂直空間疊加算了兩次，是這次「表單版面更緊湊」
+   摸出來的重複間距來源。其他還是單欄直向排列的表單（快速筆記／佳句／
+   願望清單／關係圖譜編輯…）不受影響，那些沒有 .basic-fields-row 包著，
+   本來就得靠 label 自己的 margin-bottom 撐開間距。 */
 .basic-fields-row > label {
   min-width: 0;
+  margin-bottom: 0;
 }
 
 /* 封面上傳區獨立成一個精緻的小卡片，跟左側純文字欄位視覺上明確區隔開來，
@@ -2487,7 +2489,7 @@ button.book-completed-date:hover {
 .field-hint {
   font-size: 0.8125rem;
   color: var(--text-muted);
-  margin: -0.15rem 0 0.4rem;
+  margin: -0.1rem 0 0.3rem;
 }
 
 .field-hint.field-warning {
