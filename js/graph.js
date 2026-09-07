@@ -189,19 +189,27 @@ function groupCardHtml(group, people, fallbackX, fallbackY) {
   `;
 }
 
-function ungroupedTrayHtml(people) {
+// 「未分組」卡片改成跟一般群組卡片同一套網格定位（見呼叫端 draw() 怎麼算
+// x/y），不再靠 CSS 寫死的 top:1rem/right:1rem 釘在畫布右側——那個位置是
+// 相對整個 .group-track（min-width:1400px）算的，不是相對實際看得到的
+// .canvas-wrap 視窗，畫布內容不夠寬、或視窗本身比 1400px 窄時，這張卡片
+// 會被切在可視範圍外面，100% 縮放下看起來像「右側被裁掉一半」。改成跟
+// 群組卡片同一套網格順序排列，永遠緊接在最後一個群組後面，內容有多少
+// 畫布就佔多少，不會再脫離實際內容範圍。
+function ungroupedTrayHtml(people, x, y) {
   return `
-    <div class="group-card ungrouped-tray">
+    <div class="group-card ungrouped-tray" style="left: ${x}px; top: ${y}px;">
       <div class="group-card-header">
         <span class="group-name-static">未分組</span>
       </div>
       <div class="group-card-body" data-drop-group="${UNGROUPED}">
         ${people.map(personItemHtml).join('')}
-        <p class="graph-hint" style="margin:0;">${people.length === 0 ? '沒有未分組的人物。' : '拖曳人物卡片到上面的群組即可分類。'}</p>
+        <p class="graph-hint" style="margin:0;">拖曳人物卡片到上面的群組即可分類。</p>
       </div>
     </div>
   `;
 }
+
 
 // 從中心點沿著直線方向，算出跟卡片矩形邊界的交點，讓連線停在卡片邊緣而不是穿過卡片中央。
 function edgePointOnRect(rect, center, towardPoint) {
@@ -483,6 +491,9 @@ export async function renderGraphPage(container, rawBookId) {
               <svg class="connections-overlay" id="connections-svg"></svg>
               <div class="group-track" id="group-track"></div>
             </div>
+            <div class="canvas-empty-state" id="canvas-empty-state" hidden>
+              <p>點擊右上角「＋ 新增群組」開始建立角色關係圖</p>
+            </div>
           </div>
         </div>
       </div>
@@ -518,6 +529,8 @@ export async function renderGraphPage(container, rawBookId) {
   const boardEl = container.querySelector('#canvas-board');
   const trackEl = container.querySelector('#group-track');
   const svgEl = container.querySelector('#connections-svg');
+  const canvasWrapEl = container.querySelector('#canvas-wrap');
+  const emptyStateEl = container.querySelector('#canvas-empty-state');
   const addGroupBtn = container.querySelector('#add-group-btn');
   const edgeForm = container.querySelector('#edge-form');
   const fromSelect = container.querySelector('#edge-from');
@@ -599,13 +612,26 @@ export async function renderGraphPage(container, rawBookId) {
     const GRID_COLS = 4;
     const GRID_COL_STEP = 240;
     const GRID_ROW_STEP = 280;
+    // 「未分組」卡片緊接在最後一個群組後面、用同一套網格順序排列（見
+    // ungroupedTrayHtml 開頭的說明）；完全沒有未分組人物時整張卡片不畫出來，
+    // 不留一張「沒有未分組的人物」的空卡片佔位置。
+    const ungroupedIndex = groups.length;
     trackEl.innerHTML = groups.map((g, i) => groupCardHtml(
       g,
       peopleByGroup.get(g.id) || [],
       20 + (i % GRID_COLS) * GRID_COL_STEP,
       20 + Math.floor(i / GRID_COLS) * GRID_ROW_STEP,
-    )).join('') + ungroupedTrayHtml(ungrouped)
+    )).join('') + (ungrouped.length > 0 ? ungroupedTrayHtml(
+      ungrouped,
+      20 + (ungroupedIndex % GRID_COLS) * GRID_COL_STEP,
+      20 + Math.floor(ungroupedIndex / GRID_COLS) * GRID_ROW_STEP,
+    ) : '')
       + `<datalist id="existing-people-list">${datalistOptions(nodes.map((n) => n.label))}</datalist>`;
+
+    // 畫布完全空白（沒有任何群組、也沒有任何人物）才顯示置中的引導文字——
+    // 只有群組數是 0 但還留著未分組人物的情況不算「完全空白」，上面的
+    // 未分組卡片本身已經有內容可以看，不需要再疊一句「這裡是空的」。
+    emptyStateEl.hidden = !(groups.length === 0 && nodes.length === 0);
 
     wireGroupCardEvents();
 
@@ -1023,8 +1049,13 @@ export async function renderGraphPage(container, rawBookId) {
   // 拿掉這個監聽器後，滾輪在 .canvas-wrap 上就是它原生 overflow:auto 的捲動行為。
 
   addGroupBtn.addEventListener('click', async () => {
-    await DB.add('groups', { bookId, name: '新群組', color: nextGroupColor(groups.length) });
+    const newGroupId = await DB.add('groups', { bookId, name: '新群組', color: nextGroupColor(groups.length) });
     await reload();
+    // 新群組永遠排在網格順序最後一格，畫布內容一多就可能落在目前捲動位置
+    // 看不到的地方——新增後自動把這張卡片捲進可視範圍，不用使用者自己
+    // 摸索著往下/往右找剛剛按下去到底新增在哪裡。
+    const newCardEl = trackEl.querySelector(`.group-card[data-group-id="${newGroupId}"]`);
+    if (newCardEl) newCardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   });
 
   edgeForm.addEventListener('submit', async (event) => {

@@ -4077,15 +4077,27 @@ button.book-completed-date:hover {
   flex-shrink: 0;
 }
 
+/* 字級從 13px 拉高到 15px、加中等字重——原本的 13px 太接近輔助說明文字的
+   份量感，使用者反映不容易第一眼注意到「這裡可以點回書籍」。padding／
+   負 margin 這組寫法（跟 .group-drag-handle 同一種手法）在不改變文字視覺
+   位置的前提下，把實際可點擊／hover 的區域往外撐大一圈，滑鼠移過去有
+   實際的底色反饋，不是只有文字變色。 */
 .graph-toolbar-back {
-  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9375rem;
+  font-weight: 500;
   color: var(--text-muted);
   white-space: nowrap;
-  transition: color 0.15s ease;
+  padding: 0.3rem 0.5rem;
+  margin: -0.3rem -0.5rem;
+  border-radius: 6px;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .graph-toolbar-back:hover {
   color: var(--text);
+  background: var(--surface-alt);
 }
 
 .graph-toolbar-title {
@@ -4199,6 +4211,7 @@ button.book-completed-date:hover {
 }
 
 .canvas-wrap {
+  position: relative;
   width: 100%;
   min-height: 480px;
   max-height: 640px;
@@ -4207,6 +4220,34 @@ button.book-completed-date:hover {
   border-radius: 8px;
   overflow: auto;
   padding: 2rem;
+}
+
+/* 畫布完全空白時置中顯示的引導文字——刻意當 .canvas-board 的手足層、不是
+   塞進 .group-track 裡面：.group-track 本身有 min-width:1400px/min-height:
+   900px 這種跟實際內容脫鉤的固定尺寸，塞在裡面置中算出來的位置是那個
+   1400x900 假想範圍的正中央，不是使用者真正看得到的可視畫布正中央。
+   絕對定位的手足元素以 .canvas-wrap（真正的可視邊界）當定位基準，不受
+   裡面內容捲動位置影響，也不會被 .canvas-board 的縮放 transform 一起
+   縮放，任何縮放比例下文字都維持清晰、置中。 */
+.canvas-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  pointer-events: none;
+  text-align: center;
+}
+
+.canvas-empty-state p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.canvas-empty-state[hidden] {
+  display: none;
 }
 
 /* 全螢幕展繪：作用對象是 #graph-app-container（工具列＋畫布＋側邊抽屜整個外層 wrapper），
@@ -4318,11 +4359,14 @@ button.book-completed-date:hover {
   cursor: grabbing;
 }
 
+/* 位置改成跟一般群組卡片同一套 left/top inline style（見 js/graph.js 的
+   ungroupedTrayHtml／draw()），不再靠這裡的 top:1rem/right:1rem 寫死釘在
+   .group-track 右側——那個位置是相對整個 1400px 寬的畫布算的，跟使用者
+   實際看得到的可視範圍脫鉤，是「未分組卡片在 100% 縮放時被右側裁掉一半」
+   的根因，這裡只留視覺樣式（虛線邊框），定位交給 inline style。 */
 .group-card.ungrouped-tray {
   border-style: dashed;
   border-color: var(--border);
-  top: 1rem;
-  right: 1rem;
 }
 
 .group-card-header {
