@@ -220,18 +220,26 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
         // note 是從 getNotesForBook() 撈出來的 notes 陣列裡找到的，那個陣列
         // 本身為了合併清單渲染／判斷來源，每一筆都額外多貼了一個 _source:
         // 'notes' 標記（見該函式的說明）——這個標記只是畫面渲染用的旗標，
-        // 不是 notes 資料表真正的欄位。這裡曾經直接 { ...note, ... } 整包
-        // 送進 DB.update()，_source 也跟著一起被塞進 UPDATE 的 SET 子句，
-        // Supabase 找不到這個欄位就直接整個更新失敗（實測回報的真實錯誤：
-        // 「Could not find the '_source' column of 'notes' in the schema
-        // cache」）——本機 IndexedDB 版本不會出現這個問題（LocalDB.update()
-        // 用 put() 整包物件覆蓋，多一個不存在 schema 概念的欄位不會報錯），
-        // 只有登入雲端帳號、真的打到 Supabase 才會爆炸，這也是為什麼先前
-        // 這裡只補了防呆的 try/catch 卻還沒抓到根因——上一輪的錯誤處理沒有
-        // 白做，效果是先前這個失敗會完全沒有任何提示、現在至少會顯示
-        // 明確的錯誤訊息，這次才真的把訊息指出來的根因修掉。
+        // 不是 notes 資料表真正的欄位，這裡要排除掉，不能整包 { ...note }
+        // 送進 DB.update()。
+        //
+        // updatedAt 也要整個拿掉，不是排除——這是這次真正的根因。這一行
+        // 從很早以前加入行內編輯功能的那個 commit 起就一直長這樣：
+        // { ...note, text: newText, updatedAt: new Date().toISOString() }，
+        // 但對照 supabase/schema.sql，notes 資料表的欄位只有
+        // id／user_id／bookId／text／createdAt，從來就沒有 updatedAt 這一
+        // 欄（reading_records 表才有 updatedAt，兩張表結構不一樣，不能
+        // 套用同一份假設）。本機 IndexedDB 的 LocalDB.update() 用 put()
+        // 整包物件覆蓋，多寫一個不存在 schema 概念的欄位不會報錯，這個
+        // bug 因此在本機模式下完全測不出來，只有真的打到 Supabase 才會
+        // 用「Could not find the 'updatedAt' column of 'notes' in the
+        // schema cache」這種訊息炸開——這也是為什麼修掉 _source 那一輪
+        // 之後，使用者回報「新增筆記可以存、但編輯已有的筆記還是存不了」：
+        // _source／updatedAt 是兩個各自獨立、剛好疊在同一個 payload 裡的
+        // 無效欄位，Supabase 一次只回報其中一個，修掉先報的那個之後，
+        // 第二個才輪到被看見，不是同一個問題修了兩次。
         const { _source, ...noteFields } = note;
-        await DB.update('notes', { ...noteFields, text: newText, updatedAt: new Date().toISOString() });
+        await DB.update('notes', { ...noteFields, text: newText });
         showToast('閱讀心得已儲存');
         await renderPersonalNotes(container, bookId, { onQuoteAdded });
       } catch (error) {
