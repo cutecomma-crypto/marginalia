@@ -217,7 +217,21 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
       btn.textContent = '儲存中…';
       if (cancelBtn) cancelBtn.disabled = true;
       try {
-        await DB.update('notes', { ...note, text: newText, updatedAt: new Date().toISOString() });
+        // note 是從 getNotesForBook() 撈出來的 notes 陣列裡找到的，那個陣列
+        // 本身為了合併清單渲染／判斷來源，每一筆都額外多貼了一個 _source:
+        // 'notes' 標記（見該函式的說明）——這個標記只是畫面渲染用的旗標，
+        // 不是 notes 資料表真正的欄位。這裡曾經直接 { ...note, ... } 整包
+        // 送進 DB.update()，_source 也跟著一起被塞進 UPDATE 的 SET 子句，
+        // Supabase 找不到這個欄位就直接整個更新失敗（實測回報的真實錯誤：
+        // 「Could not find the '_source' column of 'notes' in the schema
+        // cache」）——本機 IndexedDB 版本不會出現這個問題（LocalDB.update()
+        // 用 put() 整包物件覆蓋，多一個不存在 schema 概念的欄位不會報錯），
+        // 只有登入雲端帳號、真的打到 Supabase 才會爆炸，這也是為什麼先前
+        // 這裡只補了防呆的 try/catch 卻還沒抓到根因——上一輪的錯誤處理沒有
+        // 白做，效果是先前這個失敗會完全沒有任何提示、現在至少會顯示
+        // 明確的錯誤訊息，這次才真的把訊息指出來的根因修掉。
+        const { _source, ...noteFields } = note;
+        await DB.update('notes', { ...noteFields, text: newText, updatedAt: new Date().toISOString() });
         showToast('閱讀心得已儲存');
         await renderPersonalNotes(container, bookId, { onQuoteAdded });
       } catch (error) {
@@ -253,7 +267,21 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
       const id = Number(input.dataset.id);
       const item = reflections.find((r) => r.id === id);
       if (!item) return;
-      await DB.update('outputs', { ...item, date: input.value });
+      // item 來自 getLegacyReflectionsForBook()，跟上面 .output-save-edit
+      // 的 note 是同一種情況——那個函式為了合併清單渲染多貼了 _source／
+      // _kind 兩個純畫面用的標記（不是 outputs 資料表真正的欄位），
+      // 一起被 { ...item } 整包送進 DB.update() 的話，登入雲端帳號時
+      // Supabase 會因為找不到這兩個欄位直接報錯、更新失敗（跟 _source
+      // 導致 notes 更新失敗是同一種根因，這裡一併修掉，不留同一顆地雷）。
+      const { _source, _kind, ...itemFields } = item;
+      try {
+        await DB.update('outputs', { ...itemFields, date: input.value });
+        showToast('日期已更新');
+      } catch (error) {
+        showToast(`更新失敗：${error?.message || String(error)}`, 6000);
+        console.error('[Marginalia 閱讀心得] 更新心得日期失敗：', error);
+        input.value = item.date || '';
+      }
     });
   });
 
