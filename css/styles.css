@@ -5676,3 +5676,68 @@ button.book-completed-date:hover {
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(35, 27, 20, 0.35);
 }
+
+/* 「所有書籍」列表頁「回到頂部」懸浮按鈕：預設用 opacity:0＋
+   pointer-events:none 藏起來（不是 display:none，淡入淡出才能靠
+   transition 過渡，不會像切換 display 那樣一格一格硬跳），捲動超過
+   300px（見 bookList.js 的 BACK_TO_TOP_THRESHOLD／onWindowScroll）才
+   加上 .is-visible 浮現，同時往上位移一小段，淡入的同時帶一點「浮起來」
+   的動態。z-index:50——比一般頁面內容高，但刻意低於批量操作列（210）／
+   Modal（200+）／各種抽屜（100+），萬一畫面上同時有批量操作列，批量
+   操作列理所當然疊在上面，不會被這顆純輔助性質的按鈕擋住或搶走視覺
+   焦點。 */
+.back-to-top-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(35, 27, 20, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.back-to-top-btn.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* Hover／觸控微幅放大＋顏色轉深，跟全站其餘可點擊圖示按鈕（例如
+   .view-mode-toggle-btn）同一種「莫蘭迪 Accent 色 Hover」語言，不是
+   另外發明一套新的互動視覺。 */
+.back-to-top-btn:hover,
+.back-to-top-btn:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  transform: translateY(0) scale(1.08);
+}
+
+.back-to-top-btn .ui-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+/* 批量操作列（.batch-action-bar，見該規則的說明）也是固定在畫面底部的
+   浮動列，手機寬度下橫向幾乎撐滿整條，z-index（210）又比這顆按鈕
+   （50）高——實測勾選書籍、批量操作列真的浮出來時，兩者垂直範圍會
+   重疊，這顆按鈕會被完全蓋在批量操作列底下，變得看不到也點不到（不是
+   壞掉，只是暫時被蓋住，取消勾選、批量操作列收起來後又會恢復正常）。
+   用 :has() 偵測批量操作列目前是不是真的显示中（沒有 [hidden]），只有
+   這個情況才把按鈕往上推，讓出批量操作列的高度＋一點間距，其餘情況
+   完全不受影響——這個手法跟 #graph-app-container:has(.graph-drawer.
+   is-open) 那條既有規則是同一種寫法，不是這裡第一次引入 :has()。 */
+body:has(.batch-action-bar:not([hidden])) .back-to-top-btn {
+  bottom: 132px;
+}

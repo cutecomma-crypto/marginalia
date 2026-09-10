@@ -5,7 +5,7 @@ import { renderDashboardSidebar } from './dashboardSidebar.js';
 import { loadRecordByBookMap, filterBooksCompletedInYear, filterBooksByStatus, filterBooksByAuthor, filterBooksByCategory } from './bookStats.js';
 import { openWishlistDrawer } from './wishlist.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
-import { ICON_SPARKLES } from './icons.js';
+import { ICON_SPARKLES, ICON_CHEVRON_UP } from './icons.js';
 import { CLOSE_ICON, LIST_ICON, GRID_ICON, bookListToolbarHtml } from './bookListToolbar.js';
 import { bookTableHtml, bookGalleryHtml } from './bookListRowTemplates.js';
 import { buildSearchIndex } from './bookListSearch.js';
@@ -86,6 +86,7 @@ export async function renderBookList(container) {
         <div id="book-pagination"></div>
       </div>
     </div>
+    <button type="button" class="back-to-top-btn" id="back-to-top-btn" aria-label="回到頂部">${ICON_CHEVRON_UP}</button>
   `;
 
   container.querySelector('#open-wishlist-btn').addEventListener('click', () => openWishlistDrawer());
@@ -139,6 +140,22 @@ export async function renderBookList(container) {
   // 這個 Set 本身才是「唯一事實來源」，checkbox 的 checked 屬性只是照它畫出來的結果。
   const selectedIds = new Set();
 
+  // 「回到頂部」懸浮按鈕：預設用 opacity/pointer-events 藏起來（見
+  // css/styles.css 的 .back-to-top-btn），捲動超過 300px 才浮現，點下去
+  // 平滑捲回最上方。監聽器掛在 window 上（這個頁面本身就是讓整個視窗
+  // 捲動，不是在某個內層容器裡各自 overflow:auto），不是掛在 container
+  // 上——container 每次 renderList() 重繪都只會換掉裡面的內容，不會捲動，
+  // 真正在捲的是 window。
+  const backToTopBtn = container.querySelector('#back-to-top-btn');
+  const BACK_TO_TOP_THRESHOLD = 300;
+  function onWindowScroll() {
+    backToTopBtn.classList.toggle('is-visible', window.scrollY > BACK_TO_TOP_THRESHOLD);
+  }
+  window.addEventListener('scroll', onWindowScroll, { passive: true });
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
   // 批量操作列本身是掛在 document.body 上的單例元素（見 utils.js 的
   // updateBatchActionBar()），離開這頁（切到書籍詳情頁、資料管理頁……）
   // 要記得清空選取＋收起面板，不然面板會跟著單例元素一起「越權」浮在
@@ -146,7 +163,17 @@ export async function renderBookList(container) {
   // 是同一種必要防線，不是預防性猜測（這裡曾經只清空 selectedIds 這個
   // Set，沒有真的呼叫 updateBatchActionBar() 讓面板跟著收起，畫面上的
   // 面板其實不會消失，是實測抓到的真實問題，不是預防性猜測）。
+  // 順手在同一個 hashchange 監聽器裡把上面的 scroll 監聽器也拆掉——
+  // scroll 事件觸發頻率遠高於 hashchange，掛在 window 上的監聽器不會
+  // 因為 container.innerHTML 被換掉就自動消失，同一個分頁裡多次進出
+  // 「所有書籍」頁不清掉的話，捲動一次會疊加觸發好幾次（每累積一次
+  // 造訪就多一個），沒有實際的視覺錯誤（純粹是切換一個 class，重複執行
+  // 是幂等的），但白白浪費效能；跟這個監聽器本身「重複掛也不會壞」
+  // 的既有寫法一樣，重複呼叫 removeEventListener 移除同一個 onWindowScroll
+  // 函式參考也是安全的（第二次之後都是無效果的 no-op），不會誤刪別次
+  // 造訪掛上的監聽器。
   window.addEventListener('hashchange', () => {
+    window.removeEventListener('scroll', onWindowScroll);
     selectedIds.clear();
     updateBatchActionBar(selectedIds, []);
   });

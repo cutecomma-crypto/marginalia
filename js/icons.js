@@ -66,3 +66,6 @@ export const ICON_MOON = icon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></pa
 // 書籍列表「篩選與批量」按鈕：漏斗形狀是篩選功能的通用符號，使用者不用讀文字
 // 也能一眼認出這是「進階選項收在這裡」。
 export const ICON_FILTER = icon('<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>');
+
+// 「回到頂部」懸浮按鈕用的向上箭頭符號。
+export const ICON_CHEVRON_UP = icon('<polyline points="18 15 12 9 6 15"></polyline>');
