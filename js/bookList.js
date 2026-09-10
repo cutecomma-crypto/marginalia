@@ -86,7 +86,7 @@ export async function renderBookList(container) {
         <div id="book-pagination"></div>
       </div>
     </div>
-    <button type="button" class="back-to-top-btn" id="back-to-top-btn" aria-label="回到頂部">${ICON_CHEVRON_UP}</button>
+    <button type="button" class="back-to-top-btn" id="back-to-top-btn" data-tooltip="回到頂部" aria-label="回到頂部">${ICON_CHEVRON_UP}</button>
   `;
 
   container.querySelector('#open-wishlist-btn').addEventListener('click', () => openWishlistDrawer());
