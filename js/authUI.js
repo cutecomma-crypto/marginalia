@@ -235,10 +235,27 @@ function handlePasswordRecoveryRedirect() {
   openAuthModal('reset');
 }
 
+// 註冊驗證信裡的連結會把使用者導回這個網站、網址帶著
+// #access_token=...&type=signup 這種 hash 片段——跟上面忘記密碼信的
+// type=recovery 是同一種機制（Supabase Auth 的「implicit flow」，靠 hash
+// 帶 token，不是 ?code= 那種 PKCE flow），差別只在 type 這個欄位的值。
+// Supabase client 初始化時已經自動吃掉這段 hash、直接建立登入 session
+// （不像 recovery 只是暫時性的、要等使用者設完新密碼才算數，這裡是
+// 貨真價實的登入完成），這裡只需要判斷「網址曾經帶著 type=signup」，
+// 把 hash 清乾淨換成 #/books，並跳一句專屬的成功提示——不然使用者點完
+// 驗證信裡的連結、Safari／瀏覽器跳回網站，畫面上只是安靜地把 header
+// 右上角換成登入狀態，很容易讓人誤以為連結是不是點錯了、根本沒生效。
+function handleEmailConfirmationRedirect() {
+  if (!window.location.hash.includes('type=signup')) return;
+  history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/books`);
+  showToast('Email 驗證成功，歡迎登入！');
+}
+
 export async function initAuthUI() {
   if (!isSupabaseConfigured()) return; // 沒設定 Supabase：不掛任何 UI、不監聽，本機模式維持原樣
   await renderAuthSlot();
   handlePasswordRecoveryRedirect();
+  handleEmailConfirmationRedirect();
   onAuthStateChange(async (user, event) => {
     await renderAuthSlot();
     if (user) {

@@ -58,10 +58,25 @@ export function onAuthStateChange(callback) {
   return () => listeners.delete(callback);
 }
 
+// 註冊驗證信／重設密碼信裡的連結要跳回「使用者當下實際在用的這個網址」，
+// 不能讓 Supabase 落回專案後台「Authentication → URL Configuration」裡
+// 設定的 Site URL 當預設值——那個值常常還停在建立專案當下填的
+// http://localhost:3000（或類似的開發用網址），使用者在手機的 Gmail App
+// 點信裡的連結時，Safari 會直接顯示「無法連接伺服器」，因為手機根本連不到
+// 電腦上的 localhost。兩個寄信的操作（signUp／resetPasswordForEmail）
+// 共用同一份算法，不要各自重複寫一次。
+function currentSiteUrl() {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
 export async function signUp(email, password) {
   const supabase = await getSupabaseClient();
   if (!supabase) throw new Error('尚未設定 Supabase，無法註冊。');
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: currentSiteUrl() },
+  });
   if (error) throw error;
   return data;
 }
@@ -84,7 +99,7 @@ export async function resetPasswordForEmail(email) {
   const supabase = await getSupabaseClient();
   if (!supabase) throw new Error('尚未設定 Supabase，無法寄送重設密碼信。');
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}${window.location.pathname}`,
+    redirectTo: currentSiteUrl(),
   });
   if (error) throw error;
 }
