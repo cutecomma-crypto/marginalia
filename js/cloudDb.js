@@ -103,16 +103,54 @@ async function getById(storeName, id) {
 const pendingGetAlls = new Map();
 const inFlightBackgroundRefreshes = new Set();
 
+// Supabase 專案曾經因為 exceed_egress_quota（流量超標）被限制服務——事後
+// 稽核找到的最大宗流量元凶：書籍列表頁、書籍表單、分類管理、統計、標籤……
+// 全站十幾個地方都各自呼叫過一次 DB.getAll('books')，每一次只要背後真的
+// 打到網路，Supabase 就會把每一本書的 coverImage（見 bookForm.js 的
+// resizeImageToDataUrl，壓縮過仍是幾十到上百 KB 的 base64 圖片字串）整包
+// 傳一次——藏書上百本的帳號，光是「切換頁面時背景偷偷刷新一次快取」就是
+// 好幾 MB 流量，一天正常瀏覽下來（列表↔詳情頁來回好幾趟、開分類管理、
+// 開統計面板……）很容易就是幾十 MB，累積起來就是 exceed_egress_quota
+// 的真正成因。
+// 解法分兩層：
+//   1. BOOKS_LIST_COLUMNS：books 表唯一的「大欄位」只有 coverImage，全站
+//      目前只有書籍詳情頁／編輯表單／封面網格卡片真的需要顯示封面圖，其餘
+//      全部呼叫端（作者統計、分類管理、統計面板、標籤、Notion 匯入判斷
+//      重複標題……）都只讀書名/作者/分類這類小欄位——列表層級的查詢
+//      （getAll、以及下面的背景刷新）改成明講欄位清單、排除 coverImage，
+//      不影響任何一個現有呼叫端的行為，因為沒有人在讀 getAll() 撈回來的
+//      coverImage。書籍詳情頁／編輯表單走的是 getById()（單筆），封面
+//      網格卡片改用下面新增的 getBookCovers()（見該函式的說明）另外
+//      單獨、範圍受限地補回封面，兩者都不受這裡影響。
+//   2. BACKGROUND_REFRESH_COOLDOWN_MS：即使排除掉封面圖，同一個 store
+//      被好幾個地方各自獨立呼叫 getAll() 時，光是「基本欄位」本身重複抓
+//      一輪也是浪費——原本的 inFlightBackgroundRefreshes 只擋得住「完全
+//      同時／前一次還沒做完」的重複請求，擋不住「切換頁面、隔了幾秒鐘
+//      又呼叫一次 getAll()」這種循序但頻繁的情境。加一個以「上次刷新
+//      完成時間」為準的冷卻時間，冷卻中的呼叫直接沿用當下的快取內容，
+//      不再多打一次網路請求——對應使用者這次要求的「加入簡單的數據快取，
+//      避免切換頁籤時重複向資料庫抓取相同書籍資料」。
+const BOOKS_LIST_COLUMNS = 'id,title,author,publisher,category,format,retentionStatus,libraryBorrowType,libraryName,lentTo,publishDate,purchaseDate,purchasePrice,tags,createdAt';
+const BACKGROUND_REFRESH_COOLDOWN_MS = 60 * 1000;
+const lastBackgroundRefreshAt = new Map();
+
+function listSelectColumns(storeName) {
+  return storeName === 'books' ? BOOKS_LIST_COLUMNS : '*';
+}
+
 function refreshCacheInBackground(storeName, supabase, userId) {
   if (inFlightBackgroundRefreshes.has(storeName)) return;
+  const lastAt = lastBackgroundRefreshAt.get(storeName) || 0;
+  if (Date.now() - lastAt < BACKGROUND_REFRESH_COOLDOWN_MS) return;
   inFlightBackgroundRefreshes.add(storeName);
   (async () => {
     try {
-      const { data, error } = await supabase.from(storeName).select('*').eq('user_id', userId);
+      const { data, error } = await supabase.from(storeName).select(listSelectColumns(storeName)).eq('user_id', userId);
       if (error) throw error;
       const fresh = data || [];
       const previousJson = JSON.stringify(await readCacheIfPresent(storeName));
       await writeCache(storeName, fresh);
+      lastBackgroundRefreshAt.set(storeName, Date.now());
       if (JSON.stringify(fresh) !== previousJson) {
         window.dispatchEvent(new CustomEvent('marginalia:cloud-cache-updated', { detail: { store: storeName } }));
       }
@@ -146,10 +184,13 @@ function getAll(storeName) {
       }
 
       const supabase = await client();
-      const { data, error } = await supabase.from(storeName).select('*').eq('user_id', userId);
+      const { data, error } = await supabase.from(storeName).select(listSelectColumns(storeName)).eq('user_id', userId);
       if (error) throw error;
       const records = data || [];
-      if (isCacheable(storeName)) await writeCache(storeName, records);
+      if (isCacheable(storeName)) {
+        await writeCache(storeName, records);
+        lastBackgroundRefreshAt.set(storeName, Date.now());
+      }
       return records;
     } catch (error) {
       reportIfNetworkError(error);
@@ -166,6 +207,25 @@ async function getByIndex(storeName, indexName, value) {
   try {
     const supabase = await client();
     const { data, error } = await supabase.from(storeName).select('*').eq('user_id', requireUserId()).eq(indexName, value);
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    reportIfNetworkError(error);
+    throw error;
+  }
+}
+
+// 見上面 BOOKS_LIST_COLUMNS 的說明：getAll('books') 不再帶封面圖，封面
+// 網格檢視（bookList.js 的 bookGalleryHtml）需要真的顯示封面時，改叫這個
+// 函式單獨補回來——只帶「目前這一頁實際會畫出來的書」的 id（受分頁筆數
+// 限制，最多 12/24/50 本，使用者主動選「全部」才會是整個書庫），不是
+// 每次都撈全部藏書的封面，流量成本直接跟「畫面上看得到幾張封面」成正比，
+// 不是跟「書庫總共有幾本書」成正比。
+async function getBookCovers(ids) {
+  if (!ids || ids.length === 0) return [];
+  try {
+    const supabase = await client();
+    const { data, error } = await supabase.from('books').select('id,coverImage').eq('user_id', requireUserId()).in('id', ids);
     if (error) throw error;
     return data || [];
   } catch (error) {
@@ -247,6 +307,7 @@ export const CloudDB = {
   getById,
   getAll,
   getByIndex,
+  getBookCovers,
   update,
   remove,
   removeByIndex,

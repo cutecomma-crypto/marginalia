@@ -94,6 +94,17 @@ function getByIndex(storeName, indexName, value) {
   }));
 }
 
+// 對齊 cloudDb.js 的 getBookCovers()——本機 IndexedDB 沒有流量成本，
+// getAll('books') 本來就一直是完整資料（含封面），這裡單純從已經在本機
+// 的資料裡挑出呼叫端要的那幾本，回傳形狀跟雲端版一致，呼叫端不用分本機
+// 雲端各寫一套判斷。
+async function getBookCovers(ids) {
+  if (!ids || ids.length === 0) return [];
+  const idSet = new Set(ids);
+  const allBooks = await getAll('books');
+  return allBooks.filter((b) => idSet.has(b.id)).map((b) => ({ id: b.id, coverImage: b.coverImage }));
+}
+
 function update(storeName, record) {
   return openDB().then((db) => new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, 'readwrite');
@@ -134,6 +145,7 @@ export const LocalDB = {
   getById,
   getAll,
   getByIndex,
+  getBookCovers,
   update,
   remove,
   removeByIndex,

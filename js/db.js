@@ -33,6 +33,7 @@ export const DB = {
   getById: route('getById'),
   getAll: route('getAll'),
   getByIndex: route('getByIndex'),
+  getBookCovers: route('getBookCovers'),
   update: route('update'),
   remove: route('remove'),
   removeByIndex: route('removeByIndex'),

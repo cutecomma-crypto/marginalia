@@ -297,7 +297,23 @@ export async function renderBookList(container) {
     return entries;
   }
 
-  function renderList() {
+  // 封面網格檢視才需要真的顯示封面圖，表格檢視完全用不到——見 db.js／
+  // cloudDb.js 的 getBookCovers() 說明，books 現在的 getAll() 不會帶封面，
+  // 這裡只在真的要畫網格卡片時，針對「這一頁」還沒補過封面的書額外抓一次。
+  // 用 book.coverImage === undefined（不是假值判斷）分辨「還沒查過」跟
+  // 「查過、確定沒有封面」，查過的直接原地記在 books 陣列的同一個物件上，
+  // 換頁再換回來、或切回表格再切回網格，都不會為同一批書重複補抓。
+  async function ensureCoversLoaded(pageItems) {
+    const missing = pageItems.filter((b) => b.coverImage === undefined);
+    if (missing.length === 0) return;
+    const covers = await DB.getBookCovers(missing.map((b) => b.id));
+    const coverById = new Map(covers.map((c) => [c.id, c.coverImage || '']));
+    for (const book of missing) {
+      book.coverImage = coverById.get(book.id) ?? '';
+    }
+  }
+
+  async function renderList() {
     const query = searchInput.value.trim().toLowerCase();
     const searched = query
       ? index.filter((entry) => entry.searchText.includes(query)).map((entry) => entry.book)
@@ -340,6 +356,7 @@ export async function renderBookList(container) {
       }
       paginationEl.innerHTML = '';
     } else {
+      if (viewMode === 'gallery') await ensureCoversLoaded(pageItems);
       bodyEl.innerHTML = viewMode === 'gallery'
         ? bookGalleryHtml(pageItems, favoriteAuthors, recordMap, selectedIds)
         : bookTableHtml(pageItems, favoriteAuthors, recordMap, selectedIds);
@@ -493,9 +510,19 @@ export async function renderBookList(container) {
     openStatusPopover(trigger, book, recordMap, () => renderList());
   });
 
+  // 搜尋框加 300ms 防抖：搜尋本身是純前端在已經抓好的 books／index 陣列裡
+  // 做子字串比對（見 renderList() 開頭），不會因為打字而額外打一次資料庫，
+  // 但封面網格檢視每次 renderList() 都會呼叫 ensureCoversLoaded() 幫「這一頁」
+  // 還沒補過封面的書額外查一次（見該函式的說明）——連續打字、每個字都觸發
+  // 一次搜尋结果變化的話，網格檢視下就會變成每個字都補抓一次封面。防抖讓
+  // 使用者停手 300ms 才真的重新渲染／視需要補抓封面，不是每個按鍵都觸發。
+  let searchDebounceTimer = null;
   searchInput.addEventListener('input', () => {
-    currentPage = 1;
-    renderList();
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      currentPage = 1;
+      renderList();
+    }, 300);
   });
   sortSelect.addEventListener('change', () => {
     currentPage = 1;
