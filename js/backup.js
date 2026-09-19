@@ -62,13 +62,70 @@ function validateImportShape(parsed) {
   return null;
 }
 
+// 每張表裡「指向別的表」的外鍵欄位，跟它實際指向哪一張表——還原時要用
+// 這份對照表，把備份檔裡的舊 id 換成這次重新寫入後拿到的新 id（見下面
+// importAllData 的完整說明）。
+const FOREIGN_KEY_FIELDS = {
+  reading_records: { bookId: 'books' },
+  outputs: { bookId: 'books' },
+  notes: { bookId: 'books' },
+  groups: { bookId: 'books' },
+  nodes: { bookId: 'books', groupId: 'groups' },
+  edges: { bookId: 'books', fromNodeId: 'nodes', toNodeId: 'nodes' },
+  quotes: { bookId: 'books' },
+};
+
+// 這裡原本是 DB.clear() 全部清空之後，逐筆呼叫 DB.update(storeName, record)
+// 把備份檔案裡的資料「原封不動」（含原本的 id）寫回去——這在本機模式（登出
+// 狀態，DB 指向 LocalDB）沒有問題：LocalDB.update() 底層用 IndexedDB 的
+// put()，put() 對「這個 id 目前不存在」的情況一樣會直接新增一筆，等同
+// upsert。
+//
+// 但登入雲端帳號時（DB 指向 CloudDB），update() 對應的是 Postgres 的
+// UPDATE ... WHERE id = X：如果 id 為 X 的那一列根本不存在（剛清空的資料庫
+// 本來就没有任何一列），這條 UPDATE 會「成功執行、但完全沒有任何一列被
+// 改到」——Supabase 不會回傳錯誤，因為語法上這確實是一次合法、只是碰巧
+// 沒有東西可以更新的 UPDATE。程式碼原本沒有檢查「這次到底真的改到幾
+// 列」，只要沒有 error 就當作成功，於是出現「畫面上顯示還原完成、資料
+// 也在瀏覽器本機快取裡看得到（因為寫快取那一步是各自獨立執行、不看
+// UPDATE 有沒有真的生效），但其實一筆都没有真正寫進 Supabase」的靜默
+// 失敗——這正是使用者實測回報「還原後書籍一度看得到、但重新整理幾次
+// 之後全部消失」的真正成因：背景快取刷新真正去問 Supabase 時，问到的
+// 是「其實從頭到尾都是空的」，用這個真相蓋掉了本機快取裡那份從未真正
+// 生效的內容。
+//
+// 修法是全面改用 DB.add()（永遠是真正的 INSERT，不會有「目標列不存在」
+// 這種問題），但這樣一來，備份檔案裡記錄的舊 id（例如某筆閱讀紀錄的
+// bookId: 42）就對不上重新 INSERT 後、資料庫／IndexedDB 重新指派的新 id
+// 了——這跟 cloudMigration.js 的 migrateLocalToCloud() 处理「本機資料
+// 搬去雲端」時面對的是同一個問題，這裡採用同一套解法：依照
+// DB.STORE_NAMES 既有的順序（books 一定排在 reading_records／groups
+// 等等引用它的表之前，groups 排在 nodes 之前，nodes 排在 edges 之前，
+// 順序本身已經天生符合外鍵相依性，不用另外重新排序），一邊寫入一邊用
+// idMap 記住「這張表裡，舊 id 對應到新 id 是多少」，輪到有外鍵欄位
+// （見上面 FOREIGN_KEY_FIELDS）的表時，先把欄位值換成已經記錄好的新
+// id，再寫入。
 async function importAllData(data) {
   for (const storeName of DB.STORE_NAMES) {
     await DB.clear(storeName);
   }
+  const idMap = {};
+  for (const storeName of DB.STORE_NAMES) idMap[storeName] = new Map();
+
   for (const storeName of DB.STORE_NAMES) {
+    const fkFields = FOREIGN_KEY_FIELDS[storeName];
     for (const record of data[storeName] || []) {
-      await DB.update(storeName, record);
+      const { id: oldId, ...rest } = record;
+      if (fkFields) {
+        for (const [field, targetStore] of Object.entries(fkFields)) {
+          const oldValue = rest[field];
+          if (oldValue != null && idMap[targetStore].has(oldValue)) {
+            rest[field] = idMap[targetStore].get(oldValue);
+          }
+        }
+      }
+      const newId = await DB.add(storeName, rest);
+      if (oldId != null) idMap[storeName].set(oldId, newId);
     }
   }
 }
@@ -154,6 +211,13 @@ export async function renderBackupPage(container) {
         fileInput.value = '';
         return;
       }
+      // importAllData() 現在改成逐筆真正呼叫 DB.add()（見該函式的完整說明），
+      // 登入雲端帳號時每一筆都是一次真正的網路請求，資料量大（例如這裡
+      // 一次 300 多本書＋等量的閱讀紀錄）加起來可能要等上一兩分鐘，不是
+      // 以前那種幾乎瞬間完成的本機寫入——先讓按鈕呈現「還原中」、鎖住不能
+      // 再按第二次，使用者才不會誤以為卡住而重複點擊，實際上是正常在跑。
+      importBtn.disabled = true;
+      statusEl.textContent = '還原中，資料量較大時可能需要一兩分鐘，請耐心等候……';
       await importAllData(parsed.data);
       fileInput.value = '';
       // renderBackupPage 會整個重繪這個 container（含 statusEl 自己），要重繪完再設訊息，
@@ -161,7 +225,11 @@ export async function renderBackupPage(container) {
       await renderBackupPage(container);
       container.querySelector('#import-status').textContent = '還原完成，資料已更新。';
     } catch (err) {
-      statusEl.textContent = `匯入失敗，沒有變更任何資料：檔案不是有效的 JSON（${err.message}）`;
+      // importAllData() 現在會真的丟出網路／資料庫層級的例外（不只是 JSON
+      // 格式錯誤），錯誤訊息改成不預設是哪一種問題，直接印出實際的錯誤內容，
+      // 使用者才看得出來到底是什麼原因、能不能重試。
+      statusEl.textContent = `還原失敗：${err.message || String(err)}（部分資料可能已寫入，建議重新整理頁面確認目前狀態後再試一次）`;
+      importBtn.disabled = false;
       fileInput.value = '';
     }
   });
