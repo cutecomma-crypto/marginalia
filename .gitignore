@@ -3,3 +3,6 @@
 *.png
 !favicon.png
 _serve_nocache.py
+node_modules/
+package.json
+package-lock.json
