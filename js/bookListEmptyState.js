@@ -32,14 +32,36 @@ export function emptyLibraryStateHtml() {
   `;
 }
 
+// 範例書籍的封面圖——刻意不是抓真實出版社的封面照片（那些是有版權的圖片，
+// 不適合放進公開站台的原始碼裡），改成用網站自己既有的莫蘭迪配色語言，
+// 現畫一張純文字排版的簡約書封（書名＋作者＋一圈細框線），效果比空白的
+// 書本圖示佔位符好看，也完全不涉及版權問題。
+// SVG 直接用 encodeURIComponent 包成 data URI（不是 base64）：內容含中文字，
+// btoa() 只吃得下單位元組字元，中文字會直接丟出 InvalidCharacterError，
+// 這裡不用另外處理 UTF-8 轉換，encodeURIComponent 對 Unicode 字元天生就
+// 沒有這個限制。
+function sampleCoverDataUri(bg, title, author) {
+  const accent = '#F8F6F0';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600">`
+    + `<rect width="400" height="600" fill="${bg}"/>`
+    + `<rect x="24" y="24" width="352" height="552" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.55"/>`
+    + `<rect x="30" y="30" width="340" height="540" fill="none" stroke="${accent}" stroke-width="1" opacity="0.35"/>`
+    + `<text x="200" y="270" font-family="Georgia, 'Songti TC', 'STSong', serif" font-size="42" font-weight="700" fill="${accent}" text-anchor="middle">${title}</text>`
+    + `<line x1="150" y1="310" x2="250" y2="310" stroke="${accent}" stroke-width="1" opacity="0.6"/>`
+    + `<text x="200" y="345" font-family="Georgia, 'Songti TC', 'STSong', serif" font-size="18" fill="${accent}" opacity="0.85" text-anchor="middle">${author}</text>`
+    + `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 // 範例書籍刻意挑三種不同閱讀狀態（已讀完＋評分／閱讀中／尚未閱讀）跟三個不同
 // 分類，讓新使用者一載入就能同時看到列表、側邊欄「年度已讀進度」「藏書分類
 // 統計」這幾個核心功能實際運作起來的樣子，不是三本內容完全相同、只有書名不同
-// 的空殼資料。
+// 的空殼資料。三個背景色沿用 graph.js 的 GROUP_COLOR_PALETTE 既有色票（莫蘭迪棕／
+// 霧藍／陶土橙），不是另外發明新顏色。
 const SAMPLE_BOOKS = [
-  { title: '原子習慣', author: '詹姆斯．克利爾', category: '自我提升', status: '已讀完', rating: 5, daysAgo: 20 },
-  { title: '人類大歷史', author: '哈拉瑞', category: '社會科學', status: '閱讀中', rating: 0, daysAgo: 0 },
-  { title: '小王子', author: '安東尼．聖修伯里', category: '歐美文學', status: '尚未閱讀', rating: 0, daysAgo: 0 },
+  { title: '原子習慣', author: '詹姆斯．克利爾', category: '自我提升', status: '已讀完', rating: 5, daysAgo: 20, coverImage: sampleCoverDataUri('#8C6D58', '原子習慣', '詹姆斯．克利爾') },
+  { title: '人類大歷史', author: '哈拉瑞', category: '社會科學', status: '閱讀中', rating: 0, daysAgo: 0, coverImage: sampleCoverDataUri('#5C768D', '人類大歷史', '哈拉瑞') },
+  { title: '小王子', author: '安東尼．聖修伯里', category: '歐美文學', status: '尚未閱讀', rating: 0, daysAgo: 0, coverImage: sampleCoverDataUri('#B25B42', '小王子', '安東尼．聖修伯里') },
 ];
 
 function isoDateDaysAgo(days) {
@@ -62,7 +84,7 @@ export async function loadSampleBooks() {
       libraryBorrowType: '',
       libraryName: '',
       category: sample.category,
-      coverImage: '',
+      coverImage: sample.coverImage,
     });
     await DB.add('reading_records', {
       bookId,
