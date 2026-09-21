@@ -5200,6 +5200,43 @@ button.book-completed-date:hover {
   border-style: dashed;
 }
 
+/* 「轉為藏書／編輯／刪除」三顆圖示的 [data-tooltip] 提示框，全站預設是
+   往上浮在按鈕正上方（見檔案開頭的 [data-tooltip]::after 說明）——但這裡
+   的按鈕活在 .wishlist-list 這個 overflow-y:auto 的捲動清單裡面，捲到
+   清單最上面那張卡片時，提示框往上浮出去的那一截會直接被清單自己的
+   捲動邊界切掉一段，只剩底部一條黑邊看得到（使用者實測截圖抓到的真實
+   問題）。改成往下浮——清單本身通常還有更多卡片、捲動空間在下方，不會
+   像「最上面那張卡片」這種情況幾乎每次都會撞到邊界，是這個位置更安全
+   的方向，不用為了這一種元件另外做「偵測空間夠不夠、動態換邊」這種
+   複雜的 JS 判斷。 */
+.wishlist-list [data-tooltip]::after {
+  bottom: auto;
+  top: 130%;
+  transform: translateY(-3px);
+}
+
+.wishlist-list [data-tooltip]:hover::after,
+.wishlist-list [data-tooltip]:active::after,
+.wishlist-list [data-tooltip]:focus-visible::after {
+  transform: translateY(0);
+}
+
+/* 上面已經把方向從「上浮」改成「下浮」解決縱向被清單裁切的問題，這裡
+   接著處理橫向：全站預設是 left:50%+translateX(-50%) 置中對齊按鈕正下方，
+   但「編輯」「刪除」這兩顆提示文字裡帶著書名（例如「刪除「深刻認識
+   一個人」」），書名一長，置中的提示框往兩側同時撐開，最右邊那顆
+   （.wishlist-delete-btn）本身又已經很靠近抽屜的右邊界，提示框右側
+   常常會直接超出抽屜、甚至超出瀏覽器視窗被切掉一截（實測：1400px
+   視窗寬度下，提示框右緣量到 1413.5px，超出 13.5px）。三顆圖示統一
+   改成「以按鈕自己的右邊緣為基準，向左延伸」（right:0 取代 left:50%），
+   不管書名多長、也不管是哪一顆圖示，提示框永遠不會超出這幾顆圖示
+   最右邊那一顆的範圍——「新增願望」按鈕跟清單卡片本身左右兩側都有
+   足夠留白，這個方向天生比「置中」更不容易撞到邊界。 */
+.wishlist-item-actions [data-tooltip]::after {
+  left: auto;
+  right: 0;
+}
+
 .wishlist-item-main {
   display: flex;
   flex-direction: column;
