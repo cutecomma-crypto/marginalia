@@ -91,7 +91,7 @@ export async function renderGraphPage(container, rawBookId) {
               <label>從<select name="fromNodeId" id="edge-from"></select></label>
               <label>到<select name="toNodeId" id="edge-to"></select></label>
               <label>關係
-                <input name="label" type="text" placeholder="輸入任何關係名稱，例如：懷疑、引申出、反駁、主管">
+                <input name="label" type="text" placeholder="例如：朋友、敵人、家人、懷疑...">
               </label>
               ${edgeStyleFieldsHtml(null)}
               <div class="form-actions"><button type="submit" class="btn btn-primary">新增關係</button></div>
