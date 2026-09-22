@@ -259,6 +259,17 @@ export function renderNetworkView(ctx) {
     text.setAttribute('font-size', '11');
     text.setAttribute('font-weight', '600');
     text.setAttribute('fill', '#fff');
+    // 人名文字固定是白色，但名字長度常常比圓圈直徑寬，超出圓圈範圍的那一截
+    // 會直接疊在畫布底色上——日間模式的畫布底色是接近白色的米白色，白字疊
+    // 白底那一截完全看不見（夜間模式底色深，白字反而沒有這個問題，所以只
+    // 有日間模式會實際看到這個 Bug）。加一圈深色描邊當文字的「邊框」，不管
+    // 文字最後落在彩色圓圈上還是溢出到畫布底色上，都靠這圈深色邊界跟四周
+    // 分開，兩種模式都看得清楚，比另外判斷背景色來源動態換文字顏色更簡單、
+    // 也更不會有算錯的風險。
+    text.style.paintOrder = 'stroke';
+    text.style.stroke = 'rgba(0, 0, 0, 0.55)';
+    text.style.strokeWidth = '3px';
+    text.style.strokeLinejoin = 'round';
     text.textContent = (n.person.isProtagonist ? '★ ' : '') + n.person.label;
     g.appendChild(text);
 

@@ -17,9 +17,14 @@
 //      保證人名文字不會完全疊在一起看不清楚——純靠排斥力調參數很難同時
 //      兼顧「疏密好看」跟「絕對不重疊」兩個目標，這裡分開處理更可靠。
 export const SIM_DEFAULTS = {
-  repulsionStrength: 2600,
+  // 排斥力／彈簧自然長度都調大過一輪——原本的數值在人物比較多（5、6 個
+  // 以上）時，節點會擠在畫布中央黏成一團、幾乎疊在一起，人名看不清楚也
+  // 分不出誰跟誰有關係；調大之後角色球體會自動散開成看得出彼此距離感的
+  // 疏密關係，跟關係線的自然長度（springLength）也拉開，圖看起來更像
+  // 「一張關係圖」而不是「一坨圓點」。
+  repulsionStrength: 4200,
   springStrength: 0.02,
-  springLength: 150,
+  springLength: 200,
   centeringStrength: 0.015,
   damping: 0.82,
 };
@@ -116,7 +121,7 @@ export function stepSimulation(nodes, edges, width, height, options = {}) {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const minDist = (a.r || 0) + (b.r || 0) + 14;
+      const minDist = (a.r || 0) + (b.r || 0) + 28;
       if (dist < minDist) {
         const overlap = (minDist - dist) / 2;
         const ux = dx / dist;

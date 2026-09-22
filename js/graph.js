@@ -45,8 +45,8 @@ export async function renderGraphPage(container, rawBookId) {
         </div>
         <div class="toolbar-actions graph-toolbar-right">
           <div class="graph-view-toggle" id="graph-view-toggle" role="group" aria-label="切換檢視模式">
-            <button type="button" class="graph-view-toggle-btn" data-view="board" data-tooltip="陣營看板" aria-label="切換到陣營看板">⊞ 陣營看板</button>
-            <button type="button" class="graph-view-toggle-btn" data-view="network" data-tooltip="網狀圖譜" aria-label="切換到網狀圖譜">🕸️ 網狀圖譜</button>
+            <button type="button" class="graph-view-toggle-btn" data-view="board" data-tooltip="分組視角" aria-label="切換到分組視角">⊞ 分組視角</button>
+            <button type="button" class="graph-view-toggle-btn" data-view="network" data-tooltip="關係網絡" aria-label="切換到關係網絡">🕸️ 關係網絡</button>
           </div>
           <div class="canvas-zoom-toolbar" id="canvas-zoom-toolbar">
             <button type="button" class="canvas-tool-btn" id="zoom-out-btn" data-tooltip="縮小" aria-label="縮小">－</button>

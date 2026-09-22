@@ -4400,6 +4400,21 @@ button.book-completed-date:hover {
   display: none;
 }
 
+/* touch-action:none／user-select:none 是實測抓到的真實觸控 Bug 修復——
+   跟 .person-item／.group-card-header 這兩個既有的手動拖放目標同一組寫法
+   （見它們各自的說明）：沒有這兩行，在真正的觸控螢幕上點一下節點，只要
+   手指有一絲絲不到 1px 也能感覺到的晃動，瀏覽器就可能把這個手勢直接判定
+   成「使用者要捲動 .canvas-wrap」，改發 pointercancel 取代 pointerup——
+   graphForceView.js 的點兩下建立關係（Tap to Link）流程是靠 pointerup
+   才會判斷「這是一次單純點擊」進而彈出選單，一旦收到的是 pointercancel，
+   選單／後續的第二次點擊就完全沒有反應，實機上看起來就是「點連結按鈕
+   後沒有反應」。 */
+.network-node {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .network-node circle {
   transition: stroke-width 0.15s ease;
 }
