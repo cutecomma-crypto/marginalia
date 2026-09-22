@@ -4334,6 +4334,144 @@ button.book-completed-date:hover {
   display: none;
 }
 
+/* 檢視模式切換：陣營看板／網狀圖譜——跟旁邊的縮放膠囊視覺語言一致
+   （灰底膠囊、內部按鈕字級/padding 對齊 .canvas-tool-btn），放在工具列
+   最左邊、縮放膠囊之前：邏輯上「先選看哪一種畫法」排在「調整看的比例」前面。 */
+.graph-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 0.2rem;
+  height: 2.25rem;
+}
+
+.graph-view-toggle-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  height: 100%;
+  padding: 0 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.graph-view-toggle-btn:hover {
+  background: var(--border-soft);
+  color: var(--text);
+}
+
+.graph-view-toggle-btn.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 768px) {
+  .graph-view-toggle {
+    height: 1.9rem;
+  }
+
+  .graph-view-toggle-btn {
+    font-size: 0.75rem;
+    padding: 0 0.45rem;
+  }
+}
+
+/* 「網狀圖譜」檢視：跟 .graph-board-view 是同一層 .canvas-board 底下互斥
+   顯示的手足元素（見 graph.js 樣板），共用同一套縮放（.canvas-board 的
+   transform:scale）跟同一個 .canvas-empty-state 空白提示，見 graph.js
+   applyZoom() 的說明。 */
+.graph-board-view {
+  position: relative;
+}
+
+.graph-network-view {
+  display: block;
+}
+
+.graph-network-view[hidden],
+.graph-board-view[hidden] {
+  display: none;
+}
+
+.network-node circle {
+  transition: stroke-width 0.15s ease;
+}
+
+.network-node:hover circle {
+  stroke-width: 3;
+}
+
+/* 選了「🔗 連結」之後，起點節點在等待使用者點第二個人的期間，用跳動的
+   外圈提示「正在等你選下一個人」，不用另外常駐一行文字說明也能一眼
+   看懂目前處在哪個步驟（見 graphForceView.js 的 tap-to-link 流程）。 */
+.network-node.is-linking-source circle {
+  stroke: var(--color-primary-accent);
+  stroke-width: 3;
+  animation: network-linking-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes network-linking-pulse {
+  0%, 100% { stroke-opacity: 1; }
+  50% { stroke-opacity: 0.4; }
+}
+
+/* 「🔗 連結／✏️ 編輯」快速選單、跟建立關係時彈出的極簡文字輸入框——
+   兩者共用同一個浮動小卡片外觀，position:fixed 直接掛在 body 底下
+   （不受畫布縮放/捲動影響），以觸發節點的螢幕座標當錨點定位（見
+   graphForceView.js 的 positionFloating()）。 */
+.graph-quick-menu {
+  position: fixed;
+  z-index: 200;
+  display: flex;
+  gap: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  box-shadow: var(--shadow-glass);
+  padding: 0.35rem;
+}
+
+.graph-quick-menu button {
+  border: none;
+  background: var(--surface-alt);
+  color: var(--text);
+  padding: 0.4rem 0.7rem;
+  border-radius: 7px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.graph-quick-menu button:hover {
+  background: var(--border-soft);
+}
+
+.graph-link-input input {
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8125rem;
+  width: 11rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.graph-link-input button {
+  background: var(--color-primary-accent);
+  color: #fff;
+}
+
+.graph-link-input button:hover {
+  background: var(--primary);
+}
+
 /* 全螢幕展繪：作用對象是 #graph-app-container（工具列＋畫布＋側邊抽屜整個外層 wrapper），
    不是只有畫布本身——這樣工具列、抽屜才會是 fullscreen 元素的子孫，全螢幕時才畫得出來。
    容器本身撐滿視窗高度，畫布區塊也跟著撐開，不再受平常那個 640px 上限限制。 */
