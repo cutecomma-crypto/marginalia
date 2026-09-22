@@ -189,11 +189,11 @@ export async function renderGraphPage(container, rawBookId) {
       <form id="edit-person-form" class="book-form compact-form">
         <label>姓名<input name="label" value="${escapeHtml(person.label)}" required></label>
         <label>頭銜／備註<input name="title" value="${escapeHtml(person.title)}" placeholder="例如：代理警隊長"></label>
-        <label>狀態標籤
-          <input type="text" name="status" value="${escapeHtml(person.status)}" placeholder="輸入任何狀態，例如：核心概念、待驗證、臥底">
+        <label>角色狀態
+          <input type="text" name="status" value="${escapeHtml(person.status)}" placeholder="例如：死亡、失蹤、待驗證、黑化...">
         </label>
-        <label>描述（補充說明，選填）
-          <textarea name="description" rows="2">${escapeHtml(person.description)}</textarea>
+        <label>人物簡介
+          <textarea name="description" rows="2" placeholder="輸入簡短背景或重要記事...">${escapeHtml(person.description)}</textarea>
         </label>
         <label class="checkbox"><input type="checkbox" name="isProtagonist" ${person.isProtagonist ? 'checked' : ''}> ★ 主角／重要角色</label>
         <label>群組
