@@ -13,6 +13,7 @@
 //   3. 點一下人物 B → 彈出單一文字輸入框（關係名稱），Enter 或按「建立」
 //      直接寫入一段新關係，自動畫出箭頭與標籤
 // 全程刻意不出現任何預設關係清單選單，維持規格要求的「介面極致乾淨」。
+import { showToast } from './utils.js';
 import {
   DEFAULT_EDGE_COLOR,
   colorId,
@@ -32,10 +33,13 @@ const PROTAGONIST_RADIUS = 34;
 // （見 styles.css），兩種檢視「主角」的視覺語言互相一致。
 const PROTAGONIST_RING_COLOR = '#c9971f';
 const UNGROUPED_NODE_COLOR = '#9a9188';
-// 模擬跑到「最快的節點速度」低於這個門檻，畫面已經肉眼看不出還在動，
-// 停止繼續呼叫 requestAnimationFrame，省得背景一直空轉耗電——見下面
-// tick() 的判斷。拖曳節點的當下無論如何都繼續跑（見呼叫端 draggingNodeId）。
-const SETTLE_SPEED_THRESHOLD = 0.04;
+// 每一格畫面上「移動最多的那個節點」實際位移低於這個門檻（單位 px），
+// 就當作肉眼已經看不出還在動，停止繼續呼叫 requestAnimationFrame，省得
+// 背景一直空轉耗電——見下面 tick() 的判斷，跟 graphForceSimulation.js
+// stepSimulation() 回傳的 maxDisplacement 搭配使用（不是用 maxSpeed，
+// 那個實測會在特定節點距離下永遠卡在門檻以上，見該函式的完整說明）。
+// 拖曳節點的當下無論如何都繼續跑（見呼叫端 draggingNodeId）。
+const SETTLE_DISPLACEMENT_THRESHOLD = 0.04;
 
 // 節點在畫布上的座標／速度盡量跨次重繪保留：使用者編輯一個人物的名字、
 // 新增一段關係都會觸發 reload() 整批重新呼叫 renderNetworkView()，如果
@@ -268,6 +272,23 @@ export function renderNetworkView(ctx) {
     g.setAttribute('class', `network-node${n.person.isProtagonist ? ' is-protagonist' : ''}`);
     g.style.cursor = 'pointer';
 
+    // 看不見的加大點擊熱區——實測抓到的真實問題：畫布上人物一多，節點間
+    // 距離縮短，圓圈本身半徑只有 24～34px，滑鼠/手指只要點偏個幾 px 就會
+    // 落在「空白畫布」而不是節點上，這裡的點擊事件是綁在 <g> 上，SVG 對
+    // <g> 本身沒有形狀的部分不會觸發任何事件，只有點在子元素的實心圖形
+    // 範圍內才算數——所以精準度要求其實比看起來的圓圈範圍更嚴苛。點在
+    // 空白畫布目前的設計是「取消目前的連結操作」（見下面 svgEl 的 click
+    // 監聽器），這代表「選了連結、想點第二個人卻不小心點偏」在使用者眼裡
+    // 會呈現成「點了完全沒反應」——因為連結真的被悄悄取消了，畫面上除了
+    // 金色外圈消失以外沒有任何提示。加一顆比視覺圓圈大上一圈、填滿透明色
+    // （fill:transparent 仍然算「有填色」會正常接收點擊，跟 fill:none 不
+    // 會接收點擊完全不同）的隱形圓形，墊在最底層當實際的點擊判定範圍，
+    // 使用者點在視覺圓圈外緣附近沒踩準，也還是會被判定成點中這個節點。
+    const hitArea = document.createElementNS(svgNS, 'circle');
+    hitArea.setAttribute('r', String(n.r + 14));
+    hitArea.setAttribute('fill', 'transparent');
+    g.appendChild(hitArea);
+
     // 主角光暈：疊在正式圓圈底下的一顆稍微放大、模糊、半透明的金色圓，
     // 不是把濾鏡直接套在正式圓圈上——直接套的話正式圓圈本身（含裡面的
     // 文字）也會被一起模糊掉，變成一顆邊緣糊掉的圓，不是「圓圈清楚＋
@@ -389,9 +410,9 @@ export function renderNetworkView(ctx) {
     // isConnected 當一個簡單的安全網，元素一旦離開文件就自然停止繼續跑
     // 物理模擬，不會留下一個永遠背景空轉、找不到對象可以更新的殭屍迴圈。
     if (!svgEl.isConnected) { animationFrameId = null; return; }
-    const { maxSpeed } = stepSimulation(simNodes, simEdges, width, height);
+    const { maxDisplacement } = stepSimulation(simNodes, simEdges, width, height);
     paint();
-    if (maxSpeed > SETTLE_SPEED_THRESHOLD || draggingNodeId != null) {
+    if (maxDisplacement > SETTLE_DISPLACEMENT_THRESHOLD || draggingNodeId != null) {
       animationFrameId = requestAnimationFrame(tick);
     } else {
       animationFrameId = null;
@@ -401,10 +422,15 @@ export function renderNetworkView(ctx) {
   animationFrameId = requestAnimationFrame(tick);
 
   function handleNodeTap(n, g) {
-    const rect = g.querySelector('circle').getBoundingClientRect();
+    // 用 .node-circle（正式的那顆）量位置，不是隨便抓第一個 circle——
+    // 加了看不見的加大點擊熱區之後，g 裡面第一個 <circle> 變成那顆熱區，
+    // 半徑比視覺圓圈大一圈，拿它的 rect 來定位選單雖然不至於錯得離譜，
+    // 但明確指名要哪一顆比較不會之後改動 DOM 結構時又搞混。
+    const rect = g.querySelector('.node-circle').getBoundingClientRect();
     if (linking && linking.sourceId === n.id) {
       // 點回起點自己＝取消這次連結。
       clearLinking(svgEl);
+      showToast('已取消連結');
       return;
     }
     if (linking) {
@@ -430,6 +456,11 @@ export function renderNetworkView(ctx) {
         onSelect: () => {
           linking = { sourceId: n.id };
           g.classList.add('is-linking-source');
+          // 光靠節點外圈的顏色脈動很容易被忽略，尤其畫面上人物一多、
+          // 顏色本來就很豐富的時候——明確用 Toast 告訴使用者「剛剛那下
+          // 點擊確實生效了，現在請點第二個人」，不用使用者自己盯著畫面
+          // 找哪裡在閃、猜接下來該做什麼。
+          showToast(`已選擇「${n.person.label}」為連結起點，請點選第二位人物`);
         },
       },
       {
@@ -492,6 +523,17 @@ export function renderNetworkView(ctx) {
   svgEl.addEventListener('click', (event) => {
     if (event.target.closest('.network-node')) return;
     closeActiveMenu();
+    // 只有真的處在「已經選了起點、等待點第二個人」的狀態時才提示「已取消
+    // 連結」——這是實測抓到的真實使用情境：人物一多、節點彼此靠得近，
+    // 使用者想點第二個目標人物卻不小心點偏、落在節點之間的空白處，這裡
+    // 原本會靜默取消整個連結流程，畫面上除了金色外圈消失以外沒有任何
+    // 提示，使用者只會覺得「我點了『連結』，後面點什麼都沒反應」。現在
+    // 明確告訴使用者「連結被取消了」，同時提醒可以直接再點一次人物重來，
+    // 不用自己猜發生了什麼事。單純點空白處收合選單（沒有連結中）維持
+    // 安靜、不彈提示，那種情況本來就沒有「取消」什麼東西需要說明。
+    if (linking) {
+      showToast('已取消連結，可以重新點選人物再試一次');
+    }
     clearLinking(svgEl);
   });
 }

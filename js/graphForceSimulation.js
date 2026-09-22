@@ -34,14 +34,23 @@ export const SIM_DEFAULTS = {
 // 直接把它的 x/y 設成滑鼠/手指目前的座標，體感才會是「跟著手指走」，
 // 不是「手指鬆開節點才追上去」。
 // edges: [{ source, target }]，source/target 是節點 id（不是陣列索引）。
-// 回傳 { maxSpeed }：所有非固定節點裡最大的速度分量，呼叫端可以用這個
-// 判斷「系統是不是已經穩定下來了」，決定要不要停止繼續呼叫這個函式
-// （見 graphForceView.js 的動畫迴圈）。
+// 回傳 { maxSpeed, maxDisplacement }——呼叫端（見 graphForceView.js 的
+// 動畫迴圈）用 maxDisplacement（這一格畫面實際移動了多少 px）判斷「系統
+// 是不是已經穩定下來了」，不是用 maxSpeed。這是實測抓到的真實 Bug：
+// maxSpeed 是碰撞避免（見下面第 4 步）「直接改位置、不動速度」之前算的，
+// 兩個距離剛好卡在臨界值附近的節點，會出現「力場把它們推近→碰撞避免
+// 馬上彈開→下一格同樣的殘留速度又把它們推近」這種無限拉鋸——vx/vy 本身
+// 停在一個不小的值上永遠不會真的降到門檻以下，畫面上卻幾乎看不出在動
+// （因為每一格的淨位移被碰撞避免修正到只剩極小的殘餘）。改成直接量測
+// 「套用完所有力＋碰撞修正之後，位置真正移動了多少」，才是使用者眼睛
+// 看到的東西有沒有還在動的真實依據，不會被這種拉鋸誤判成永遠沒穩定。
 export function stepSimulation(nodes, edges, width, height, options = {}) {
   const opts = { ...SIM_DEFAULTS, ...options };
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const fx = new Map(nodes.map((n) => [n.id, 0]));
   const fy = new Map(nodes.map((n) => [n.id, 0]));
+  const startX = new Map(nodes.map((n) => [n.id, n.x]));
+  const startY = new Map(nodes.map((n) => [n.id, n.y]));
 
   // 1. 排斥力：每一對節點都互推，O(n²) 對這個用途（一本書的人物通常
   // 幾個到幾十個，不會是幾千個）完全夠快，不需要 quadtree 這類優化。
@@ -132,7 +141,14 @@ export function stepSimulation(nodes, edges, width, height, options = {}) {
     }
   }
 
-  return { maxSpeed };
+  let maxDisplacement = 0;
+  for (const n of nodes) {
+    const dx = n.x - startX.get(n.id);
+    const dy = n.y - startY.get(n.id);
+    maxDisplacement = Math.max(maxDisplacement, Math.hypot(dx, dy));
+  }
+
+  return { maxSpeed, maxDisplacement };
 }
 
 // 初始位置：沿著一個圓圈平均分佈（不是隨機亂灑）——force simulation 對
