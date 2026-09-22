@@ -23,7 +23,14 @@ import {
 import { stepSimulation, initialCirclePosition } from './graphForceSimulation.js';
 
 const NODE_RADIUS = 24;
-const PROTAGONIST_RADIUS = 29;
+// 主角圓圈原本只比一般人物大 5px（29 vs 24），配色又跟同陣營其他人共用
+// 同一個顏色，實測使用者反映「都跟其他角色糊在一起」——光靠半徑差 5px
+// 在一整圈相近大小的球體裡幾乎分辨不出來。改成明顯拉開一截，再加上下面
+// 的金色外圈／光暈／角標三個視覺線索疊加，才能在整張圖裡一眼認出主角。
+const PROTAGONIST_RADIUS = 34;
+// 主角的金色系跟陣營看板 .person-item.is-protagonist 用的是同一組顏色
+// （見 styles.css），兩種檢視「主角」的視覺語言互相一致。
+const PROTAGONIST_RING_COLOR = '#c9971f';
 const UNGROUPED_NODE_COLOR = '#9a9188';
 // 模擬跑到「最快的節點速度」低於這個門檻，畫面已經肉眼看不出還在動，
 // 停止繼續呼叫 requestAnimationFrame，省得背景一直空轉耗電——見下面
@@ -198,6 +205,21 @@ export function renderNetworkView(ctx) {
     marker.appendChild(path);
     defs.appendChild(marker);
   });
+  // 主角節點的金色光暈用 SVG 濾鏡（feGaussianBlur）做出來——只有真的有
+  // 主角時才加這個 filter 定義，沒有主角的書不多這段用不到的 DOM。
+  const hasProtagonist = simNodes.some((n) => n.person.isProtagonist);
+  if (hasProtagonist) {
+    const glowFilter = document.createElementNS(svgNS, 'filter');
+    glowFilter.setAttribute('id', 'protagonist-glow');
+    glowFilter.setAttribute('x', '-75%');
+    glowFilter.setAttribute('y', '-75%');
+    glowFilter.setAttribute('width', '250%');
+    glowFilter.setAttribute('height', '250%');
+    const blur = document.createElementNS(svgNS, 'feGaussianBlur');
+    blur.setAttribute('stdDeviation', '5');
+    glowFilter.appendChild(blur);
+    defs.appendChild(glowFilter);
+  }
   svgEl.appendChild(defs);
 
   const edgeEls = new Map();
@@ -246,11 +268,28 @@ export function renderNetworkView(ctx) {
     g.setAttribute('class', `network-node${n.person.isProtagonist ? ' is-protagonist' : ''}`);
     g.style.cursor = 'pointer';
 
+    // 主角光暈：疊在正式圓圈底下的一顆稍微放大、模糊、半透明的金色圓，
+    // 不是把濾鏡直接套在正式圓圈上——直接套的話正式圓圈本身（含裡面的
+    // 文字）也會被一起模糊掉，變成一顆邊緣糊掉的圓，不是「圓圈清楚＋
+    // 外圍一圈光暈」的效果。
+    if (n.person.isProtagonist) {
+      const glow = document.createElementNS(svgNS, 'circle');
+      glow.setAttribute('r', String(n.r + 7));
+      glow.setAttribute('fill', PROTAGONIST_RING_COLOR);
+      glow.setAttribute('opacity', '0.5');
+      glow.setAttribute('filter', 'url(#protagonist-glow)');
+      glow.style.pointerEvents = 'none';
+      g.appendChild(glow);
+    }
+
     const circle = document.createElementNS(svgNS, 'circle');
+    circle.setAttribute('class', 'node-circle');
     circle.setAttribute('r', String(n.r));
     circle.setAttribute('fill', groupColorById.get(n.person.groupId) || UNGROUPED_NODE_COLOR);
-    circle.setAttribute('stroke', '#fff');
-    circle.setAttribute('stroke-width', '2');
+    // 主角用加粗的金色外圈取代一般人物的白色細邊——跟半徑拉大、光暈一起
+    // 疊加，三個線索同時作用，掃過整張圖時不用逐一讀完人名就能認出主角。
+    circle.setAttribute('stroke', n.person.isProtagonist ? PROTAGONIST_RING_COLOR : '#fff');
+    circle.setAttribute('stroke-width', n.person.isProtagonist ? '4' : '2');
     g.appendChild(circle);
 
     const text = document.createElementNS(svgNS, 'text');
@@ -270,8 +309,38 @@ export function renderNetworkView(ctx) {
     text.style.stroke = 'rgba(0, 0, 0, 0.55)';
     text.style.strokeWidth = '3px';
     text.style.strokeLinejoin = 'round';
-    text.textContent = (n.person.isProtagonist ? '★ ' : '') + n.person.label;
+    // 主角的星星原本是排在名字前面的一個字元（「★ 名字」），名字一長就被
+    // 擠到最前面不顯眼，甚至跟名字黏在一起看起來像打字錯誤。改成固定貼在
+    // 圓圈右上角的獨立徽章（見下面），文字這裡就不再需要塞這個字元。
+    text.textContent = n.person.label;
     g.appendChild(text);
+
+    if (n.person.isProtagonist) {
+      // 星星徽章固定釘在圓圈右上角——不管名字多長、有沒有溢出圓圈範圍，
+      // 這顆徽章的位置只跟圓圈半徑（n.r）有關，永遠貼著同一個相對位置，
+      // 掃過整張圖找主角時不用先讀完每個人的名字，看形狀就找得到。
+      const badgeOffset = n.r * 0.72;
+      const badgeCircle = document.createElementNS(svgNS, 'circle');
+      badgeCircle.setAttribute('cx', String(badgeOffset));
+      badgeCircle.setAttribute('cy', String(-badgeOffset));
+      badgeCircle.setAttribute('r', '9');
+      badgeCircle.setAttribute('fill', PROTAGONIST_RING_COLOR);
+      badgeCircle.setAttribute('stroke', '#fff');
+      badgeCircle.setAttribute('stroke-width', '1.5');
+      badgeCircle.style.pointerEvents = 'none';
+      g.appendChild(badgeCircle);
+
+      const badgeStar = document.createElementNS(svgNS, 'text');
+      badgeStar.setAttribute('x', String(badgeOffset));
+      badgeStar.setAttribute('y', String(-badgeOffset + 1));
+      badgeStar.setAttribute('text-anchor', 'middle');
+      badgeStar.setAttribute('dominant-baseline', 'middle');
+      badgeStar.setAttribute('font-size', '10');
+      badgeStar.setAttribute('fill', '#fff');
+      badgeStar.textContent = '★';
+      badgeStar.style.pointerEvents = 'none';
+      g.appendChild(badgeStar);
+    }
 
     svgEl.appendChild(g);
     nodeEls.set(n.id, g);

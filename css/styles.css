@@ -4415,18 +4415,29 @@ button.book-completed-date:hover {
   -webkit-user-select: none;
 }
 
-.network-node circle {
+/* 主角節點除了正式的 .node-circle，還多疊了光暈圓跟星星徽章兩個額外的
+   <circle>（見 graphForceView.js）——底下這幾條互動效果（hover 變粗、
+   連結中閃爍）都只認 .node-circle 這個 class，不是通用的 circle 選擇器，
+   不然主角身上那兩顆額外的圓也會被誤套用同一套 stroke-width/動畫。 */
+.network-node .node-circle {
   transition: stroke-width 0.15s ease;
 }
 
-.network-node:hover circle {
+.network-node:hover .node-circle {
   stroke-width: 3;
+}
+
+/* 主角平常就用比一般人物粗一倍的金色外圈（4px），hover 時同樣加粗一級
+   （5px）而不是被上面那條通用規則蓋成更細的 3px，維持「主角一直比較粗」
+   的視覺邏輯，不會滑鼠移過去反而變得不明顯。 */
+.network-node.is-protagonist:hover .node-circle {
+  stroke-width: 5;
 }
 
 /* 選了「🔗 連結」之後，起點節點在等待使用者點第二個人的期間，用跳動的
    外圈提示「正在等你選下一個人」，不用另外常駐一行文字說明也能一眼
    看懂目前處在哪個步驟（見 graphForceView.js 的 tap-to-link 流程）。 */
-.network-node.is-linking-source circle {
+.network-node.is-linking-source .node-circle {
   stroke: var(--color-primary-accent);
   stroke-width: 3;
   animation: network-linking-pulse 1.1s ease-in-out infinite;
