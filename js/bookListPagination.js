@@ -5,11 +5,20 @@
 // 排序選項只留「建立時間」「完成日期」兩組時間排序，使用者反映「書名」
 // 「評分」用不到，要求砍掉——連同底下 sortBooks() 對應的兩個分支、
 // 專門給書名排序用的 titleCollator 一起刪除，不留半套用不到的排序邏輯。
+//
+// 「完成日期：新到舊」排第一個——bookListToolbar.js 產生 <select> 時
+// 沒有對任何一個 <option> 標記 selected，瀏覽器對沒有明確指定預設值的
+// <select> 一律選中「排在陣列最前面」的那個選項，所以這個陣列的順序
+// 本身就直接決定了「使用者第一次打開列表頁，看到的預設排序是哪一種」——
+// 使用者反映目前的日常使用情境是想先看「最近讀完的書」，不是「最近
+// 新增進資料庫的書」（新增日期常常是一次補登多本舊書的時間，不是真正
+// 意義上「最近」發生的事），改成完成日期排最前面，不用每次重新整理
+// 頁面都要手動再選一次。
 export const SORT_OPTIONS = [
-  { value: 'created-desc', label: '建立時間：新到舊' },
-  { value: 'created-asc', label: '建立時間：舊到新' },
   { value: 'completed-desc', label: '完成日期：新到舊' },
   { value: 'completed-asc', label: '完成日期：舊到新' },
+  { value: 'created-desc', label: '建立時間：新到舊' },
+  { value: 'created-asc', label: '建立時間：舊到新' },
 ];
 
 // 「每頁顯示」下拉選單：使用者反映捲動到底自動載入更多不方便掌握「大數據量
@@ -83,7 +92,7 @@ export function sortBooks(books, recordMap, sortMode) {
       return (a.createdAt || '').localeCompare(b.createdAt || '');
     });
   } else {
-    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // created-desc（預設）
+    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // created-desc（sortMode 沒有對到任何已知值時的保底分支，不是 UI 上的預設排序——UI 預設見上面 SORT_OPTIONS 陣列順序的說明）
   }
   return list;
 }
