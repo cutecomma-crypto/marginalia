@@ -56,6 +56,7 @@ export async function renderGraphPage(container, rawBookId) {
           </div>
           <button type="button" class="btn graph-toolbar-secondary-btn drawer-toggle-btn" id="drawer-toggle-btn">${ICON_LINK}關係／編輯面板</button>
           <button type="button" class="btn graph-toolbar-secondary-btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
+          <button type="button" class="btn btn-primary" id="add-person-btn">＋ 新增人物</button>
           <button type="button" class="btn btn-primary" id="add-group-btn">＋ 新增群組</button>
         </div>
       </div>
@@ -119,6 +120,7 @@ export async function renderGraphPage(container, rawBookId) {
   const emptyStateEl = container.querySelector('#canvas-empty-state');
   const canvasWrapEl = container.querySelector('#canvas-wrap');
   const addGroupBtn = container.querySelector('#add-group-btn');
+  const addPersonBtn = container.querySelector('#add-person-btn');
   const edgeForm = container.querySelector('#edge-form');
   const fromSelect = container.querySelector('#edge-from');
   const toSelect = container.querySelector('#edge-to');
@@ -440,6 +442,36 @@ export async function renderGraphPage(container, rawBookId) {
     // 網狀圖譜下找不到對應的 DOM 元素，querySelector 拿到 null 就跳過即可）。
     const newCardEl = trackEl.querySelector(`.group-card[data-group-id="${newGroupId}"]`);
     if (newCardEl) newCardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  });
+
+  // 「新增人物」跟「新增群組」原本是綁死的：唯一能新增人物的地方是群組卡片
+  // 標題列底下那個「＋ 新增人物」輸入框（見 graphDragDrop.js 的
+  // quick-add-person-form），完全沒有群組時（畫布空白，或已經刪光所有群組）
+  // 沒有任何一個入口能新增人物，逼著使用者一定要先建一個群組才能開始記人物——
+  // 使用者反映他要的是「先把人物一個個建起來，之後真的需要分類再手動拖進
+  // 群組」這種順序，兩件事應該互相獨立。這裡加一顆跟「＋ 新增群組」平行的
+  // 工具列按鈕，直接新增一個 groupId 是 null 的人物（未分組），不用先有
+  // 群組才能按——不管目前是哪種檢視都看得到、按得到（board 檢視新增後會
+  // 自動出現在「未分組」卡片裡，network 檢視會直接多一顆灰色節點）。
+  addPersonBtn.addEventListener('click', async () => {
+    const ungroupedCount = state.nodes.filter((n) => !n.groupId).length;
+    const newPersonId = await DB.add('nodes', {
+      bookId,
+      groupId: null,
+      label: '新人物',
+      title: '',
+      status: '',
+      description: '',
+      order: ungroupedCount,
+      isProtagonist: false,
+    });
+    await reload();
+    // 新增當下直接把人物拉進「編輯人物」面板，不用使用者自己再點一次卡片
+    // 才能把預設的「新人物」改成真正的名字——「新群組」可以直接在卡片上
+    // 改名字（inline 輸入框），但人物卡片沒有這種 inline 編輯，開面板是
+    // 唯一能改名字的地方，乾脆新增完直接開，省一次額外點擊。
+    const newPerson = state.nodes.find((n) => n.id === newPersonId);
+    if (newPerson) showPersonPanel(newPerson);
   });
 
   edgeForm.addEventListener('submit', async (event) => {
