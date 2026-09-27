@@ -4489,15 +4489,9 @@ button.book-completed-date:hover {
   min-height: 900px;
 }
 
-/* width 改成 min-width（不是固定 width）——.group-card-body 底下開放使用者
-   自由拖曳調整大小（見該規則的說明），拖寬之後這個外層卡片要跟著撐開，
-   不然標題列還是卡在原本的 210px，跟被拖寬的內容區寬度對不起來，看起來
-   像卡片裂開兩半。position:absolute + width:auto 的元素本來就會自動收縮
-   成剛好包住內容的寬度（shrink-to-fit），拿掉固定 width 之後，卡片會自動
-   跟著內容區被拖成多寬就撐成多寬，不用另外寫 JS 手動同步兩者的寬度。 */
 .group-card {
   position: absolute;
-  min-width: 210px;
+  width: 210px;
   border: 2px solid var(--group-color, var(--border));
   border-radius: 10px;
   background: var(--surface);
@@ -4685,27 +4679,12 @@ button.book-completed-date:hover {
   opacity: 1;
 }
 
-/* resize:both 讓使用者拖曳卡片右下角自由調整這個內容區的寬高——使用者
-   反映人物一多、頭銜／角色狀態字比較長時，固定大小的卡片會把文字截斷、
-   看不完整（見下面 .person-name／.person-title 改成允許換行是另一半的
-   修法：預設不用手動調整也不會被裁掉，這裡的手動拖曳是「還想要更寬鬆
-   排版」的進階選項，兩者互補不衝突）。resize 需要 overflow 不是 visible
-   才會顯示拖曳把手，這裡選 auto：使用者刻意拖得比目前人物清單還矮，
-   內容超出的部分用捲軸捲動查看，不會被直接裁掉看不到。拖曳調整後的
-   大小會存進 localStorage（見 graphBoardView.js 的 restoreGroupBodySize／
-   watchGroupBodyResize），只存在使用者自己的瀏覽器，不會佔用 Supabase
-   資料表欄位、也不用改資料庫結構就能記住每個群組卡片調整過的大小。 */
 .group-card-body {
   padding: 0.7rem;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
   min-height: 3.2rem;
-  min-width: 178px;
-  max-width: min(70vw, 640px);
-  max-height: 70vh;
-  resize: both;
-  overflow: auto;
   transition: background-color 0.15s ease;
 }
 
