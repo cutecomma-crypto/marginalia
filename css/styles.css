@@ -4334,170 +4334,6 @@ button.book-completed-date:hover {
   display: none;
 }
 
-/* 檢視模式切換：陣營看板／網狀圖譜——跟旁邊的縮放膠囊視覺語言一致
-   （灰底膠囊、內部按鈕字級/padding 對齊 .canvas-tool-btn），放在工具列
-   最左邊、縮放膠囊之前：邏輯上「先選看哪一種畫法」排在「調整看的比例」前面。 */
-.graph-view-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  background: var(--surface-alt);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  padding: 0.2rem;
-  height: 2.25rem;
-}
-
-.graph-view-toggle-btn {
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  height: 100%;
-  padding: 0 0.6rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.graph-view-toggle-btn:hover {
-  background: var(--border-soft);
-  color: var(--text);
-}
-
-.graph-view-toggle-btn.is-active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow-card);
-}
-
-@media (max-width: 768px) {
-  .graph-view-toggle {
-    height: 1.9rem;
-  }
-
-  .graph-view-toggle-btn {
-    font-size: 0.75rem;
-    padding: 0 0.45rem;
-  }
-}
-
-/* 「網狀圖譜」檢視：跟 .graph-board-view 是同一層 .canvas-board 底下互斥
-   顯示的手足元素（見 graph.js 樣板），共用同一套縮放（.canvas-board 的
-   transform:scale）跟同一個 .canvas-empty-state 空白提示，見 graph.js
-   applyZoom() 的說明。 */
-.graph-board-view {
-  position: relative;
-}
-
-.graph-network-view {
-  display: block;
-}
-
-.graph-network-view[hidden],
-.graph-board-view[hidden] {
-  display: none;
-}
-
-/* touch-action:none／user-select:none 是實測抓到的真實觸控 Bug 修復——
-   跟 .person-item／.group-card-header 這兩個既有的手動拖放目標同一組寫法
-   （見它們各自的說明）：沒有這兩行，在真正的觸控螢幕上點一下節點，只要
-   手指有一絲絲不到 1px 也能感覺到的晃動，瀏覽器就可能把這個手勢直接判定
-   成「使用者要捲動 .canvas-wrap」，改發 pointercancel 取代 pointerup——
-   graphForceView.js 的點兩下建立關係（Tap to Link）流程是靠 pointerup
-   才會判斷「這是一次單純點擊」進而彈出選單，一旦收到的是 pointercancel，
-   選單／後續的第二次點擊就完全沒有反應，實機上看起來就是「點連結按鈕
-   後沒有反應」。 */
-.network-node {
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-/* 主角節點除了正式的 .node-circle，還多疊了光暈圓跟星星徽章兩個額外的
-   <circle>（見 graphForceView.js）——底下這幾條互動效果（hover 變粗、
-   連結中閃爍）都只認 .node-circle 這個 class，不是通用的 circle 選擇器，
-   不然主角身上那兩顆額外的圓也會被誤套用同一套 stroke-width/動畫。 */
-.network-node .node-circle {
-  transition: stroke-width 0.15s ease;
-}
-
-.network-node:hover .node-circle {
-  stroke-width: 3;
-}
-
-/* 主角平常就用比一般人物粗一倍的金色外圈（4px），hover 時同樣加粗一級
-   （5px）而不是被上面那條通用規則蓋成更細的 3px，維持「主角一直比較粗」
-   的視覺邏輯，不會滑鼠移過去反而變得不明顯。 */
-.network-node.is-protagonist:hover .node-circle {
-  stroke-width: 5;
-}
-
-/* 選了「🔗 連結」之後，起點節點在等待使用者點第二個人的期間，用跳動的
-   外圈提示「正在等你選下一個人」，不用另外常駐一行文字說明也能一眼
-   看懂目前處在哪個步驟（見 graphForceView.js 的 tap-to-link 流程）。 */
-.network-node.is-linking-source .node-circle {
-  stroke: var(--color-primary-accent);
-  stroke-width: 3;
-  animation: network-linking-pulse 1.1s ease-in-out infinite;
-}
-
-@keyframes network-linking-pulse {
-  0%, 100% { stroke-opacity: 1; }
-  50% { stroke-opacity: 0.4; }
-}
-
-/* 「🔗 連結／✏️ 編輯」快速選單、跟建立關係時彈出的極簡文字輸入框——
-   兩者共用同一個浮動小卡片外觀，position:fixed 直接掛在 body 底下
-   （不受畫布縮放/捲動影響），以觸發節點的螢幕座標當錨點定位（見
-   graphForceView.js 的 positionFloating()）。 */
-.graph-quick-menu {
-  position: fixed;
-  z-index: 200;
-  display: flex;
-  gap: 0.3rem;
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  box-shadow: var(--shadow-glass);
-  padding: 0.35rem;
-}
-
-.graph-quick-menu button {
-  border: none;
-  background: var(--surface-alt);
-  color: var(--text);
-  padding: 0.4rem 0.7rem;
-  border-radius: 7px;
-  font-size: 0.8125rem;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.graph-quick-menu button:hover {
-  background: var(--border-soft);
-}
-
-.graph-link-input input {
-  border: 1px solid var(--border-soft);
-  border-radius: 7px;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.8125rem;
-  width: 11rem;
-  background: var(--surface);
-  color: var(--text);
-}
-
-.graph-link-input button {
-  background: var(--color-primary-accent);
-  color: #fff;
-}
-
-.graph-link-input button:hover {
-  background: var(--primary);
-}
-
 /* 全螢幕展繪：作用對象是 #graph-app-container（工具列＋畫布＋側邊抽屜整個外層 wrapper），
    不是只有畫布本身——這樣工具列、抽屜才會是 fullscreen 元素的子孫，全螢幕時才畫得出來。
    容器本身撐滿視窗高度，畫布區塊也跟著撐開，不再受平常那個 640px 上限限制。 */
@@ -4653,9 +4489,15 @@ button.book-completed-date:hover {
   min-height: 900px;
 }
 
+/* width 改成 min-width（不是固定 width）——.group-card-body 底下開放使用者
+   自由拖曳調整大小（見該規則的說明），拖寬之後這個外層卡片要跟著撐開，
+   不然標題列還是卡在原本的 210px，跟被拖寬的內容區寬度對不起來，看起來
+   像卡片裂開兩半。position:absolute + width:auto 的元素本來就會自動收縮
+   成剛好包住內容的寬度（shrink-to-fit），拿掉固定 width 之後，卡片會自動
+   跟著內容區被拖成多寬就撐成多寬，不用另外寫 JS 手動同步兩者的寬度。 */
 .group-card {
   position: absolute;
-  width: 210px;
+  min-width: 210px;
   border: 2px solid var(--group-color, var(--border));
   border-radius: 10px;
   background: var(--surface);
@@ -4843,12 +4685,27 @@ button.book-completed-date:hover {
   opacity: 1;
 }
 
+/* resize:both 讓使用者拖曳卡片右下角自由調整這個內容區的寬高——使用者
+   反映人物一多、頭銜／角色狀態字比較長時，固定大小的卡片會把文字截斷、
+   看不完整（見下面 .person-name／.person-title 改成允許換行是另一半的
+   修法：預設不用手動調整也不會被裁掉，這裡的手動拖曳是「還想要更寬鬆
+   排版」的進階選項，兩者互補不衝突）。resize 需要 overflow 不是 visible
+   才會顯示拖曳把手，這裡選 auto：使用者刻意拖得比目前人物清單還矮，
+   內容超出的部分用捲軸捲動查看，不會被直接裁掉看不到。拖曳調整後的
+   大小會存進 localStorage（見 graphBoardView.js 的 restoreGroupBodySize／
+   watchGroupBodyResize），只存在使用者自己的瀏覽器，不會佔用 Supabase
+   資料表欄位、也不用改資料庫結構就能記住每個群組卡片調整過的大小。 */
 .group-card-body {
   padding: 0.7rem;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
   min-height: 3.2rem;
+  min-width: 178px;
+  max-width: min(70vw, 640px);
+  max-height: 70vh;
+  resize: both;
+  overflow: auto;
   transition: background-color 0.15s ease;
 }
 
@@ -4911,21 +4768,26 @@ button.book-completed-date:hover {
   width: 100%;
 }
 
+/* 原本 white-space:nowrap + text-overflow:ellipsis 會把名字／頭銜截斷成
+   「彼得.馬里諾」「里奇蒙警局兇殺組...」這種看不完整的樣子——使用者反映
+   新增人物後長一點的頭銜／角色狀態常常被裁掉。改成允許正常換行，字數
+   多的時候卡片會自然變高、折成第二行，不會裁掉任何字；卡片寬度不夠時
+   使用者也可以拖曳 .group-card-body 右下角自由調寬（見該規則的說明），
+   兩種修法互補：預設換行保底完整顯示，手動拖寬則是想要更寬鬆版面時的
+   進階選項。 */
 .person-name {
   font-size: 0.85rem;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
   width: 100%;
 }
 
 .person-title {
   font-size: 0.8125rem;
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
   width: 100%;
 }
 
@@ -4935,7 +4797,13 @@ button.book-completed-date:hover {
   color: var(--danger);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
-  white-space: nowrap;
+  /* 跟 .person-name／.person-title 同一個理由改成允許換行——角色狀態字數
+     一多（例如「臥底身份曝光，正在逃亡中」這種較長的自訂狀態），原本的
+     nowrap 會讓這顆膠囊徽章直接橫向撐出卡片邊界、蓋到旁邊的卡片，不是
+     單純被裁掉看不到而已，換行後膠囊本身也會跟著變高，不會溢出卡片。 */
+  white-space: normal;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .quick-add-person-form input {

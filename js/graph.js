@@ -6,27 +6,16 @@ import { nextGroupColor, loadGraphData, readEdgeStyleFields } from './graphModel
 import { edgeStyleFieldsHtml, wireCoupleAutoColor, wireEdgeColorSwatches } from './graphTemplates.js';
 import { drawConnections } from './graphConnections.js';
 import { renderBoardView } from './graphBoardView.js';
-import { renderNetworkView } from './graphForceView.js';
 
-// 本檔案是關係圖譜頁面的「外殼」（Shell）：工具列、側邊抽屜、縮放、全螢幕、
-// 兩種檢視模式的自動偵測與手動切換——這些不管使用者現在看的是哪一種檢視
-// 都完全共用。畫布中間實際畫出來的內容拆成兩個可插拔的檢視模組：
-//   - js/graphBoardView.js ——「陣營看板」：既有的群組卡片版面（拖放、
-//     自由定位），沒有引入任何新的資料結構，讀寫的都是同一組 groups/
-//     nodes/edges，桌面大螢幕（>1024px）預設顯示這個。
-//   - js/graphForceView.js ——「網狀圖譜」：手刻的力導向物理模擬（見
-//     js/graphForceSimulation.js），讀寫的同樣是 groups/nodes/edges，只是
-//     換一種「節點＋連線自動排開」的視覺呈現，並且是手機/平板（≤1024px）
-//     的預設畫面、也是「點兩下建立關係」快速連結流程唯一會用到的地方。
-// 兩者共用同一份 state（groups/nodes/edges）、同一個 reload()、同一個
-// showPersonPanel()/showEdgePanel() 編輯面板——「編輯一個人物/一段關係」
-// 這件事不管在哪種檢視底下點出來都應該長一樣，不用各自重寫一份表單。
+// 本檔案是關係圖譜頁面的「外殼」（Shell）：工具列、側邊抽屜、縮放、全螢幕——
+// 畫布中間實際畫出來的內容（群組卡片＋人物拖放）拆到 js/graphBoardView.js，
+// 這裡只管串起畫面、串起狀態的膠水邏輯。
 //
-// 這支檔案原本 1128 行、後來拆成五個模組後剩 432 行；這次加入雙檢視架構
-// 沒有讓它再變肥：畫布渲染邏輯整段搬進兩個新的檢視模組，這裡繼續維持
-// 「只管串起畫面、串起狀態」的膠水邏輯。
-const VIEW_BREAKPOINT = 1024;
-
+// 這裡曾經有過第二種檢視模式（「網狀圖譜」，力導向物理模擬呈現），使用者
+// 實際用過一陣子之後反映兩種檢視反而是多餘的負擔，只需要保留群組卡片這
+// 一種——已經整批移除（連同 js/graphForceView.js／js/graphForceSimulation.js
+// 兩個檔案，還有 styles.css 裡對應的檢視切換鈕／節點/光暈/連結選單樣式），
+// 不留一半用不到的雙檢視切換邏輯跟死碼。
 export async function renderGraphPage(container, rawBookId) {
   const bookId = Number(rawBookId);
   const book = await DB.getById('books', bookId);
@@ -44,10 +33,6 @@ export async function renderGraphPage(container, rawBookId) {
           <h2 class="graph-toolbar-title">本書關係圖</h2>
         </div>
         <div class="toolbar-actions graph-toolbar-right">
-          <div class="graph-view-toggle" id="graph-view-toggle" role="group" aria-label="切換檢視模式">
-            <button type="button" class="graph-view-toggle-btn" data-view="board" data-tooltip="分組視角" aria-label="切換到分組視角">⊞ 分組視角</button>
-            <button type="button" class="graph-view-toggle-btn" data-view="network" data-tooltip="關係網絡" aria-label="切換到關係網絡">🕸️ 關係網絡</button>
-          </div>
           <div class="canvas-zoom-toolbar" id="canvas-zoom-toolbar">
             <button type="button" class="canvas-tool-btn" id="zoom-out-btn" data-tooltip="縮小" aria-label="縮小">－</button>
             <span class="canvas-zoom-level" id="zoom-level">100%</span>
@@ -64,12 +49,9 @@ export async function renderGraphPage(container, rawBookId) {
         <div class="graph-canvas-area" id="graph-canvas-area">
           <div class="canvas-wrap" id="canvas-wrap">
             <div class="canvas-board" id="canvas-board">
-              <div class="graph-board-view" id="graph-board-view">
-                <svg class="connections-overlay" id="connections-svg"></svg>
-                <div class="group-track" id="group-track"></div>
-                <svg class="connections-overlay connections-labels-overlay" id="connections-labels-svg"></svg>
-              </div>
-              <svg class="graph-network-view" id="graph-network-view" hidden></svg>
+              <svg class="connections-overlay" id="connections-svg"></svg>
+              <div class="group-track" id="group-track"></div>
+              <svg class="connections-overlay connections-labels-overlay" id="connections-labels-svg"></svg>
             </div>
             <div class="canvas-empty-state" id="canvas-empty-state" hidden>
               <p>點擊右上角「＋ 新增群組」開始建立角色關係圖</p>
@@ -85,22 +67,17 @@ export async function renderGraphPage(container, rawBookId) {
           <button type="button" class="graph-tab-btn" data-tab="detail">編輯詳情</button>
         </div>
         <div class="graph-tab-panel" data-tab-panel="add">
-          <div id="board-add-content">
-            <p class="graph-hint">拖曳人物卡片可以換群組；點一下人物或連線可以編輯／刪除。</p>
-            <p class="empty" id="edge-form-hint">至少要有兩個人物才能建立關係。</p>
-            <form id="edge-form" class="book-form compact-form" style="display:none;">
-              <label>從<select name="fromNodeId" id="edge-from"></select></label>
-              <label>到<select name="toNodeId" id="edge-to"></select></label>
-              <label>關係
-                <input name="label" type="text" placeholder="例如：朋友、敵人、家人、懷疑...">
-              </label>
-              ${edgeStyleFieldsHtml(null)}
-              <div class="form-actions"><button type="submit" class="btn btn-primary">新增關係</button></div>
-            </form>
-          </div>
-          <div id="network-add-content" hidden>
-            <p class="graph-hint">在畫布上點一下人物卡片，選擇「🔗 連結」，再點一下另一位人物，輸入關係名稱即可建立連線。</p>
-          </div>
+          <p class="graph-hint">拖曳人物卡片可以換群組；點一下人物或連線可以編輯／刪除。</p>
+          <p class="empty" id="edge-form-hint">至少要有兩個人物才能建立關係。</p>
+          <form id="edge-form" class="book-form compact-form" style="display:none;">
+            <label>從<select name="fromNodeId" id="edge-from"></select></label>
+            <label>到<select name="toNodeId" id="edge-to"></select></label>
+            <label>關係
+              <input name="label" type="text" placeholder="例如：朋友、敵人、家人、懷疑...">
+            </label>
+            ${edgeStyleFieldsHtml(null)}
+            <div class="form-actions"><button type="submit" class="btn btn-primary">新增關係</button></div>
+          </form>
         </div>
         <div class="graph-tab-panel" data-tab-panel="detail" hidden>
           <div id="selection-panel">
@@ -112,21 +89,16 @@ export async function renderGraphPage(container, rawBookId) {
   `;
 
   const boardEl = container.querySelector('#canvas-board');
-  const boardViewEl = container.querySelector('#graph-board-view');
-  const networkViewEl = container.querySelector('#graph-network-view');
   const trackEl = container.querySelector('#group-track');
   const svgEl = container.querySelector('#connections-svg');
   const labelSvgEl = container.querySelector('#connections-labels-svg');
   const emptyStateEl = container.querySelector('#canvas-empty-state');
-  const canvasWrapEl = container.querySelector('#canvas-wrap');
   const addGroupBtn = container.querySelector('#add-group-btn');
   const addPersonBtn = container.querySelector('#add-person-btn');
   const edgeForm = container.querySelector('#edge-form');
   const fromSelect = container.querySelector('#edge-from');
   const toSelect = container.querySelector('#edge-to');
   const edgeHint = container.querySelector('#edge-form-hint');
-  const boardAddContent = container.querySelector('#board-add-content');
-  const networkAddContent = container.querySelector('#network-add-content');
   const selectionPanel = container.querySelector('#selection-panel');
   const tabButtons = container.querySelectorAll('.graph-tab-btn');
   const tabPanels = container.querySelectorAll('.graph-tab-panel');
@@ -164,15 +136,15 @@ export async function renderGraphPage(container, rawBookId) {
   });
   // 點畫布空白處（不是卡片、不是人物）順手把面板收起來，保持畫面清爽。
   boardEl.addEventListener('click', (event) => {
-    if (event.target === boardEl || event.target === trackEl || event.target === networkViewEl) closeDrawer();
+    if (event.target === boardEl || event.target === trackEl) closeDrawer();
   });
 
   wireCoupleAutoColor(edgeForm);
   wireEdgeColorSwatches(edgeForm);
 
   // groups/nodes/edges 集中放在一個共用物件裡（不是各自獨立的 let 區域變數），
-  // 好讓拆到 graphBoardView.js／graphForceView.js 的兩個檢視模組都能直接讀到
-  // reload() 換上的最新資料——兩邊都是「同一份 state」，不是各自維護一份拷貝。
+  // 好讓拆到 graphBoardView.js 的畫布渲染邏輯也能直接讀到 reload() 換上的
+  // 最新資料。
   const state = { groups: [], nodes: [], edges: [] };
 
   async function reload() {
@@ -299,71 +271,14 @@ export async function renderGraphPage(container, rawBookId) {
     });
   }
 
-  // ---- 響應式雙檢視架構：>1024px 預設「陣營看板」，≤1024px 預設「網狀圖譜」，
-  // 右上角一顆手動切換鈕隨時可以蓋過去。使用者手動切過一次之後，這次停留
-  // 在這個頁面期間就不再被自動偵測蓋回去——尊重使用者剛剛做的選擇，不會
-  // 使用者選了看板、卻因為視窗被稍微調整寬度就被硬跳回網狀圖譜。 ----
-  let currentView = window.innerWidth > VIEW_BREAKPOINT ? 'board' : 'network';
-  let manualOverride = false;
-  const viewToggleButtons = container.querySelectorAll('.graph-view-toggle-btn');
-
-  // 用 setAttribute/removeAttribute 手動切換 hidden，不是直接指定 `.hidden = true/false`——
-  // 這是實測抓出來的真實瀏覽器行為差異：`.hidden` 這個 IDL 屬性在一般 HTML 元素
-  // （<div>／<button>……）上會正確反映到 hidden 內容屬性，但在 <svg> 根元素
-  // （SVGSVGElement，這裡就是 #graph-network-view）上，這個引擎並不會把
-  // `.hidden = false` 真的反映成拿掉 hidden 屬性——寫入的值只是停在一個
-  // 獨立的 JS 屬性上，DOM 屬性跟畫面樣式完全沒有跟著變，切換鈕點了看起來
-  // 有作用（class 有切換、log 讀回來也是 false），畫布卻永遠是一片空白。
-  // 改用明確的 attribute 操作，四個元素（含兩個 <div>）統一同一套寫法，
-  // 不管是不是 SVG 元素都保證真的加上/拿掉屬性，CSS 的 [hidden] 選擇器
-  // 才會確實生效。
-  function setHidden(el, hidden) {
-    if (hidden) el.setAttribute('hidden', '');
-    else el.removeAttribute('hidden');
-  }
-  function applyViewVisibility() {
-    viewToggleButtons.forEach((btn) => btn.classList.toggle('is-active', btn.dataset.view === currentView));
-    setHidden(boardViewEl, currentView !== 'board');
-    setHidden(networkViewEl, currentView !== 'network');
-    setHidden(boardAddContent, currentView !== 'board');
-    setHidden(networkAddContent, currentView !== 'network');
-  }
-
-  function setView(view, { manual = false } = {}) {
-    if (view === currentView && !manual) return;
-    if (manual) manualOverride = true;
-    currentView = view;
-    applyViewVisibility();
-    draw();
-  }
-
-  viewToggleButtons.forEach((btn) => {
-    btn.addEventListener('click', () => setView(btn.dataset.view, { manual: true }));
-  });
-
-  window.addEventListener('resize', () => {
-    if (manualOverride) return;
-    const next = window.innerWidth > VIEW_BREAKPOINT ? 'board' : 'network';
-    setView(next);
-  });
-
   function draw() {
     emptyStateEl.hidden = !(state.groups.length === 0 && state.nodes.length === 0);
-    if (currentView === 'board') {
-      renderBoardView({
-        state, DB, bookId, trackEl, boardEl, svgEl, labelSvgEl,
-        edgeForm, fromSelect, toSelect, edgeHint,
-        reload, showPersonPanel, showEdgePanel,
-      });
-    } else {
-      renderNetworkView({
-        state, DB, bookId, svgEl: networkViewEl, wrapEl: canvasWrapEl,
-        reload, showPersonPanel, showEdgePanel,
-      });
-    }
+    renderBoardView({
+      state, DB, bookId, trackEl, boardEl, svgEl, labelSvgEl,
+      edgeForm, fromSelect, toSelect, edgeHint,
+      reload, showPersonPanel, showEdgePanel,
+    });
   }
-
-  applyViewVisibility();
 
   // 全螢幕展繪：作用對象是最外層的 #graph-app-container（工具列＋畫布＋側邊抽屜全部包在裡面），
   // 不是只有畫布本身——之前只把畫布元素送進全螢幕，工具列跟側邊抽屜是它的兄弟節點、
@@ -387,12 +302,9 @@ export async function renderGraphPage(container, rawBookId) {
     closeDrawer();
   });
 
-  // 縮放：直接對 .canvas-board 套 CSS transform:scale，兩種檢視共用同一顆
-  // transform（陣營看板的卡片、網狀圖譜的 SVG 都在它底下，一起等比例縮放）。
-  // 陣營看板另外需要縮放後重新呼叫 drawConnections 讓連線重新對齊卡片新的
-  // 視覺位置（drawConnections 是用 getBoundingClientRect 量測，量出來的本來
-  // 就已經反映縮放後的樣子）；網狀圖譜的線是靠自己內部的 SVG 座標系畫的，
-  // 不是量測 DOM 位置，純 CSS 縮放本身就已經正確，不需要另外重畫。
+  // 縮放：直接對 .canvas-board 套 CSS transform:scale，連線用的 SVG 跟人物/群組卡片
+  // 都在它底下，一起等比例縮放；縮放後重新呼叫 drawConnections 讓連線重新對齊卡片新的視覺位置
+  // （drawConnections 是用 getBoundingClientRect 量測，量出來的本來就已經反映縮放後的樣子）。
   // 手機螢幕（≤768px）起始縮放比例調小：畫布卡片是用固定像素座標排版
   // （見 graphBoardView.js 的 GRID_COL_STEP／GRID_ROW_STEP），100% 縮放在桌面可以看到
   // 大部分內容，在手機螢幕一開始只會看到左上角一小塊，其餘群組卡片都在
@@ -412,9 +324,7 @@ export async function renderGraphPage(container, rawBookId) {
     boardEl.style.transform = `scale(${zoomLevel})`;
     boardEl.style.transformOrigin = '0 0';
     zoomLevelEl.textContent = `${Math.round(zoomLevel * 100)}%`;
-    if (currentView === 'board') {
-      requestAnimationFrame(() => drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel));
-    }
+    requestAnimationFrame(() => drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel));
   }
 
   container.querySelector('#zoom-in-btn').addEventListener('click', () => {
@@ -438,8 +348,7 @@ export async function renderGraphPage(container, rawBookId) {
     await reload();
     // 新群組永遠排在網格順序最後一格，畫布內容一多就可能落在目前捲動位置
     // 看不到的地方——新增後自動把這張卡片捲進可視範圍，不用使用者自己
-    // 摸索著往下/往右找剛剛按下去到底新增在哪裡（只有陣營看板有這張卡片，
-    // 網狀圖譜下找不到對應的 DOM 元素，querySelector 拿到 null 就跳過即可）。
+    // 摸索著往下/往右找剛剛按下去到底新增在哪裡。
     const newCardEl = trackEl.querySelector(`.group-card[data-group-id="${newGroupId}"]`);
     if (newCardEl) newCardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   });
@@ -449,10 +358,9 @@ export async function renderGraphPage(container, rawBookId) {
   // quick-add-person-form），完全沒有群組時（畫布空白，或已經刪光所有群組）
   // 沒有任何一個入口能新增人物，逼著使用者一定要先建一個群組才能開始記人物——
   // 使用者反映他要的是「先把人物一個個建起來，之後真的需要分類再手動拖進
-  // 群組」這種順序，兩件事應該互相獨立。這裡加一顆跟「＋ 新增群組」平行的
-  // 工具列按鈕，直接新增一個 groupId 是 null 的人物（未分組），不用先有
-  // 群組才能按——不管目前是哪種檢視都看得到、按得到（board 檢視新增後會
-  // 自動出現在「未分組」卡片裡，network 檢視會直接多一顆灰色節點）。
+  // 群組」這種順序，兩件事應該互相獨立。這顆跟「＋ 新增群組」平行的工具列
+  // 按鈕，直接新增一個 groupId 是 null 的人物（未分組），不用先有群組才能按，
+  // 新增後會自動出現在「未分組」卡片裡。
   addPersonBtn.addEventListener('click', async () => {
     const ungroupedCount = state.nodes.filter((n) => !n.groupId).length;
     const newPersonId = await DB.add('nodes', {
