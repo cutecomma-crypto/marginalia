@@ -148,41 +148,7 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     const fromColRight = fromRect.right - boardRect.left;
     const toColLeft = toRect.left - boardRect.left;
     const toColRight = toRect.right - boardRect.left;
-    let sameCard = Math.abs(fromColLeft - toColLeft) < 4 && Math.abs(fromColRight - toColRight) < 4;
-    // 同一張卡片裡，如果兩個人中間還夾著其他人物（例如清單第 2 位跟第 4 位
-    // 建立關係，第 3 位插在正中間），原本「貼卡片內側直線＋標籤放正中央」
-    // 的畫法會出包：正中央的 Y 座標剛好等於被夾在中間那個人的列高，看起來
-    // 就像這段關係接在那個不相干的人身上——這是使用者實測回報的真實案例：
-    // 設定了主角跟某人是搭檔，標籤卻顯示在兩人中間、另一個完全無關的
-    // 人物那一列。偵測到「中間真的夾著別人」，記下第一個被夾在中間的人
-    // 的列高（skipFirstBetweenY），等一下算標籤位置時會用到：標籤要放在
-    // 「起點」跟「第一個被跳過的人」中間那一小段空隙的正中央——這個 Y
-    // 座標保證落在兩行文字的間距裡，不會剛好等於任何一個人物的列高
-    // （不管是被跳過的、還是起點/終點本人都不會對齊），不會再讓人誤會
-    // 這段關係接在中間某個不相干的人身上。兩人之間沒有夾著其他人（真的
-    // 是相鄰兩行）才維持原本貼卡片內側的直線畫法，這種情況本來就不會
-    // 混淆，不需要改。
-    let skipLabelY = null;
-    if (sameCard) {
-      const cardBodyEl = fromEl.closest('.group-card-body');
-      if (cardBodyEl) {
-        const topY = Math.min(fromCenter.y, toCenter.y);
-        const bottomY = Math.max(fromCenter.y, toCenter.y);
-        const betweenYs = [...cardBodyEl.querySelectorAll('.person-item')]
-          .filter((el) => el !== fromEl && el !== toEl)
-          .map((el) => {
-            const r = el.getBoundingClientRect();
-            return r.top + r.height / 2 - boardRect.top;
-          })
-          .filter((cy) => cy > topY + 4 && cy < bottomY - 4)
-          .sort((a, b) => a - b);
-        if (betweenYs.length > 0) {
-          sameCard = false;
-          const firstBetweenY = fromCenter.y <= toCenter.y ? betweenYs[0] : betweenYs[betweenYs.length - 1];
-          skipLabelY = (fromCenter.y + firstBetweenY) / 2;
-        }
-      }
-    }
+    const sameCard = Math.abs(fromColLeft - toColLeft) < 4 && Math.abs(fromColRight - toColRight) < 4;
     const GUTTER_INSET = 18;
 
     let startPulled;
@@ -202,6 +168,46 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
       end = attachSidePoint(toRectLocal, toCenter, fromCenter);
       const bendX = (startPulled.x + end.x) / 2 + dupSpread;
       pathD = smoothStepPath(startPulled, end, bendX);
+    }
+
+    // 同一張卡片裡，如果兩個人中間還夾著其他人物（例如清單第 2 位跟第 4 位
+    // 建立關係，第 3 位插在正中間），線本身維持上面貼卡片內側的直線畫法
+    // 不變（安全、不會跑出去蓋到隔壁欄的卡片），但「標籤」要整個移到卡片
+    // 外面的空白處——這是兩輪使用者實測才抓到的真實教訓：第一輪只是把
+    // 標籤的 Y 座標從「兩端正中央」挪到「起點跟第一個被跳過的人之間的
+    // 空隙」，聽起來已經不會跟任何一行人物的列高對齊，但視覺上那個空隙
+    // 跟隔壁那個不相干的人的卡片邊界靠得太近，使用者實際看起來還是覺得
+    // 「標籤疊在那個人身上」。真正乾淨的做法是讓標籤完全離開卡片的輪廓，
+    // 飄在卡片右邊的留白區域（跟卡片之間留一段看得出來的空隙，不是緊貼
+    // 著邊界），不管視覺上多靠近哪一行，只要標籤本身在卡片外面、沒有跟
+    // 卡片有任何重疊，就不會再被誤會成「接在卡片裡某個人身上」。
+    let skipLabelPos = null;
+    if (sameCard) {
+      const cardBodyEl = fromEl.closest('.group-card-body');
+      if (cardBodyEl) {
+        const topY = Math.min(fromCenter.y, toCenter.y);
+        const bottomY = Math.max(fromCenter.y, toCenter.y);
+        const hasPersonBetween = [...cardBodyEl.querySelectorAll('.person-item')].some((el) => {
+          if (el === fromEl || el === toEl) return false;
+          const r = el.getBoundingClientRect();
+          const cy = r.top + r.height / 2 - boardRect.top;
+          return cy > topY + 4 && cy < bottomY - 4;
+        });
+        if (hasPersonBetween) {
+          // 卡片之間的網格間距只有 30px（見呼叫端 GRID_COL_STEP 240 減掉
+          // 卡片寬度 210），留給標籤的空間本來就很窄——這裡刻意只往外推
+          // 14px（不是一半的 30px），關係字通常是「家人／朋友／搭檔」這種
+          // 兩個字的詞，加上膠囊的左右內距，14px 的緩衝量實測足夠讓整顆
+          // 膠囊完全落在兩張卡片中間的空白縫隙裡、不會貼到隔壁卡片；偶爾
+          // 遇到使用者自訂的長一點的關係字，寧可讓它稍微逼近隔壁卡片的
+          // 邊緣，也比原本「直接疊在某個不相干的人身上」的錯覺好非常多。
+          const SKIP_LABEL_OUTSIDE_GAP = 14;
+          skipLabelPos = {
+            x: Math.max(fromColRight, toColRight) + SKIP_LABEL_OUTSIDE_GAP + dupSpread,
+            y: (fromCenter.y + toCenter.y) / 2,
+          };
+        }
+      }
     }
 
     const line = document.createElementNS(svgNS, 'path');
@@ -226,7 +232,15 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
       // 小卡片正中間蓋住內容。
       let midX;
       let midY;
-      if (sameCard) {
+      if (skipLabelPos) {
+        // 同卡片但中間跳過其他人的關係（見上面 skipLabelPos 的說明），標籤
+        // 整個飄到卡片外面的留白區域，不跟線本身的 X 座標綁在一起——這裡
+        // 刻意不沿用「標籤一定要貼在畫出來的線上」的原則，因為正是這個
+        // 原則本身在卡片內部密集排列時造成「標籤疊到不相干的人身上」的
+        // 錯覺，寧可讓標籤跟線稍微分開一點、但保證不會被誤認。
+        midX = skipLabelPos.x;
+        midY = skipLabelPos.y;
+      } else if (sameCard) {
         midX = startPulled.x;
         midY = (startPulled.y + end.y) / 2;
       } else {
@@ -235,10 +249,6 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
         midX = (startPulled.x + end.x) / 2 + dupSpread;
         midY = (startPulled.y + end.y) / 2;
         if (lineLength < SHORT_EDGE_THRESHOLD) midY -= 10;
-        // 同卡片但中間跳過其他人的關係（見上面 skipLabelY 的說明），標籤
-        // Y 座標改用算好的「起點跟第一個被跳過的人之間的空隙」，不要用
-        // 兩端正中央——後者剛好會對齊中間某個不相干的人物。
-        if (skipLabelY != null) midY = skipLabelY;
       }
       const labelColor = edgeColor;
       const text = document.createElementNS(svgNS, 'text');
