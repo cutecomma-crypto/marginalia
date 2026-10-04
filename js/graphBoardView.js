@@ -4,7 +4,7 @@
 // 實際用過一陣子後反映兩種檢視反而是多餘的負擔，只需要保留這一種，
 // 已經整批移除（見 js/graph.js 開頭的說明），這裡重新變回唯一、直接
 // 被 js/graph.js 呼叫的畫布渲染邏輯，不再是「兩個可插拔模組之一」。
-import { datalistOptions, groupCardHtml, ungroupedTrayHtml, personOptionsHtml } from './graphTemplates.js';
+import { datalistOptions, groupCardHtml, ungroupedPersonCardHtml, personOptionsHtml } from './graphTemplates.js';
 import { drawConnections } from './graphConnections.js';
 import { wireGroupCardEvents } from './graphDragDrop.js';
 
@@ -40,20 +40,24 @@ export function renderBoardView(ctx) {
   const GRID_COLS = 4;
   const GRID_COL_STEP = 240;
   const GRID_ROW_STEP = 280;
-  // 「未分組」卡片緊接在最後一個群組後面、用同一套網格順序排列（見
-  // ungroupedTrayHtml 開頭的說明）；完全沒有未分組人物時整張卡片不畫出來，
-  // 不留一張「沒有未分組的人物」的空卡片佔位置。
-  const ungroupedIndex = groups.length;
-  trackEl.innerHTML = groups.map((g, i) => groupCardHtml(
+  const groupsHtml = groups.map((g, i) => groupCardHtml(
     g,
     peopleByGroup.get(g.id) || [],
     20 + (i % GRID_COLS) * GRID_COL_STEP,
     20 + Math.floor(i / GRID_COLS) * GRID_ROW_STEP,
-  )).join('') + (ungrouped.length > 0 ? ungroupedTrayHtml(
-    ungrouped,
-    20 + (ungroupedIndex % GRID_COLS) * GRID_COL_STEP,
-    20 + Math.floor(ungroupedIndex / GRID_COLS) * GRID_ROW_STEP,
-  ) : '')
+  )).join('');
+  // 未分組的人物接續在最後一個群組卡片後面、用同一套網格順序排列，但
+  // 每個人各自佔一格、各自是一張獨立卡片（見 ungroupedPersonCardHtml
+  // 開頭的說明），不是全部擠在同一張「未分組」容器卡片裡。
+  const ungroupedHtml = ungrouped.map((person, i) => {
+    const index = groups.length + i;
+    return ungroupedPersonCardHtml(
+      person,
+      20 + (index % GRID_COLS) * GRID_COL_STEP,
+      20 + Math.floor(index / GRID_COLS) * GRID_ROW_STEP,
+    );
+  }).join('');
+  trackEl.innerHTML = groupsHtml + ungroupedHtml
     + `<datalist id="existing-people-list">${datalistOptions(nodes.map((n) => n.label))}</datalist>`;
 
   wireGroupCardEvents(trackEl, ctx);

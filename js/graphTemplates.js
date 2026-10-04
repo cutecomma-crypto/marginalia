@@ -73,22 +73,26 @@ export function groupCardHtml(group, people, fallbackX, fallbackY) {
   `;
 }
 
-// 「未分組」卡片改成跟一般群組卡片同一套網格定位（見呼叫端 draw() 怎麼算
-// x/y），不再靠 CSS 寫死的 top:1rem/right:1rem 釘在畫布右側——那個位置是
-// 相對整個 .group-track（min-width:1400px）算的，不是相對實際看得到的
-// .canvas-wrap 視窗，畫布內容不夠寬、或視窗本身比 1400px 窄時，這張卡片
-// 會被切在可視範圍外面，100% 縮放下看起來像「右側被裁掉一半」。改成跟
-// 群組卡片同一套網格順序排列，永遠緊接在最後一個群組後面，內容有多少
-// 畫布就佔多少，不會再脫離實際內容範圍。
-export function ungroupedTrayHtml(people, x, y) {
+// 未分組的人物不再共用一張「未分組」容器卡片——使用者反映「先建人物、
+// 之後真的需要分類再手動拖進群組」是他實際的用法，用「＋ 新增人物」
+// 工具列按鈕一直新增時，畫面上如果每次都多一層帶標題列、帶提示文字的
+// 「未分組」外框，看起來會像「全部都已經分類好了」，不符合直覺。改成
+// 每個未分組的人物各自是一張獨立的小卡片（跟一般群組卡片同一套網格
+// 定位，見呼叫端 renderBoardView() 怎麼算 x/y），沒有標題列、沒有群組
+// 名字、沒有提示文字，直接漂浮在畫布上。
+// 沿用既有的 .ungrouped-tray 虛線邊框樣式（本來是整個「未分組」容器
+// 用的，現在套在每一張獨立卡片上）：視覺上繼續用虛線框跟其他有實色
+// 邊框的群組卡片區分「這個人還沒分類」，不用另外寫新的 CSS 規則。
+// data-drop-group="ungrouped" 直接放在卡片本身（不像群組卡片是放在
+// .group-card-body 上）——既有的拖放邏輯（graphDragDrop.js）靠
+// .closest('[data-drop-group]') 從被拖曳／被懸停的人物卡片往上找最近的
+// 容器，這裡只有一層，卡片本身就是最近的祖先節點，一樣抓得到，不用
+// 另外包一層看不出差異的 wrapper div。
+export function ungroupedPersonCardHtml(person, x, y) {
   return `
-    <div class="group-card ungrouped-tray" style="left: ${x}px; top: ${y}px;">
-      <div class="group-card-header">
-        <span class="group-name-static">未分組</span>
-      </div>
-      <div class="group-card-body" data-drop-group="ungrouped">
-        ${people.map(personItemHtml).join('')}
-        <p class="graph-hint" style="margin:0;">拖曳人物卡片到上面的群組即可分類。</p>
+    <div class="group-card ungrouped-tray" data-drop-group="ungrouped" style="left: ${x}px; top: ${y}px;">
+      <div class="group-card-body">
+        ${personItemHtml(person)}
       </div>
     </div>
   `;

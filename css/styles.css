@@ -4519,11 +4519,9 @@ button.book-completed-date:hover {
   cursor: grabbing;
 }
 
-/* 位置改成跟一般群組卡片同一套 left/top inline style（見 js/graph.js 的
-   ungroupedTrayHtml／draw()），不再靠這裡的 top:1rem/right:1rem 寫死釘在
-   .group-track 右側——那個位置是相對整個 1400px 寬的畫布算的，跟使用者
-   實際看得到的可視範圍脫鉤，是「未分組卡片在 100% 縮放時被右側裁掉一半」
-   的根因，這裡只留視覺樣式（虛線邊框），定位交給 inline style。 */
+/* 未分組的人物每個各自是一張獨立卡片（見 graphTemplates.js 的
+   ungroupedPersonCardHtml），沒有標題列、沒有群組色，這裡的虛線邊框是
+   唯一用來跟一般群組卡片（實色邊框）區分的視覺線索。 */
 .group-card.ungrouped-tray {
   border-style: dashed;
   border-color: var(--border);
@@ -4602,14 +4600,6 @@ button.book-completed-date:hover {
 .group-subtitle-input:focus {
   outline: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 3px;
-}
-
-.group-name-static {
-  flex: 1;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  padding: 0.15rem;
 }
 
 .group-color-picker {
