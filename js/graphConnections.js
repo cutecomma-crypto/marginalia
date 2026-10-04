@@ -49,6 +49,34 @@ function smoothStepPath(start, end, bendX, radius = 14) {
   ].join(' ');
 }
 
+// 量出 boardEl 目前實際套用的縮放倍率——這是實測抓到的真正根因：graph.js
+// 的縮放功能直接對 .canvas-board（也就是這裡的 boardEl）套 CSS
+// transform:scale()，但底下這個函式原本整段都是拿 getBoundingClientRect()
+// 量到的「畫面上看到的」座標（已經被那個 transform 放大/縮小過一次），
+// 直接當成 SVG 的 path 座標、寬高屬性寫進去——而 svgEl／labelSvgEl 本身
+// 也是 boardEl 的子元素，一樣會被同一個 transform 再放大/縮小一次，等於
+// 整條連線的座標被縮放了兩次。100% 縮放（scale(1)）時這個問題完全看不
+// 出來（乘以 1 兩次還是 1，誤打誤撞「剛好正確」），但只要使用者按下
+// 放大/縮小鈕改變比例，連線跟標籤的座標就會跟著縮放倍率的「平方」跑掉，
+// 越偏離 100% 跑掉得越嚴重——這正是使用者實測回報「畫面放大到 120% 才
+// 看得到關係線」的真正原因：並不是 100% 時線不存在，是兩次縮放疊加後，
+// 線被算到跟卡片對不上的座標，100% 時剛好重疊在正確位置看起來正常，
+// 120% 時兩次縮放的落差大到肉眼就能看出明顯位移。
+// 修法是把所有「用 getBoundingClientRect() 量到的畫面座標」都先除以這個
+// 倍率，換算回「縮放套用之前」的座標系統，這樣整條連線（含 SVG 本身的
+// width/height 屬性）才會跟卡片一樣，只被 transform 縮放「一次」，不管
+// 使用者縮放到多少都能維持跟卡片對齊。
+function getBoardScale(boardEl) {
+  const transform = getComputedStyle(boardEl).transform;
+  if (!transform || transform === 'none') return 1;
+  // 縮放功能只會用 scale()（見 graph.js 的 applyZoom()，沒有旋轉/歪斜），
+  // 瀏覽器算出來的 computed transform 一律是 matrix(a, b, c, d, e, f) 的
+  // 形式，單純縮放時 a 跟 d 會是同一個倍率，取 a 就夠了。
+  const match = transform.match(/^matrix\(([^,]+),/);
+  const scale = match ? parseFloat(match[1]) : 1;
+  return scale > 0 ? scale : 1;
+}
+
 // svgEl 只畫連線本身，labelSvgEl 只畫標籤——兩個獨立的 SVG 疊在畫布上，
 // 中間夾著 .group-track（見 index.html 樣板／styles.css 的說明）：
 // svgEl 排在 .group-track 前面、labelSvgEl 排在後面，畫面堆疊順序照 DOM
@@ -60,14 +88,22 @@ function smoothStepPath(start, end, bendX, radius = 14) {
 // 一定看得到」，這是比逐字比對原始需求「連線與標籤都在中層」更貼近
 // 「使用者永遠看得懂這條線代表什麼關係」這個實際目的的做法。
 export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) {
+  const scale = getBoardScale(boardEl);
   const boardRect = boardEl.getBoundingClientRect();
   // 群組卡片可以自由拖到畫布任何位置，畫布實際大小常常比 boardEl 本身量到的寬高還大
   // （boardEl 的寬度不會因為裡面的絕對定位卡片超出範圍就跟著變寬），
   // 用 group-track 的 scrollWidth/Height 才抓得到真正涵蓋所有卡片的範圍，
   // 不然離比較遠的關係線會被 SVG 自己的寬高裁掉，變成「看不到」。
+  // boardRect.width/height 是 getBoundingClientRect() 量到的「畫面上」
+  // 大小（已經被 transform:scale 放大/縮小過），但 trackEl.scrollWidth／
+  // scrollHeight 是版面配置用的內部尺寸，不受祖先的 transform 影響——
+  // 兩者單位不一致，先把 boardRect 那一半除以 scale 換算回「縮放前」
+  // 的座標系統再取最大值，才能跟 scrollWidth/Height 比較、也才能跟下面
+  // 每個人物卡片「除以 scale」之後的座標落在同一套單位上（見
+  // getBoardScale() 開頭的完整說明）。
   const trackEl = boardEl.querySelector('.group-track');
-  const svgWidth = Math.max(boardRect.width, trackEl ? trackEl.scrollWidth : 0);
-  const svgHeight = Math.max(boardRect.height, trackEl ? trackEl.scrollHeight : 0);
+  const svgWidth = Math.max(boardRect.width / scale, trackEl ? trackEl.scrollWidth : 0);
+  const svgHeight = Math.max(boardRect.height / scale, trackEl ? trackEl.scrollHeight : 0);
   svgEl.setAttribute('width', svgWidth);
   svgEl.setAttribute('height', svgHeight);
   svgEl.innerHTML = '';
@@ -82,8 +118,8 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     if (!fromEl || !toEl) continue;
     const fromRect = fromEl.getBoundingClientRect();
     const toRect = toEl.getBoundingClientRect();
-    const fromCenter = { x: fromRect.left + fromRect.width / 2 - boardRect.left, y: fromRect.top + fromRect.height / 2 - boardRect.top };
-    const toCenter = { x: toRect.left + toRect.width / 2 - boardRect.left, y: toRect.top + toRect.height / 2 - boardRect.top };
+    const fromCenter = { x: (fromRect.left + fromRect.width / 2 - boardRect.left) / scale, y: (fromRect.top + fromRect.height / 2 - boardRect.top) / scale };
+    const toCenter = { x: (toRect.left + toRect.width / 2 - boardRect.left) / scale, y: (toRect.top + toRect.height / 2 - boardRect.top) / scale };
     validEdges.push({ edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter });
   }
 
@@ -144,10 +180,13 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     // 這種關係線跟標籤整組都限制在卡片右邊界「內側」的一條固定直線上（往左 inset 18px），
     // 不管關係方向是誰到誰，都不會超出卡片、也不會蓋到人名文字。重複關係就把這條線本身
     // 左右錯開一點。跨卡片的關係則維持原本點對點連線的畫法，標籤沿線的垂直方向擺開。
-    const fromColLeft = fromRect.left - boardRect.left;
-    const fromColRight = fromRect.right - boardRect.left;
-    const toColLeft = toRect.left - boardRect.left;
-    const toColRight = toRect.right - boardRect.left;
+    // 跟上面 fromCenter/toCenter 一樣，全部除以 scale 換算回縮放前的座標
+    // （見 getBoardScale() 的完整說明），不然卡片邊界的計算會跟著目前的
+    // 縮放比例一起跑掉。
+    const fromColLeft = (fromRect.left - boardRect.left) / scale;
+    const fromColRight = (fromRect.right - boardRect.left) / scale;
+    const toColLeft = (toRect.left - boardRect.left) / scale;
+    const toColRight = (toRect.right - boardRect.left) / scale;
     const sameCard = Math.abs(fromColLeft - toColLeft) < 4 && Math.abs(fromColRight - toColRight) < 4;
     const GUTTER_INSET = 18;
 
@@ -160,8 +199,8 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
       end = { x: gutterX, y: toCenter.y };
       pathD = `M ${startPulled.x},${startPulled.y} L ${end.x},${end.y}`;
     } else {
-      const fromRectLocal = { width: fromRect.width, height: fromRect.height };
-      const toRectLocal = { width: toRect.width, height: toRect.height };
+      const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
+      const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
       // 一律從左右外邊緣接出去（不管有沒有箭頭），折線走 smooth step，
       // 不會有直線斜著貫穿中間其他卡片的問題（見兩個函式開頭的說明）。
       startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
@@ -190,7 +229,7 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
         const hasPersonBetween = [...cardBodyEl.querySelectorAll('.person-item')].some((el) => {
           if (el === fromEl || el === toEl) return false;
           const r = el.getBoundingClientRect();
-          const cy = r.top + r.height / 2 - boardRect.top;
+          const cy = (r.top + r.height / 2 - boardRect.top) / scale;
           return cy > topY + 4 && cy < bottomY - 4;
         });
         if (hasPersonBetween) {
