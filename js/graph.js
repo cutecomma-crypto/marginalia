@@ -4,7 +4,7 @@ import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 import { ICON_LINK } from './icons.js';
 import { nextGroupColor, loadGraphData, readEdgeStyleFields } from './graphModel.js';
 import { edgeStyleFieldsHtml, wireCoupleAutoColor, wireEdgeColorSwatches } from './graphTemplates.js';
-import { drawConnections } from './graphConnections.js';
+import { drawConnections, clearAllEdgeOffsets } from './graphConnections.js';
 import { renderBoardView } from './graphBoardView.js';
 
 // 本檔案是關係圖譜頁面的「外殼」（Shell）：工具列、側邊抽屜、縮放、全螢幕——
@@ -41,6 +41,7 @@ export async function renderGraphPage(container, rawBookId) {
           </div>
           <button type="button" class="btn graph-toolbar-secondary-btn drawer-toggle-btn" id="drawer-toggle-btn">${ICON_LINK}關係／編輯面板</button>
           <button type="button" class="btn graph-toolbar-secondary-btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
+          <button type="button" class="btn graph-toolbar-secondary-btn" id="reset-edge-offsets-btn" title="手動拖曳調整過的連線位置，一鍵恢復成系統自動排列">↺ 重設連線位置</button>
           <button type="button" class="btn btn-primary" id="add-person-btn">＋ 新增人物</button>
           <button type="button" class="btn btn-primary" id="add-group-btn">＋ 新增群組</button>
         </div>
@@ -95,6 +96,7 @@ export async function renderGraphPage(container, rawBookId) {
   const emptyStateEl = container.querySelector('#canvas-empty-state');
   const addGroupBtn = container.querySelector('#add-group-btn');
   const addPersonBtn = container.querySelector('#add-person-btn');
+  const resetEdgeOffsetsBtn = container.querySelector('#reset-edge-offsets-btn');
   const edgeForm = container.querySelector('#edge-form');
   const fromSelect = container.querySelector('#edge-from');
   const toSelect = container.querySelector('#edge-to');
@@ -324,7 +326,7 @@ export async function renderGraphPage(container, rawBookId) {
     boardEl.style.transform = `scale(${zoomLevel})`;
     boardEl.style.transformOrigin = '0 0';
     zoomLevelEl.textContent = `${Math.round(zoomLevel * 100)}%`;
-    requestAnimationFrame(() => drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel));
+    requestAnimationFrame(() => drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel, bookId));
   }
 
   container.querySelector('#zoom-in-btn').addEventListener('click', () => {
@@ -342,6 +344,15 @@ export async function renderGraphPage(container, rawBookId) {
   // 滾輪／觸控板縮放刻意不做：畫布縮放完全交給頂部工具列的 −／＋／重設三顆按鈕，
   // 使用者在瀏覽或用滾輪捲動畫布找位置時，不會不小心把畫面滾到暴增暴縮。
   // 拿掉這個監聽器後，滾輪在 .canvas-wrap 上就是它原生 overflow:auto 的捲動行為。
+
+  // 手動拖曳連線／標籤調整過的位置存在 localStorage（見 graphConnections.js
+  // 開頭的說明），拖亂了找不回系統原本算好的排列時，這顆按鈕把這本書底下
+  // 所有連線的手動偏移量整批清掉，重畫一次後全部的連線都會掉回自動排列。
+  resetEdgeOffsetsBtn.addEventListener('click', () => {
+    clearAllEdgeOffsets(bookId);
+    draw();
+    showToast('已重設所有連線位置');
+  });
 
   addGroupBtn.addEventListener('click', async () => {
     const newGroupId = await DB.add('groups', { bookId, name: '新群組', color: nextGroupColor(state.groups.length) });

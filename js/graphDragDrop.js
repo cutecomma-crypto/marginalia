@@ -191,7 +191,7 @@ export function wireGroupCardEvents(trackEl, ctx) {
         // 這裡拖曳的每一格都重新畫一次連線，卡片移到哪、連線就即時跟到哪，不用
         // 等放開滑鼠才校正——drawConnections() 本身是用 getBoundingClientRect()
         // 即時量測，卡片這時候已經套上新的 left/top，量到的自然就是新位置。
-        drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel);
+        drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel, bookId);
       }
       async function onUp() {
         document.removeEventListener('pointermove', onMove);
@@ -230,7 +230,7 @@ export function wireGroupCardEvents(trackEl, ctx) {
         const nextTop = Math.max(0, originTop + (moveEvent.clientY - startY));
         card.style.left = `${nextLeft}px`;
         card.style.top = `${nextTop}px`;
-        drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel);
+        drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel, bookId);
       }
       async function onUp() {
         document.removeEventListener('pointermove', onMove);

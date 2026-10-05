@@ -9,6 +9,69 @@ import {
   strokeWidthForLabel,
 } from './graphModel.js';
 
+// 使用者手動拖曳調整過的連線／標籤水平位置——跟 graphDragDrop.js 的
+// restoreUngroupedPosition／saveUngroupedPosition（獨立人物卡片的位置記憶）
+// 是同一個考量：存進 localStorage，不是 Supabase 的 edges 表。edges 表目前
+// 沒有「水平偏移量」這個欄位，貿然塞進 DB.update() 的 payload，對登入雲端
+// 帳號的使用者會重演這個專案踩過的舊 Bug（多送一個資料庫沒有的欄位，本機
+// 模式測不出問題，只有連 Supabase 才會出錯或靜默失敗）。存 localStorage
+// 換來的取捨跟獨立人物卡片位置一致：只有目前這台瀏覽器記得住，但完全不用
+// 碰 Supabase schema。
+function edgeOffsetKey(bookId, edgeId) {
+  return `marginalia_edge_offset_${bookId}_${edgeId}`;
+}
+
+function getStoredEdgeOffset(bookId, edgeId) {
+  if (bookId == null) return 0;
+  try {
+    const raw = localStorage.getItem(edgeOffsetKey(bookId, edgeId));
+    if (!raw) return 0;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function setStoredEdgeOffset(bookId, edgeId, offset) {
+  if (bookId == null) return;
+  try {
+    localStorage.setItem(edgeOffsetKey(bookId, edgeId), String(offset));
+  } catch {
+    // 存不進去（私密瀏覽模式／容量滿了）就放棄記住這次手動調整，畫面上
+    // 這次操作仍然立刻生效，只是下次重新整理後會掉回系統自動排列的位置。
+  }
+}
+
+// 拖曳途中（放開滑鼠之前）的即時位置，刻意不先寫進 localStorage——每一次
+// pointermove 都會呼叫 drawConnections() 重畫一次做即時預覽（見下面
+// wireEdgeDrag 的說明），用一個模組層級的 Map 暫存當下正在拖曳的那條線的
+// 偏移量，drawConnections() 畫線時優先讀這裡、放開滑鼠那一刻才正式存檔，
+// 避免每拖一格就寫一次 localStorage。
+const activeDragOffsets = new Map();
+
+function getEdgeOffset(bookId, edgeId) {
+  if (activeDragOffsets.has(edgeId)) return activeDragOffsets.get(edgeId);
+  return getStoredEdgeOffset(bookId, edgeId);
+}
+
+// 「重設連線位置」按鈕用：把這本書底下所有手動調整過的連線位置清掉，
+// 之後重畫就會全部掉回系統自動排列（車道／置中）的位置。
+export function clearAllEdgeOffsets(bookId) {
+  if (bookId == null) return;
+  const prefix = `marginalia_edge_offset_${bookId}_`;
+  try {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // 同上，私密瀏覽模式／容量問題就放棄，不影響畫面上已經重新渲染的結果。
+  }
+}
+
 // 人物卡片在群組裡是直向排列的清單，連線理論上都是「卡片跟卡片之間橫向拉過去」——
 // 固定從左右兩側外邊緣進出（不是任意角度算出來的邊界交點），看起來才像從卡片側面
 // 接出去，不會有線從卡片上緣/下緣斜插出來這種不符合版面直覺的角度，也不會直接穿過
@@ -87,7 +150,7 @@ function getBoardScale(boardEl) {
 // 標籤永遠疊在最上層，才能保證「不管線本身有沒有被卡片擋住，標籤本身
 // 一定看得到」，這是比逐字比對原始需求「連線與標籤都在中層」更貼近
 // 「使用者永遠看得懂這條線代表什麼關係」這個實際目的的做法。
-export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) {
+export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, bookId) {
   const scale = getBoardScale(boardEl);
   const boardRect = boardEl.getBoundingClientRect();
   // 群組卡片可以自由拖到畫布任何位置，畫布實際大小常常比 boardEl 本身量到的寬高還大
@@ -259,6 +322,12 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     const MAX_LANE_INDEX = 2;
     const laneSpread = sameCard ? Math.min(laneIndex ?? 0, MAX_LANE_INDEX) * OVERLAP_LANE_SPACING : 0;
 
+    // 使用者手動拖過這條連線（或它的標籤）留下的水平偏移量，疊加在系統
+    // 自動排好的基準位置上——拖曳途中讀 activeDragOffsets 即時預覽，放開
+    // 滑鼠後讀 localStorage 的存檔值，兩者由 getEdgeOffset() 統一處理，
+    // 這裡不用關心現在是不是正在拖曳。
+    const manualOffset = getEdgeOffset(bookId, edge.id);
+
     let startPulled;
     let end;
     let bendX;
@@ -270,17 +339,66 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
       // 卡片內部的人名文字就是這個誤差造成的。起點／終點的橫線段也是
       // 從這個卡片外邊框的位置拉出來，不會經過卡片內容區塊一步。
       const cardRight = cardRightByEl.get(cardEl);
+      const autoExtra = SAME_CARD_BEND_OFFSET + laneSpread + dupSpread;
+      // 手動拖曳可以把線拉得更遠，但不能拖回卡片邊框以內（那正是之前
+      // 修掉的「連線橫切過卡片文字」那個 bug）——離卡片邊框至少保留 4px。
+      const MIN_EXTRA_FROM_CARD = 4;
+      const clampedOffset = Math.max(manualOffset, MIN_EXTRA_FROM_CARD - autoExtra);
       startPulled = { x: cardRight, y: fromCenter.y };
       end = { x: cardRight, y: toCenter.y };
-      bendX = cardRight + SAME_CARD_BEND_OFFSET + laneSpread + dupSpread;
+      bendX = cardRight + autoExtra + clampedOffset;
     } else {
       const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
       const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
       startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
       end = attachSidePoint(toRectLocal, toCenter, fromCenter);
-      bendX = (startPulled.x + end.x) / 2 + dupSpread;
+      bendX = (startPulled.x + end.x) / 2 + dupSpread + manualOffset;
     }
     const pathD = smoothStepPath(startPulled, end, bendX);
+
+    // 連線本身／標籤的拖曳共用這一份邏輯——按住線或標籤左右拖，即時用
+    // activeDragOffsets 暫存偏移量重畫整張圖做預覽，放開滑鼠才正式存進
+    // localStorage。跟 graphDragDrop.js 裡卡片拖曳走的是同一套 Pointer
+    // Events 模式（document 層級監聽 move/up，不綁在被拖的元素本身上，
+    // 元素在拖曳途中被整批重畫置換掉也不受影響）。按下去沒有真的移動
+    // （小於 3px）就當成一般點擊，開編輯面板，跟拖曳調整位置是兩種互斥
+    // 的操作意圖，不會互相干擾。
+    function wireEdgeDrag(el) {
+      el.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const startClientX = event.clientX;
+        const startClientY = event.clientY;
+        const startOffset = manualOffset;
+        let moved = false;
+        function onMove(moveEvent) {
+          const dxScreen = moveEvent.clientX - startClientX;
+          const dyScreen = moveEvent.clientY - startClientY;
+          if (!moved) {
+            if (Math.hypot(dxScreen, dyScreen) < 3) return;
+            moved = true;
+          }
+          activeDragOffsets.set(edge.id, startOffset + dxScreen / scale);
+          drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, bookId);
+        }
+        function onUp() {
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          if (moved) {
+            const finalOffset = activeDragOffsets.get(edge.id) ?? startOffset;
+            activeDragOffsets.delete(edge.id);
+            setStoredEdgeOffset(bookId, edge.id, finalOffset);
+            drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, bookId);
+          } else {
+            activeDragOffsets.delete(edge.id);
+            onEdgeClick(edge);
+          }
+        }
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+      });
+    }
 
     const line = document.createElementNS(svgNS, 'path');
     line.setAttribute('d', pathD);
@@ -292,8 +410,9 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     if (hasEndArrow(edge)) line.setAttribute('marker-end', `url(#arrow-end-${colorId(edgeColor)})`);
     if (hasStartArrow(edge)) line.setAttribute('marker-start', `url(#arrow-start-${colorId(edgeColor)})`);
     line.style.pointerEvents = 'stroke';
-    line.style.cursor = 'pointer';
-    line.addEventListener('click', () => onEdgeClick(edge));
+    line.style.cursor = 'ew-resize';
+    line.style.touchAction = 'none';
+    wireEdgeDrag(line);
     svgEl.appendChild(line);
 
     if (edge.label) {
@@ -343,8 +462,9 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
       rect.setAttribute('stroke-width', '1');
       rect.setAttribute('rx', String((bbox.height + padY * 2) / 2));
       rect.style.pointerEvents = 'auto';
-      rect.style.cursor = 'pointer';
-      rect.addEventListener('click', () => onEdgeClick(edge));
+      rect.style.cursor = 'ew-resize';
+      rect.style.touchAction = 'none';
+      wireEdgeDrag(rect);
       labelSvgEl.insertBefore(rect, text);
     }
   }

@@ -76,5 +76,5 @@ export function renderBoardView(ctx) {
   edgeForm.style.display = enough ? '' : 'none';
   edgeHint.style.display = enough ? 'none' : '';
 
-  requestAnimationFrame(() => drawConnections(svgEl, labelSvgEl, boardEl, edges, showEdgePanel));
+  requestAnimationFrame(() => drawConnections(svgEl, labelSvgEl, boardEl, edges, showEdgePanel, bookId));
 }
