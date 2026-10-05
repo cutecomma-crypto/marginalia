@@ -378,6 +378,30 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
       const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
       startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
       end = attachSidePoint(toRectLocal, toCenter, fromCenter);
+      // 使用者回報雙向關係（如「競爭對手」）跨卡片時兩端箭頭都「無法顯示」——
+      // 實測發現這其實不是沒畫出來，是畫在看不到的地方：跨卡片連線的起點／
+      // 終點是接在 person-item 自己的邊界（卡片內距以內，不是卡片外邊框），
+      // 而且 smoothStepPath 在起點/終點的第一／最後一段是純水平線，箭頭的
+      // marker 方向跟著這段路徑的切線方向走，等於整個箭頭的寬度（7px）
+      // 完全沿著水平方向、筆直地往卡片裡面鑽——不管是最靠外側的 person-item
+      // 邊界，箭頭還是會鑽進卡片內距以內，被不透明的卡片背景整個蓋住（連線
+      // 的 SVG 層原本就刻意疊在卡片下面，見 drawConnections 開頭的說明）。
+      // 同卡片的弧線不會這樣：切線方向是斜的（朝控制點的方向），箭頭長度
+      // 有一部分「浪費」在垂直分量上，水平方向鑽進去的深度小很多，肉眼看
+      // 起來才會覺得同卡片的箭頭沒事、跨卡片的箭頭卻完全不見。
+      // 修法：只要這一端真的有箭頭，就把這一端的接點再往外推一點（遠離
+      // 對方、退出卡片的方向），留出剛好夠箭頭完整畫在卡片外面空白處的
+      // 間隙，不會再鑽到卡片底下被蓋住；沒有箭頭的那一端維持原本貼齊
+      // person-item 邊界的畫法，不會無緣無故多出一截看起來像斷開的缺口。
+      const ARROW_CLEARANCE = 8;
+      if (hasStartArrow(edge)) {
+        const sideStart = toCenter.x >= fromCenter.x ? 1 : -1;
+        startPulled = { x: startPulled.x + sideStart * ARROW_CLEARANCE, y: startPulled.y };
+      }
+      if (hasEndArrow(edge)) {
+        const sideEnd = fromCenter.x >= toCenter.x ? 1 : -1;
+        end = { x: end.x + sideEnd * ARROW_CLEARANCE, y: end.y };
+      }
       bendX = (startPulled.x + end.x) / 2 + dupSpread + manualOffset;
       // 跨卡片的連線起點終點 X 座標本來就不同，smoothStepPath 走的是有
       // 圓角的那個分支，不會變成直角方框，維持原本的折線畫法即可。
