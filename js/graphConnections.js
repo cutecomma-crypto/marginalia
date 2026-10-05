@@ -112,6 +112,26 @@ function smoothStepPath(start, end, bendX, radius = 14) {
   ].join(' ');
 }
 
+// 同卡片連線專用的畫法：一條單純往外弧出去再弧回來的曲線，不是直角轉彎的
+// 折線。同卡片連線的起點／終點 X 座標永遠相同（都是卡片外邊框，見下面
+// drawConnections 裡的說明），smoothStepPath() 在這種「起點終點同一個 X」
+// 的情況下，兩點之間的水平距離是 0，算出來的圓角半徑 r 必然小於 1，
+// 一定會走進「直角硬轉彎」那個分支——畫出來是兩個 90 度直角銜接的折線，
+// 使用者反映「雙向關係（兩端都有箭頭）常常看起來變成一個方框」正是這個：
+// 兩個直角轉彎加上兩端的箭頭，視覺上很容易被看成矩形的四個角。
+// 改成二次貝茲曲線，整條線只有一個平滑的弧度，不管方向是單向還是雙向、
+// 不管兩端有沒有畫箭頭，都不可能再被看成一個方框。
+// peakOffset 是希望曲線「弧出去最遠」那一點離卡片邊框的距離（跟車道系統
+// 的基準距離意義相同）；貝茲曲線的控制點在參數 t=0.5 時只會貢獻一半的
+// 偏移量，所以控制點的 X 要設成 peakOffset 的兩倍，曲線實際弧出去的
+// 最遠距離才會剛好等於 peakOffset，車道距離（10px／20px）才會跟畫出來的
+// 視覺距離一致。
+function bulgeCurvePath(start, end, cardX, peakOffset) {
+  const controlX = cardX + peakOffset * 2;
+  const controlY = (start.y + end.y) / 2;
+  return `M ${start.x},${start.y} Q ${controlX},${controlY} ${end.x},${end.y}`;
+}
+
 // 量出 boardEl 目前實際套用的縮放倍率——這是實測抓到的真正根因：graph.js
 // 的縮放功能直接對 .canvas-board（也就是這裡的 boardEl）套 CSS
 // transform:scale()，但底下這個函式原本整段都是拿 getBoundingClientRect()
@@ -331,6 +351,7 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
     let startPulled;
     let end;
     let bendX;
+    let pathD;
     if (sameCard) {
       // 關鍵修正：起點／終點／折角一律釘在「整張卡片」量到的外邊框
       // 右側（cardRightByEl，見上面的說明），不能用 person-item 自己的
@@ -344,17 +365,24 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
       // 修掉的「連線橫切過卡片文字」那個 bug）——離卡片邊框至少保留 4px。
       const MIN_EXTRA_FROM_CARD = 4;
       const clampedOffset = Math.max(manualOffset, MIN_EXTRA_FROM_CARD - autoExtra);
+      const peakOffset = autoExtra + clampedOffset;
       startPulled = { x: cardRight, y: fromCenter.y };
       end = { x: cardRight, y: toCenter.y };
-      bendX = cardRight + autoExtra + clampedOffset;
+      bendX = cardRight + peakOffset;
+      // 同卡片一律用單純往外弧一下的曲線（見 bulgeCurvePath 的說明），不要
+      // 直角轉彎的折線——雙向關係兩端都有箭頭時，兩個 90 度直角轉彎很容易
+      // 被看成一個方框的四個角，換成一條平滑的弧線就不可能再被誤認成方框。
+      pathD = bulgeCurvePath(startPulled, end, cardRight, peakOffset);
     } else {
       const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
       const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
       startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
       end = attachSidePoint(toRectLocal, toCenter, fromCenter);
       bendX = (startPulled.x + end.x) / 2 + dupSpread + manualOffset;
+      // 跨卡片的連線起點終點 X 座標本來就不同，smoothStepPath 走的是有
+      // 圓角的那個分支，不會變成直角方框，維持原本的折線畫法即可。
+      pathD = smoothStepPath(startPulled, end, bendX);
     }
-    const pathD = smoothStepPath(startPulled, end, bendX);
 
     // 連線本身／標籤的拖曳共用這一份邏輯——按住線或標籤左右拖，即時用
     // activeDragOffsets 暫存偏移量重畫整張圖做預覽，放開滑鼠才正式存進
