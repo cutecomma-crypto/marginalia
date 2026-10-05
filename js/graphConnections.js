@@ -212,7 +212,7 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
       const cardEl = fromEl.closest('.group-card');
       const laneIndex = cardEl ? (cardLaneSeenIndex.get(cardEl) || 0) : 0;
       if (cardEl) cardLaneSeenIndex.set(cardEl, laneIndex + 1);
-      const LANE_SPACING = 14;
+      const LANE_SPACING = 8;
       laneSpread = laneIndex * LANE_SPACING;
     }
 
@@ -220,11 +220,12 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
     const startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
     const end = attachSidePoint(toRectLocal, toCenter, fromCenter);
-    // 車道的外推距離統一從卡片邊界起算（SAME_CARD_BEND_OFFSET 加車道間距
-    // 乘上車道數的一半，讓最外側的車道也不會太貼近卡片邊界），比固定
-    // 26px 再加車道位移更穩，不會因為車道數一多，最內側那條線反而縮回
-    // 卡片邊界上。
-    const SAME_CARD_BEND_OFFSET = 26;
+    // 使用者畫圖示範了他要的感覺：線緊貼著卡片，只伸出一小截就轉彎，
+    // 不管這段關係跨了幾行，伸出去的距離都要維持「很窄」的觀感，不要
+    // 讓人覺得這條線「佔用了很大一塊畫面」。外推距離從 26px 降到 14px，
+    // 車道間距也跟著從 14px 收緊到 8px，兩條線疊在一起時整體寬度更接近
+    // 使用者手繪範例裡那種「貼著卡片邊緣、淺淺彎出去」的比例。
+    const SAME_CARD_BEND_OFFSET = 14;
     const bendX = sameCard
       ? Math.max(fromColRight, toColRight) + SAME_CARD_BEND_OFFSET + laneSpread + dupSpread
       : (startPulled.x + end.x) / 2 + dupSpread;
