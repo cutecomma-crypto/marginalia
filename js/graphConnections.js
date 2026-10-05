@@ -21,22 +21,35 @@ function edgeOffsetKey(bookId, edgeId) {
   return `marginalia_edge_offset_${bookId}_${edgeId}`;
 }
 
-function getStoredEdgeOffset(bookId, edgeId) {
-  if (bookId == null) return 0;
+// 存檔格式是 { side, offset }：side 只有同卡片連線在用（'left' 或
+// 'right'，決定曲線往卡片哪一側弧出去——使用者反映「以後關係線太多、
+// 想自己分左右平衡」，見下面同卡片分支的說明），跨卡片連線的 side 永遠
+// 是 'right'、沒有實際作用，單純維持同一種存檔格式，不用另外判斷兩種
+// 連線分別讀寫哪種格式。舊版本（這個功能剛推出時）只存一個純數字字串
+// （沒有 side 的概念，所有連線都只能往單一方向調整距離），這裡讀取時
+// 相容舊格式，舊資料不會因為升級就憑空消失、變回系統預設位置。
+function getStoredEdgeState(bookId, edgeId) {
+  if (bookId == null) return null;
   try {
     const raw = localStorage.getItem(edgeOffsetKey(bookId, edgeId));
-    if (!raw) return 0;
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : 0;
+    if (!raw) return null;
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith('{')) {
+      const legacyOffset = Number(trimmed);
+      return Number.isFinite(legacyOffset) ? { side: 'right', offset: legacyOffset } : null;
+    }
+    const parsed = JSON.parse(trimmed);
+    if (!parsed || typeof parsed.offset !== 'number') return null;
+    return { side: parsed.side === 'left' ? 'left' : 'right', offset: parsed.offset };
   } catch {
-    return 0;
+    return null;
   }
 }
 
-function setStoredEdgeOffset(bookId, edgeId, offset) {
+function setStoredEdgeState(bookId, edgeId, state) {
   if (bookId == null) return;
   try {
-    localStorage.setItem(edgeOffsetKey(bookId, edgeId), String(offset));
+    localStorage.setItem(edgeOffsetKey(bookId, edgeId), JSON.stringify(state));
   } catch {
     // 存不進去（私密瀏覽模式／容量滿了）就放棄記住這次手動調整，畫面上
     // 這次操作仍然立刻生效，只是下次重新整理後會掉回系統自動排列的位置。
@@ -46,13 +59,15 @@ function setStoredEdgeOffset(bookId, edgeId, offset) {
 // 拖曳途中（放開滑鼠之前）的即時位置，刻意不先寫進 localStorage——每一次
 // pointermove 都會呼叫 drawConnections() 重畫一次做即時預覽（見下面
 // wireEdgeDrag 的說明），用一個模組層級的 Map 暫存當下正在拖曳的那條線的
-// 偏移量，drawConnections() 畫線時優先讀這裡、放開滑鼠那一刻才正式存檔，
+// 狀態，drawConnections() 畫線時優先讀這裡、放開滑鼠那一刻才正式存檔，
 // 避免每拖一格就寫一次 localStorage。
 const activeDragOffsets = new Map();
 
-function getEdgeOffset(bookId, edgeId) {
+// 回傳 null 代表「這條連線還沒被手動調整過」，呼叫端要自己套用系統預設
+// 的自動排列（車道／置中），不是呼叫端自己再去猜一個預設值。
+function getEdgeState(bookId, edgeId) {
   if (activeDragOffsets.has(edgeId)) return activeDragOffsets.get(edgeId);
-  return getStoredEdgeOffset(bookId, edgeId);
+  return getStoredEdgeState(bookId, edgeId);
 }
 
 // 「重設連線位置」按鈕用：把這本書底下所有手動調整過的連線位置清掉，
@@ -251,20 +266,25 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
     if (!cardGroups.has(v.cardEl)) cardGroups.set(v.cardEl, []);
     cardGroups.get(v.cardEl).push(v);
   }
-  // 同卡片連線的外推基準點必須是「整張卡片」的最右側外邊框，不能用
+  // 同卡片連線的外推基準點必須是「整張卡片」的最左／右側外邊框，不能用
   // person-item 自己的 getBoundingClientRect()——.group-card-body 有
-  // 0.7rem 的內距，person-item 的右邊界落在卡片邊框「內側」一整段內距
-  // 的距離，如果拿 person-item 的右邊界去加車道外推量，算出來的折角
+  // 0.7rem 的內距，person-item 的邊界落在卡片邊框「內側」一整段內距
+  // 的距離，如果拿 person-item 的邊界去加車道外推量，算出來的折角
   // X 座標很容易還留在卡片邊框以內（內距的空白範圍內，甚至更糟時連進
   // 卡片內容區域），造成使用者回報的「連線直接橫切穿過卡片內部文字」。
   // 改成在這裡預先量好每一張牽涉到同卡片連線的卡片，真正的外邊框
-  // （border box）右邊界在哪，下面畫線時全部的同卡片連線都用這個基準，
-  // 保證折角一定落在卡片本身的範圍完全之外，不會因為內距大小而跑進去。
+  // （border box）左／右邊界在哪，下面畫線時全部的同卡片連線都用這個
+  // 基準，保證折角一定落在卡片本身的範圍完全之外，不會因為內距大小而
+  // 跑進去。右邊界是預設弧出去的方向；左邊界是使用者手動把某條連線拖到
+  // 卡片左側時用的（見下面 sameCard 分支「side」的說明）——兩個方向都
+  // 量好，哪條線要往哪邊弧，畫的時候才不用再臨時量一次卡片尺寸。
   const cardRightByEl = new Map();
+  const cardLeftByEl = new Map();
   for (const v of sameCardRanges) {
     if (cardRightByEl.has(v.cardEl)) continue;
     const cardRect = v.cardEl.getBoundingClientRect();
     cardRightByEl.set(v.cardEl, (cardRect.right - boardRect.left) / scale);
+    cardLeftByEl.set(v.cardEl, (cardRect.left - boardRect.left) / scale);
   }
 
   // 容許一點點誤差（0.5px），剛好「相接但不重疊」（像上面家人／搭檔共用
@@ -342,11 +362,21 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
     const MAX_LANE_INDEX = 2;
     const laneSpread = sameCard ? Math.min(laneIndex ?? 0, MAX_LANE_INDEX) * OVERLAP_LANE_SPACING : 0;
 
-    // 使用者手動拖過這條連線（或它的標籤）留下的水平偏移量，疊加在系統
-    // 自動排好的基準位置上——拖曳途中讀 activeDragOffsets 即時預覽，放開
-    // 滑鼠後讀 localStorage 的存檔值，兩者由 getEdgeOffset() 統一處理，
-    // 這裡不用關心現在是不是正在拖曳。
-    const manualOffset = getEdgeOffset(bookId, edge.id);
+    // 使用者手動拖過這條連線（或它的標籤）留下的狀態，疊加／取代系統
+    // 自動排好的基準位置——拖曳途中讀 activeDragOffsets 即時預覽，放開
+    // 滑鼠後讀 localStorage 的存檔值，兩者由 getEdgeState() 統一處理，
+    // 這裡不用關心現在是不是正在拖曳。回傳 null 代表這條線還沒被手動
+    // 調整過，套用系統自動排列。
+    const edgeState = getEdgeState(bookId, edge.id);
+    // 手動拖曳可以把同卡片的線拉得很遠，但不能拖回卡片邊框以內（那正是
+    // 之前修掉的「連線橫切過卡片文字」那個 bug）——離卡片邊框至少保留
+    // 4px，不管使用者拖得多誇張都不會真的貼回卡片內部。
+    const MIN_PEAK = 4;
+    // 跨卡片的連線用不到卡片本身的邊界（cardEl 是 undefined），這裡只有
+    // sameCard 才查得到值，兩者都先查出來放在 if/else 外面，待會畫拖曳
+    // 互動時（wireEdgeDrag）也要用同一組邊界算「拖過中線就換邊」。
+    const cardRight = sameCard ? cardRightByEl.get(cardEl) : null;
+    const cardLeft = sameCard ? cardLeftByEl.get(cardEl) : null;
 
     let startPulled;
     let end;
@@ -354,25 +384,29 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
     let pathD;
     if (sameCard) {
       // 關鍵修正：起點／終點／折角一律釘在「整張卡片」量到的外邊框
-      // 右側（cardRightByEl，見上面的說明），不能用 person-item 自己的
-      // 右邊界——person-item 的右邊界落在卡片內距以內，用它當基準會讓
+      // （cardRightByEl／cardLeftByEl，見上面的說明），不能用 person-item
+      // 自己的邊界——person-item 的邊界落在卡片內距以內，用它當基準會讓
       // 算出來的折角落在卡片邊框內側，使用者實測看到連線直接橫切過
       // 卡片內部的人名文字就是這個誤差造成的。起點／終點的橫線段也是
       // 從這個卡片外邊框的位置拉出來，不會經過卡片內容區塊一步。
-      const cardRight = cardRightByEl.get(cardEl);
+      //
+      // 使用者反映「以後關係線真的太多，想自己調整成左邊或右邊」：預設
+      // 一律往卡片右側弧出去（車道系統的自動排列只處理右側的重疊問題），
+      // 但只要這條線被手動拖曳過（edgeState 不是 null），就完全照使用者
+      // 指定的 side／offset 畫，不再疊加車道距離——使用者既然已經自己
+      // 決定要往哪一側、弧多遠，系統就不該再自作主張。
       const autoExtra = SAME_CARD_BEND_OFFSET + laneSpread + dupSpread;
-      // 手動拖曳可以把線拉得更遠，但不能拖回卡片邊框以內（那正是之前
-      // 修掉的「連線橫切過卡片文字」那個 bug）——離卡片邊框至少保留 4px。
-      const MIN_EXTRA_FROM_CARD = 4;
-      const clampedOffset = Math.max(manualOffset, MIN_EXTRA_FROM_CARD - autoExtra);
-      const peakOffset = autoExtra + clampedOffset;
-      startPulled = { x: cardRight, y: fromCenter.y };
-      end = { x: cardRight, y: toCenter.y };
-      bendX = cardRight + peakOffset;
+      const side = edgeState ? edgeState.side : 'right';
+      const peakOffset = edgeState ? Math.max(edgeState.offset, MIN_PEAK) : autoExtra;
+      const cardAnchorX = side === 'left' ? cardLeft : cardRight;
+      const signedPeak = side === 'left' ? -peakOffset : peakOffset;
+      startPulled = { x: cardAnchorX, y: fromCenter.y };
+      end = { x: cardAnchorX, y: toCenter.y };
+      bendX = cardAnchorX + signedPeak;
       // 同卡片一律用單純往外弧一下的曲線（見 bulgeCurvePath 的說明），不要
       // 直角轉彎的折線——雙向關係兩端都有箭頭時，兩個 90 度直角轉彎很容易
       // 被看成一個方框的四個角，換成一條平滑的弧線就不可能再被誤認成方框。
-      pathD = bulgeCurvePath(startPulled, end, cardRight, peakOffset);
+      pathD = bulgeCurvePath(startPulled, end, cardAnchorX, signedPeak);
     } else {
       const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
       const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
@@ -402,14 +436,19 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
         const sideEnd = fromCenter.x >= toCenter.x ? 1 : -1;
         end = { x: end.x + sideEnd * ARROW_CLEARANCE, y: end.y };
       }
-      bendX = (startPulled.x + end.x) / 2 + dupSpread + manualOffset;
+      // 跨卡片連線沒有「左右切換」的需求（bendX 本來就是浮在兩張卡片中間
+      // 的轉折點，不是貼著單一卡片的某一側），拖曳時單純當作一個可正可負
+      // 的偏移量疊加在自動算好的中點上，side 欄位對跨卡片連線沒有意義，
+      // 固定存 'right' 只是跟同卡片連線共用同一種存檔格式。
+      const crossCardOffset = edgeState ? edgeState.offset : 0;
+      bendX = (startPulled.x + end.x) / 2 + dupSpread + crossCardOffset;
       // 跨卡片的連線起點終點 X 座標本來就不同，smoothStepPath 走的是有
       // 圓角的那個分支，不會變成直角方框，維持原本的折線畫法即可。
       pathD = smoothStepPath(startPulled, end, bendX);
     }
 
     // 連線本身／標籤的拖曳共用這一份邏輯——按住線或標籤左右拖，即時用
-    // activeDragOffsets 暫存偏移量重畫整張圖做預覽，放開滑鼠才正式存進
+    // activeDragOffsets 暫存狀態重畫整張圖做預覽，放開滑鼠才正式存進
     // localStorage。跟 graphDragDrop.js 裡卡片拖曳走的是同一套 Pointer
     // Events 模式（document 層級監聽 move/up，不綁在被拖的元素本身上，
     // 元素在拖曳途中被整批重畫置換掉也不受影響）。按下去沒有真的移動
@@ -422,7 +461,13 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
         event.stopPropagation();
         const startClientX = event.clientX;
         const startClientY = event.clientY;
-        const startOffset = manualOffset;
+        // 同卡片：記住這次渲染算出來的「絕對弧頂 X 座標」（bendX），拖曳
+        // 時讓弧頂直接跟著游標的絕對位置走——拖過卡片的水平中線就自動
+        // 換成另一側弧出去，使用者才能真的「自己決定要往左還是往右」，
+        // 不用先刪線再重建。跨卡片：沒有左右切換的概念，照舊只是把目前
+        // 的偏移量疊加拖曳距離。
+        const startPeakX = bendX;
+        const startOffset = edgeState ? edgeState.offset : 0;
         let moved = false;
         function onMove(moveEvent) {
           const dxScreen = moveEvent.clientX - startClientX;
@@ -431,16 +476,28 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, 
             if (Math.hypot(dxScreen, dyScreen) < 3) return;
             moved = true;
           }
-          activeDragOffsets.set(edge.id, startOffset + dxScreen / scale);
+          const dx = dxScreen / scale;
+          let newState;
+          if (sameCard) {
+            const newPeakX = startPeakX + dx;
+            const cardMid = (cardRight + cardLeft) / 2;
+            newState = newPeakX >= cardMid
+              ? { side: 'right', offset: Math.max(newPeakX - cardRight, MIN_PEAK) }
+              : { side: 'left', offset: Math.max(cardLeft - newPeakX, MIN_PEAK) };
+          } else {
+            newState = { side: 'right', offset: startOffset + dx };
+          }
+          activeDragOffsets.set(edge.id, newState);
           drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, bookId);
         }
         function onUp() {
           document.removeEventListener('pointermove', onMove);
           document.removeEventListener('pointerup', onUp);
           if (moved) {
-            const finalOffset = activeDragOffsets.get(edge.id) ?? startOffset;
+            const finalState = activeDragOffsets.get(edge.id)
+              ?? (sameCard ? { side: 'right', offset: startPeakX - cardRight } : { side: 'right', offset: startOffset });
             activeDragOffsets.delete(edge.id);
-            setStoredEdgeOffset(bookId, edge.id, finalOffset);
+            setStoredEdgeState(bookId, edge.id, finalState);
             drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick, bookId);
           } else {
             activeDragOffsets.delete(edge.id);
