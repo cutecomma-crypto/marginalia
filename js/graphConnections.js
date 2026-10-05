@@ -139,13 +139,54 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
   const pairSeenIndex = new Map();
 
   // 同一張卡片裡，只要有兩條（或更多）關係各自牽連到不同的人——不是
-  // 「同一對人之間」的重複關係，dupSpread 管不到這種情況——原本全部共用
-  // 同一個 SAME_CARD_BEND_OFFSET，會疊在同一條垂直線上：這正是使用者
-  // 實測抓到的案例，主角（榭爾比）同時牽著「家人」「搭檔」兩條關係，
-  // 疊在一起看起來像一個方框。這裡依卡片分組，一張卡片裡有幾條這樣的
-  // 關係線，就分配幾條互相錯開的「車道」（lane，見下面主迴圈裡 laneSpread
-  // 的說明），讓每一條都能分開看到。
-  const cardLaneSeenIndex = new Map();
+  // 「同一對人之間」的重複關係，dupSpread 管不到這種情況——原本的做法是
+  // 「只要同卡片就一律分配一條新車道」，不管兩條線實際涵蓋的 Y 範圍
+  // 有沒有真的重疊，車道數一多，每多一條線就無條件往外推一次，使用者
+  // 回報「第二條線看起來佔用了很大一塊畫面」。
+  //
+  // 改成先算出每一條同卡片關係線實際涵蓋的 Y 範圍（從起點到終點），
+  // 只有當兩條線的範圍「真的有重疊」（不是像「家人」佔【湯姆,榭爾比】、
+  // 「搭檔」佔【榭爾比,亞當】這種只在榭爾比那個 Y 座標相接、範圍本身
+  // 完全不重疊的情況）才需要分配不同車道、錯開一點點距離；完全沒有
+  // 跟任何人重疊的線，固定用同一個最窄的基準距離，不會因為卡片裡還有
+  // 其他不相干範圍的關係線存在就被迫往外推——這才是使用者手繪圖真正
+  // 要表達的：「兩條線的差異應該只在 Y 軸涵蓋的長短，不是 X 軸外推的
+  // 深度」。
+  const sameCardRanges = [];
+  for (const v of validEdges) {
+    if (!v.sameCard) continue;
+    const cardEl = v.fromEl.closest('.group-card');
+    if (!cardEl) continue;
+    v.cardEl = cardEl;
+    v.rangeTop = Math.min(v.fromCenter.y, v.toCenter.y);
+    v.rangeBottom = Math.max(v.fromCenter.y, v.toCenter.y);
+    sameCardRanges.push(v);
+  }
+  // 只在同一張卡片內比較範圍重不重疊，不同卡片的關係線彼此不相干。
+  const cardGroups = new Map();
+  for (const v of sameCardRanges) {
+    if (!cardGroups.has(v.cardEl)) cardGroups.set(v.cardEl, []);
+    cardGroups.get(v.cardEl).push(v);
+  }
+  // 容許一點點誤差（0.5px），剛好「相接但不重疊」（像上面家人／搭檔共用
+  // 榭爾比那個 Y 座標的情況）不會被誤判成需要錯開。
+  const OVERLAP_EPSILON = 0.5;
+  function rangesOverlap(a, b) {
+    return Math.max(a.rangeTop, b.rangeTop) < Math.min(a.rangeBottom, b.rangeBottom) - OVERLAP_EPSILON;
+  }
+  for (const group of cardGroups.values()) {
+    const placed = [];
+    for (const v of group) {
+      // 依序找一個還沒被「真的重疊」佔用的車道，找不到衝突就一律用
+      // 車道 0（也就是跟只有一條線時完全一樣的基準距離）。
+      let lane = 0;
+      while (placed.some((p) => p.lane === lane && rangesOverlap(p, v))) {
+        lane += 1;
+      }
+      placed.push({ lane, rangeTop: v.rangeTop, rangeBottom: v.rangeBottom });
+      v.laneIndex = lane;
+    }
+  }
 
   const usedColors = new Set(validEdges.map((v) => effectiveEdgeColor(v.edge)));
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -177,7 +218,7 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
   });
   svgEl.appendChild(defs);
 
-  for (const { edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter, sameCard } of validEdges) {
+  for (const { edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter, sameCard, laneIndex } of validEdges) {
     // 同一對人物重複建立的關係，依序多拉開一點距離，讓每一條重複的關係都有自己獨立、
     // 點得到的線跟標籤，不會疊在同一個位置。
     const pairKey = pairKeyOf(edge);
@@ -196,36 +237,19 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     const fromColRight = (fromRect.right - boardRect.left) / scale;
     const toColRight = (toRect.right - boardRect.left) / scale;
 
-    // 同一張卡片裡如果有好幾條關係各自牽連到不同的人（不是「同一對人
-    // 之間」的重複關係，是「同一張卡片」牽出去的好幾條不同關係——使用者
-    // 實測抓到的案例：主角同時是「家人」跟「搭檔」兩段關係的其中一端），
-    // 原本全部共用同一個外推距離，會疊在同一條垂直線上、看起來像一個
-    // 方框。這裡依卡片分配「車道」（lane）——不是像 dupSpread 那樣置中
-    // 對稱分佈（那樣會讓車道一多，離卡片最遠的那條線跟著越推越遠，使用者
-    // 實測回報「第二條線（搭檔）佔據的畫面似乎太大了」正是這個原因），
-    // 改成固定從 SAME_CARD_BEND_OFFSET 這個距離依序往外疊加：第一條線
-    // 永遠貼著跟只有一條線時一樣的距離（維持「家人」原本那麼窄），之後
-    // 每多一條才往外加一點點，不管主角牽了幾條關係線，第一條線的寬度
-    // 永遠不會因為車道數變多而跟著變寬。
-    let laneSpread = 0;
-    if (sameCard) {
-      const cardEl = fromEl.closest('.group-card');
-      const laneIndex = cardEl ? (cardLaneSeenIndex.get(cardEl) || 0) : 0;
-      if (cardEl) cardLaneSeenIndex.set(cardEl, laneIndex + 1);
-      const LANE_SPACING = 8;
-      laneSpread = laneIndex * LANE_SPACING;
-    }
+    // 固定且極窄的貼邊距離——不管這張卡片裡同時牽出去幾條關係線，基準
+    // 距離永遠是同一個值，兩條線的差異只來自上面算好的 laneIndex（只有
+    // Y 範圍真的重疊的線才會不是 0），不會因為車道數變多就整組往外推。
+    const SAME_CARD_BEND_OFFSET = 11;
+    // 真的重疊時的錯開量刻意壓到極小——目的只是讓重疊的那一小段視覺上
+    // 看得出兩條線、點得到分開的兩條，不是要清楚區隔出「第幾條」。
+    const OVERLAP_LANE_SPACING = 4;
+    const laneSpread = sameCard ? (laneIndex ?? 0) * OVERLAP_LANE_SPACING : 0;
 
     const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
     const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
     const startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
     const end = attachSidePoint(toRectLocal, toCenter, fromCenter);
-    // 使用者畫圖示範了他要的感覺：線緊貼著卡片，只伸出一小截就轉彎，
-    // 不管這段關係跨了幾行，伸出去的距離都要維持「很窄」的觀感，不要
-    // 讓人覺得這條線「佔用了很大一塊畫面」。外推距離從 26px 降到 14px，
-    // 車道間距也跟著從 14px 收緊到 8px，兩條線疊在一起時整體寬度更接近
-    // 使用者手繪範例裡那種「貼著卡片邊緣、淺淺彎出去」的比例。
-    const SAME_CARD_BEND_OFFSET = 14;
     const bendX = sameCard
       ? Math.max(fromColRight, toColRight) + SAME_CARD_BEND_OFFSET + laneSpread + dupSpread
       : (startPulled.x + end.x) / 2 + dupSpread;
