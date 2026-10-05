@@ -120,7 +120,9 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     const toRect = toEl.getBoundingClientRect();
     const fromCenter = { x: (fromRect.left + fromRect.width / 2 - boardRect.left) / scale, y: (fromRect.top + fromRect.height / 2 - boardRect.top) / scale };
     const toCenter = { x: (toRect.left + toRect.width / 2 - boardRect.left) / scale, y: (toRect.top + toRect.height / 2 - boardRect.top) / scale };
-    validEdges.push({ edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter });
+    const sameCard = Math.abs((fromRect.left - boardRect.left) / scale - (toRect.left - boardRect.left) / scale) < 4
+      && Math.abs((fromRect.right - boardRect.left) / scale - (toRect.right - boardRect.left) / scale) < 4;
+    validEdges.push({ edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter, sameCard });
   }
 
   // 同兩個人之間如果不小心重複建立了好幾條關係，線跟標籤會疊在完全一樣的位置，
@@ -135,6 +137,23 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     pairTotalCount.set(key, (pairTotalCount.get(key) || 0) + 1);
   }
   const pairSeenIndex = new Map();
+
+  // 同一張卡片裡，只要有兩條（或更多）關係各自牽連到不同的人——不是
+  // 「同一對人之間」的重複關係，dupSpread 管不到這種情況——原本全部共用
+  // 同一個 SAME_CARD_BEND_OFFSET，會疊在同一條垂直線上：這正是使用者
+  // 實測抓到的案例，主角（榭爾比）同時牽著「家人」「搭檔」兩條關係，
+  // 疊在一起看起來像一個方框。這裡依卡片分組，一張卡片裡有幾條這樣的
+  // 關係線，就分配幾條互相錯開的「車道」（lane），跟 dupSpread 一樣用
+  // 置中對稱的方式分佈，主角牽連的關係越多，車道數就自動跟著變多，
+  // 不會疊在一起、但也不會因為車道數固定而不夠用。
+  const cardLaneTotal = new Map();
+  for (const v of validEdges) {
+    if (!v.sameCard) continue;
+    const cardEl = v.fromEl.closest('.group-card');
+    if (!cardEl) continue;
+    cardLaneTotal.set(cardEl, (cardLaneTotal.get(cardEl) || 0) + 1);
+  }
+  const cardLaneSeenIndex = new Map();
 
   const usedColors = new Set(validEdges.map((v) => effectiveEdgeColor(v.edge)));
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -166,7 +185,7 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
   });
   svgEl.appendChild(defs);
 
-  for (const { edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter } of validEdges) {
+  for (const { edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter, sameCard } of validEdges) {
     // 同一對人物重複建立的關係，依序多拉開一點距離，讓每一條重複的關係都有自己獨立、
     // 點得到的線跟標籤，不會疊在同一個位置。
     const pairKey = pairKeyOf(edge);
@@ -179,30 +198,40 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     // 兩個人物如果落在同一張群組卡片（左右邊界幾乎一樣寬），代表是卡片裡
     // 同一欄的人物——這種情況原本的畫法是貼著卡片右邊界「內側」拉一條
     // 直線，整條線完全被不透明的卡片背景蓋住，使用者實際完全看不到任何
-    // 線條，只看得到飄在旁邊的標籤（這是使用者兩輪實測都回報的真實
-    // 問題：「我必須放大到 120% 才能看到關係線」，追到最後發現不是縮放
-    // 比例的錯，是這條線本來就被設計成要躲在卡片後面，100%／120% 都一樣
-    // 看不到線本身，只是縮放比例跑掉的那個 Bug 讓線在 120% 時跑出了另一個
-    // 更明顯的錯誤位置，容易被誤以為「120% 才看得到」）。
-    // 現在不分同卡片還是跨卡片，一律走 attachSidePoint＋smoothStepPath
-    // 這同一套「從卡片外側接出去、彎到中間再彎進對方」的畫法：同卡片的
-    // 兩個人會被算成「往同一側（右邊）接出去」，彎出去的距離另外用
-    // SAME_CARD_BEND_OFFSET 強制推開（兩個人原本在 attachSidePoint 算出來
-    // 的 X 座標完全相同，自然平均不會產生任何位移，需要額外加這段距離
-    // 才會真的彎出卡片外面），讓整條線清楚地浮在卡片右側的空白區域，
-    // 不會再被卡片蓋住看不見。
+    // 線條，只看得到飄在旁邊的標籤。現在不分同卡片還是跨卡片，一律走
+    // attachSidePoint＋smoothStepPath 這同一套「從卡片外側接出去、彎到
+    // 中間再彎進對方」的畫法，讓線清楚地浮在卡片外面的空白區域。
     const fromColRight = (fromRect.right - boardRect.left) / scale;
     const toColRight = (toRect.right - boardRect.left) / scale;
-    const sameCard = Math.abs((fromRect.left - boardRect.left) / scale - (toRect.left - boardRect.left) / scale) < 4
-      && Math.abs(fromColRight - toColRight) < 4;
+
+    // 同一張卡片裡如果有好幾條關係各自牽連到不同的人（不是「同一對人
+    // 之間」的重複關係，是「同一張卡片」牽出去的好幾條不同關係——使用者
+    // 實測抓到的案例：主角同時是「家人」跟「搭檔」兩段關係的其中一端），
+    // 原本全部共用同一個外推距離，會疊在同一條垂直線上、看起來像一個
+    // 方框。這裡依卡片分配「車道」（lane），跟上面的 dupSpread 一樣用
+    // 置中對稱的方式分佈，讓同一張卡片牽出去的每一條關係線都落在不同的
+    // X 座標上，不管主角身上牽了幾條關係線都能各自分開、看得清楚。
+    let laneSpread = 0;
+    if (sameCard) {
+      const cardEl = fromEl.closest('.group-card');
+      const laneTotal = cardEl ? (cardLaneTotal.get(cardEl) || 1) : 1;
+      const laneIndex = cardEl ? (cardLaneSeenIndex.get(cardEl) || 0) : 0;
+      if (cardEl) cardLaneSeenIndex.set(cardEl, laneIndex + 1);
+      const LANE_SPACING = 20;
+      laneSpread = laneTotal > 1 ? (laneIndex - (laneTotal - 1) / 2) * LANE_SPACING : 0;
+    }
 
     const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
     const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
     const startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
     const end = attachSidePoint(toRectLocal, toCenter, fromCenter);
+    // 車道的外推距離統一從卡片邊界起算（SAME_CARD_BEND_OFFSET 加車道間距
+    // 乘上車道數的一半，讓最外側的車道也不會太貼近卡片邊界），比固定
+    // 26px 再加車道位移更穩，不會因為車道數一多，最內側那條線反而縮回
+    // 卡片邊界上。
     const SAME_CARD_BEND_OFFSET = 26;
     const bendX = sameCard
-      ? Math.max(fromColRight, toColRight) + SAME_CARD_BEND_OFFSET + dupSpread
+      ? Math.max(fromColRight, toColRight) + SAME_CARD_BEND_OFFSET + laneSpread + dupSpread
       : (startPulled.x + end.x) / 2 + dupSpread;
     const pathD = smoothStepPath(startPulled, end, bendX);
 
