@@ -176,78 +176,35 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     const DUPLICATE_SPACING = 24;
     const dupSpread = dupTotal > 1 ? (dupIndex - (dupTotal - 1) / 2) * DUPLICATE_SPACING : 0;
 
-    // 兩個人物如果落在同一張群組卡片（左右邊界幾乎一樣寬），代表是卡片裡相鄰兩排的人物——
-    // 這種關係線跟標籤整組都限制在卡片右邊界「內側」的一條固定直線上（往左 inset 18px），
-    // 不管關係方向是誰到誰，都不會超出卡片、也不會蓋到人名文字。重複關係就把這條線本身
-    // 左右錯開一點。跨卡片的關係則維持原本點對點連線的畫法，標籤沿線的垂直方向擺開。
-    // 跟上面 fromCenter/toCenter 一樣，全部除以 scale 換算回縮放前的座標
-    // （見 getBoardScale() 的完整說明），不然卡片邊界的計算會跟著目前的
-    // 縮放比例一起跑掉。
-    const fromColLeft = (fromRect.left - boardRect.left) / scale;
+    // 兩個人物如果落在同一張群組卡片（左右邊界幾乎一樣寬），代表是卡片裡
+    // 同一欄的人物——這種情況原本的畫法是貼著卡片右邊界「內側」拉一條
+    // 直線，整條線完全被不透明的卡片背景蓋住，使用者實際完全看不到任何
+    // 線條，只看得到飄在旁邊的標籤（這是使用者兩輪實測都回報的真實
+    // 問題：「我必須放大到 120% 才能看到關係線」，追到最後發現不是縮放
+    // 比例的錯，是這條線本來就被設計成要躲在卡片後面，100%／120% 都一樣
+    // 看不到線本身，只是縮放比例跑掉的那個 Bug 讓線在 120% 時跑出了另一個
+    // 更明顯的錯誤位置，容易被誤以為「120% 才看得到」）。
+    // 現在不分同卡片還是跨卡片，一律走 attachSidePoint＋smoothStepPath
+    // 這同一套「從卡片外側接出去、彎到中間再彎進對方」的畫法：同卡片的
+    // 兩個人會被算成「往同一側（右邊）接出去」，彎出去的距離另外用
+    // SAME_CARD_BEND_OFFSET 強制推開（兩個人原本在 attachSidePoint 算出來
+    // 的 X 座標完全相同，自然平均不會產生任何位移，需要額外加這段距離
+    // 才會真的彎出卡片外面），讓整條線清楚地浮在卡片右側的空白區域，
+    // 不會再被卡片蓋住看不見。
     const fromColRight = (fromRect.right - boardRect.left) / scale;
-    const toColLeft = (toRect.left - boardRect.left) / scale;
     const toColRight = (toRect.right - boardRect.left) / scale;
-    const sameCard = Math.abs(fromColLeft - toColLeft) < 4 && Math.abs(fromColRight - toColRight) < 4;
-    const GUTTER_INSET = 18;
+    const sameCard = Math.abs((fromRect.left - boardRect.left) / scale - (toRect.left - boardRect.left) / scale) < 4
+      && Math.abs(fromColRight - toColRight) < 4;
 
-    let startPulled;
-    let end;
-    let pathD;
-    if (sameCard) {
-      const gutterX = Math.max(fromColRight, toColRight) - GUTTER_INSET + dupSpread;
-      startPulled = { x: gutterX, y: fromCenter.y };
-      end = { x: gutterX, y: toCenter.y };
-      pathD = `M ${startPulled.x},${startPulled.y} L ${end.x},${end.y}`;
-    } else {
-      const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
-      const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
-      // 一律從左右外邊緣接出去（不管有沒有箭頭），折線走 smooth step，
-      // 不會有直線斜著貫穿中間其他卡片的問題（見兩個函式開頭的說明）。
-      startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
-      end = attachSidePoint(toRectLocal, toCenter, fromCenter);
-      const bendX = (startPulled.x + end.x) / 2 + dupSpread;
-      pathD = smoothStepPath(startPulled, end, bendX);
-    }
-
-    // 同一張卡片裡，如果兩個人中間還夾著其他人物（例如清單第 2 位跟第 4 位
-    // 建立關係，第 3 位插在正中間），線本身維持上面貼卡片內側的直線畫法
-    // 不變（安全、不會跑出去蓋到隔壁欄的卡片），但「標籤」要整個移到卡片
-    // 外面的空白處——這是兩輪使用者實測才抓到的真實教訓：第一輪只是把
-    // 標籤的 Y 座標從「兩端正中央」挪到「起點跟第一個被跳過的人之間的
-    // 空隙」，聽起來已經不會跟任何一行人物的列高對齊，但視覺上那個空隙
-    // 跟隔壁那個不相干的人的卡片邊界靠得太近，使用者實際看起來還是覺得
-    // 「標籤疊在那個人身上」。真正乾淨的做法是讓標籤完全離開卡片的輪廓，
-    // 飄在卡片右邊的留白區域（跟卡片之間留一段看得出來的空隙，不是緊貼
-    // 著邊界），不管視覺上多靠近哪一行，只要標籤本身在卡片外面、沒有跟
-    // 卡片有任何重疊，就不會再被誤會成「接在卡片裡某個人身上」。
-    let skipLabelPos = null;
-    if (sameCard) {
-      const cardBodyEl = fromEl.closest('.group-card-body');
-      if (cardBodyEl) {
-        const topY = Math.min(fromCenter.y, toCenter.y);
-        const bottomY = Math.max(fromCenter.y, toCenter.y);
-        const hasPersonBetween = [...cardBodyEl.querySelectorAll('.person-item')].some((el) => {
-          if (el === fromEl || el === toEl) return false;
-          const r = el.getBoundingClientRect();
-          const cy = (r.top + r.height / 2 - boardRect.top) / scale;
-          return cy > topY + 4 && cy < bottomY - 4;
-        });
-        if (hasPersonBetween) {
-          // 卡片之間的網格間距只有 30px（見呼叫端 GRID_COL_STEP 240 減掉
-          // 卡片寬度 210），留給標籤的空間本來就很窄——這裡刻意只往外推
-          // 14px（不是一半的 30px），關係字通常是「家人／朋友／搭檔」這種
-          // 兩個字的詞，加上膠囊的左右內距，14px 的緩衝量實測足夠讓整顆
-          // 膠囊完全落在兩張卡片中間的空白縫隙裡、不會貼到隔壁卡片；偶爾
-          // 遇到使用者自訂的長一點的關係字，寧可讓它稍微逼近隔壁卡片的
-          // 邊緣，也比原本「直接疊在某個不相干的人身上」的錯覺好非常多。
-          const SKIP_LABEL_OUTSIDE_GAP = 14;
-          skipLabelPos = {
-            x: Math.max(fromColRight, toColRight) + SKIP_LABEL_OUTSIDE_GAP + dupSpread,
-            y: (fromCenter.y + toCenter.y) / 2,
-          };
-        }
-      }
-    }
+    const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
+    const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
+    const startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
+    const end = attachSidePoint(toRectLocal, toCenter, fromCenter);
+    const SAME_CARD_BEND_OFFSET = 26;
+    const bendX = sameCard
+      ? Math.max(fromColRight, toColRight) + SAME_CARD_BEND_OFFSET + dupSpread
+      : (startPulled.x + end.x) / 2 + dupSpread;
+    const pathD = smoothStepPath(startPulled, end, bendX);
 
     const line = document.createElementNS(svgNS, 'path');
     line.setAttribute('d', pathD);
@@ -264,31 +221,20 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     svgEl.appendChild(line);
 
     if (edge.label) {
-      // 標籤直接置中疊在連線正中央，讓線貫穿標籤，不要線是線、字是字分開兩邊——
-      // 折線的「正中央」就是那段直向折角線段的中點，跟畫 pathD 用的 bendX 是
-      // 同一個 X 座標，標籤才會真的貼在畫出來的線上，不是飄在旁邊不相干的位置。
-      // 距離太短（兩張卡片擠在一起）就把標籤整個往上浮 10px，不要硬擠在兩張
-      // 小卡片正中間蓋住內容。
-      let midX;
-      let midY;
-      if (skipLabelPos) {
-        // 同卡片但中間跳過其他人的關係（見上面 skipLabelPos 的說明），標籤
-        // 整個飄到卡片外面的留白區域，不跟線本身的 X 座標綁在一起——這裡
-        // 刻意不沿用「標籤一定要貼在畫出來的線上」的原則，因為正是這個
-        // 原則本身在卡片內部密集排列時造成「標籤疊到不相干的人身上」的
-        // 錯覺，寧可讓標籤跟線稍微分開一點、但保證不會被誤認。
-        midX = skipLabelPos.x;
-        midY = skipLabelPos.y;
-      } else if (sameCard) {
-        midX = startPulled.x;
-        midY = (startPulled.y + end.y) / 2;
-      } else {
-        const lineLength = Math.hypot(end.x - startPulled.x, end.y - startPulled.y);
-        const SHORT_EDGE_THRESHOLD = 80;
-        midX = (startPulled.x + end.x) / 2 + dupSpread;
-        midY = (startPulled.y + end.y) / 2;
-        if (lineLength < SHORT_EDGE_THRESHOLD) midY -= 10;
-      }
+      // 標籤直接置中疊在連線的折角線段上，讓線貫穿標籤，不要線是線、字是字
+      // 分開兩邊——bendX 就是折線中間那段直向線段的 X 座標，跟畫 pathD 用的
+      // 是同一個值，標籤才會真的貼在畫出來的線上。同卡片的關係現在線本身
+      // 就已經彎到卡片外面的空白區域（見上面 bendX 的說明），標籤自然跟著
+      // 飄在外面，不用再另外判斷「中間有沒有夾著別人」、特別搬到別的位置——
+      // 不管是相鄰兩行還是中間跳過好幾個人，線跟標籤現在都是同一套邏輯，
+      // 一定在卡片外面、一定看得到。
+      const midX = bendX;
+      let midY = (startPulled.y + end.y) / 2;
+      // 距離太短（兩張卡片擠在一起，或是同卡片裡緊鄰的兩行）就把標籤整個
+      // 往上浮 10px，不要硬擠在中間蓋住內容。
+      const lineLength = Math.hypot(end.x - startPulled.x, end.y - startPulled.y);
+      const SHORT_EDGE_THRESHOLD = 80;
+      if (lineLength < SHORT_EDGE_THRESHOLD) midY -= 10;
       const labelColor = edgeColor;
       const text = document.createElementNS(svgNS, 'text');
       text.setAttribute('x', midX);
