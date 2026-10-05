@@ -88,9 +88,17 @@ export function groupCardHtml(group, people, fallbackX, fallbackY) {
 // .closest('[data-drop-group]') 從被拖曳／被懸停的人物卡片往上找最近的
 // 容器，這裡只有一層，卡片本身就是最近的祖先節點，一樣抓得到，不用
 // 另外包一層看不出差異的 wrapper div。
+// 使用者反映獨立人物卡片沒有辦法自由拖曳調整位置——人物卡片本身的拖放
+// （拖進某個群組、或在同一張卡片裡重新排序）已經被既有的 .person-item
+// 拖曳邏輯佔用了（見 graphDragDrop.js），不能讓整張卡片的拖曳跟它共用
+// 同一個觸發區域，不然兩種拖曳意圖（「移動這張獨立卡片本身」跟「把這個
+// 人拖進某個群組」）會互相打架、分不清楚使用者到底想做哪一個。加一條
+// 跟群組卡片標題列同樣視覺語言的拖曳把手（⠿），單獨佔一小條，按住它
+// 拖的是整張卡片的位置，跟底下人物項目本身的拖曳互不干擾。
 export function ungroupedPersonCardHtml(person, x, y) {
   return `
     <div class="group-card ungrouped-tray" data-drop-group="ungrouped" style="left: ${x}px; top: ${y}px;">
+      <div class="ungrouped-card-handle" data-tooltip="按住拖曳可自由移動位置" aria-label="按住拖曳可自由移動位置">⠿</div>
       <div class="group-card-body">
         ${personItemHtml(person)}
       </div>

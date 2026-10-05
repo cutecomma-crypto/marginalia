@@ -143,16 +143,8 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
   // 同一個 SAME_CARD_BEND_OFFSET，會疊在同一條垂直線上：這正是使用者
   // 實測抓到的案例，主角（榭爾比）同時牽著「家人」「搭檔」兩條關係，
   // 疊在一起看起來像一個方框。這裡依卡片分組，一張卡片裡有幾條這樣的
-  // 關係線，就分配幾條互相錯開的「車道」（lane），跟 dupSpread 一樣用
-  // 置中對稱的方式分佈，主角牽連的關係越多，車道數就自動跟著變多，
-  // 不會疊在一起、但也不會因為車道數固定而不夠用。
-  const cardLaneTotal = new Map();
-  for (const v of validEdges) {
-    if (!v.sameCard) continue;
-    const cardEl = v.fromEl.closest('.group-card');
-    if (!cardEl) continue;
-    cardLaneTotal.set(cardEl, (cardLaneTotal.get(cardEl) || 0) + 1);
-  }
+  // 關係線，就分配幾條互相錯開的「車道」（lane，見下面主迴圈裡 laneSpread
+  // 的說明），讓每一條都能分開看到。
   const cardLaneSeenIndex = new Map();
 
   const usedColors = new Set(validEdges.map((v) => effectiveEdgeColor(v.edge)));
@@ -208,17 +200,20 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     // 之間」的重複關係，是「同一張卡片」牽出去的好幾條不同關係——使用者
     // 實測抓到的案例：主角同時是「家人」跟「搭檔」兩段關係的其中一端），
     // 原本全部共用同一個外推距離，會疊在同一條垂直線上、看起來像一個
-    // 方框。這裡依卡片分配「車道」（lane），跟上面的 dupSpread 一樣用
-    // 置中對稱的方式分佈，讓同一張卡片牽出去的每一條關係線都落在不同的
-    // X 座標上，不管主角身上牽了幾條關係線都能各自分開、看得清楚。
+    // 方框。這裡依卡片分配「車道」（lane）——不是像 dupSpread 那樣置中
+    // 對稱分佈（那樣會讓車道一多，離卡片最遠的那條線跟著越推越遠，使用者
+    // 實測回報「第二條線（搭檔）佔據的畫面似乎太大了」正是這個原因），
+    // 改成固定從 SAME_CARD_BEND_OFFSET 這個距離依序往外疊加：第一條線
+    // 永遠貼著跟只有一條線時一樣的距離（維持「家人」原本那麼窄），之後
+    // 每多一條才往外加一點點，不管主角牽了幾條關係線，第一條線的寬度
+    // 永遠不會因為車道數變多而跟著變寬。
     let laneSpread = 0;
     if (sameCard) {
       const cardEl = fromEl.closest('.group-card');
-      const laneTotal = cardEl ? (cardLaneTotal.get(cardEl) || 1) : 1;
       const laneIndex = cardEl ? (cardLaneSeenIndex.get(cardEl) || 0) : 0;
       if (cardEl) cardLaneSeenIndex.set(cardEl, laneIndex + 1);
-      const LANE_SPACING = 20;
-      laneSpread = laneTotal > 1 ? (laneIndex - (laneTotal - 1) / 2) * LANE_SPACING : 0;
+      const LANE_SPACING = 14;
+      laneSpread = laneIndex * LANE_SPACING;
     }
 
     const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };

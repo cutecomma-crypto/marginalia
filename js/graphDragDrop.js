@@ -16,6 +16,40 @@ async function saveGroupPosition(DB, state, groupId, x, y) {
   await DB.update('groups', { ...group, x, y });
 }
 
+// 未分組的獨立人物卡片拖曳後的座標存進 localStorage，不是 Supabase 的
+// nodes 表——這是刻意的選擇，不是偷懶：nodes 表目前沒有 x/y 欄位（只有
+// groups 表有），貿然把這兩個欄位塞進 DB.update() 的 payload，對登入
+// 雲端帳號的使用者會複製這個專案踩過的舊 Bug（多送一個資料庫沒有的
+// 欄位，本機模式測不出問題，只有連 Supabase 才會出錯或靜默失敗）。
+// 存 localStorage 只有目前這台瀏覽器記得住，換裝置或換瀏覽器要重新拖
+// 一次——換來的是完全不用碰 Supabase schema、不用使用者手動跑 SQL
+// 就能立刻用，這個取捨值得（跟之前群組卡片內容區「可調整大小」那次
+// 考量一致，只是這次是位置不是大小）。
+function ungroupedPositionKey(bookId, personId) {
+  return `marginalia_ungrouped_pos_${bookId}_${personId}`;
+}
+
+export function restoreUngroupedPosition(bookId, personId) {
+  try {
+    const raw = localStorage.getItem(ungroupedPositionKey(bookId, personId));
+    if (!raw) return null;
+    const { x, y } = JSON.parse(raw);
+    return (typeof x === 'number' && typeof y === 'number') ? { x, y } : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveUngroupedPosition(bookId, personId, x, y) {
+  try {
+    localStorage.setItem(ungroupedPositionKey(bookId, personId), JSON.stringify({ x, y }));
+  } catch {
+    // 存不進去（例如私密瀏覽模式、或 localStorage 容量滿了）就放棄記住
+    // 這次拖曳的位置，畫面上這次操作仍然立刻生效，只是下次重新整理後
+    // 會掉回預設的網格位置，不影響正常使用。
+  }
+}
+
 // 把 personId 放進 targetGroupId（null＝未分組），插在 insertBeforeId 那個人前面
 // （insertBeforeId 是 null 就放最後）。同群組內其他人依序重新編號，維持你拖曳排出來的順序。
 async function movePerson(DB, state, personId, targetGroupId, insertBeforeId) {
@@ -164,6 +198,45 @@ export function wireGroupCardEvents(trackEl, ctx) {
         document.removeEventListener('pointerup', onUp);
         card.classList.remove('is-dragging');
         await saveGroupPosition(DB, state, groupId, card.offsetLeft, card.offsetTop);
+        await reload();
+      }
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  });
+
+  // 獨立人物卡片（未分組）自由拖曳：使用者反映原本只能把人物拖進某個
+  // 群組，沒辦法像群組卡片一樣直接拖著整張卡片調整位置，只能卡在固定的
+  // 網格座標上——這裡補上跟群組卡片標題列同一套拖曳邏輯，差別只在拖曳
+  // 目標是 .ungrouped-card-handle（獨立卡片沒有標題列可以附著，見
+  // graphTemplates.js 的說明）、放開後存位置的地方是 localStorage 不是
+  // Supabase（見 saveUngroupedPosition 的說明）。
+  trackEl.querySelectorAll('.ungrouped-card-handle').forEach((handle) => {
+    handle.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      const card = handle.closest('.group-card.ungrouped-tray');
+      if (!card) return;
+      const personEl = card.querySelector('.person-item');
+      const personId = personEl ? Number(personEl.dataset.nodeId) : null;
+      if (personId == null) return;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const originLeft = card.offsetLeft;
+      const originTop = card.offsetTop;
+      card.classList.add('is-dragging');
+
+      function onMove(moveEvent) {
+        const nextLeft = Math.max(0, originLeft + (moveEvent.clientX - startX));
+        const nextTop = Math.max(0, originTop + (moveEvent.clientY - startY));
+        card.style.left = `${nextLeft}px`;
+        card.style.top = `${nextTop}px`;
+        drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel);
+      }
+      async function onUp() {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        card.classList.remove('is-dragging');
+        saveUngroupedPosition(bookId, personId, card.offsetLeft, card.offsetTop);
         await reload();
       }
       document.addEventListener('pointermove', onMove);
