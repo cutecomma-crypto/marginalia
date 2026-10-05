@@ -174,11 +174,16 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
   function rangesOverlap(a, b) {
     return Math.max(a.rangeTop, b.rangeTop) < Math.min(a.rangeBottom, b.rangeBottom) - OVERLAP_EPSILON;
   }
+  // 車道分配的優先順序不能看「哪條線先被處理」（陣列順序跟使用者建立
+  // 關係的先後順序綁在一起，不是視覺上該優先的順序），而要看「涵蓋的
+  // Y 範圍誰比較短」——使用者明確要求重疊時「涵蓋範圍較長的那條線」
+  // 排到外面那一軌，範圍短的留在貼邊的第一軌。先依範圍長度由短到長
+  // 排序再跑貪婪分配，短的一定比長的先搶到車道 0，真的跟它重疊的
+  // 長線才會被推到車道 1（或更外側）。
   for (const group of cardGroups.values()) {
+    const sorted = [...group].sort((a, b) => (a.rangeBottom - a.rangeTop) - (b.rangeBottom - b.rangeTop));
     const placed = [];
-    for (const v of group) {
-      // 依序找一個還沒被「真的重疊」佔用的車道，找不到衝突就一律用
-      // 車道 0（也就是跟只有一條線時完全一樣的基準距離）。
+    for (const v of sorted) {
       let lane = 0;
       while (placed.some((p) => p.lane === lane && rangesOverlap(p, v))) {
         lane += 1;
@@ -237,14 +242,15 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     const fromColRight = (fromRect.right - boardRect.left) / scale;
     const toColRight = (toRect.right - boardRect.left) / scale;
 
-    // 固定且極窄的貼邊距離——不管這張卡片裡同時牽出去幾條關係線，基準
-    // 距離永遠是同一個值，兩條線的差異只來自上面算好的 laneIndex（只有
-    // Y 範圍真的重疊的線才會不是 0），不會因為車道數變多就整組往外推。
-    const SAME_CARD_BEND_OFFSET = 11;
-    // 真的重疊時的錯開量刻意壓到極小——目的只是讓重疊的那一小段視覺上
-    // 看得出兩條線、點得到分開的兩條，不是要清楚區隔出「第幾條」。
-    const OVERLAP_LANE_SPACING = 4;
-    const laneSpread = sameCard ? (laneIndex ?? 0) * OVERLAP_LANE_SPACING : 0;
+    // 兩軌固定距離——第一軌（貼邊）8px、第二軌（真的重疊時外推）16px，
+    // 兩軌間距固定 8px，不管這張卡片裡同時牽出去幾條關係線，基準距離
+    // 永遠是同一個值，不會因為車道數變多就整組往外推。laneIndex 另外
+    // 封頂在 2（最多 24px），就算極端情況下同一張卡片疊了三條以上互相
+    // 重疊的關係線，也絕不會把線推到使用者明確禁止的 30px 以上。
+    const SAME_CARD_BEND_OFFSET = 8;
+    const OVERLAP_LANE_SPACING = 8;
+    const MAX_LANE_INDEX = 2;
+    const laneSpread = sameCard ? Math.min(laneIndex ?? 0, MAX_LANE_INDEX) * OVERLAP_LANE_SPACING : 0;
 
     const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
     const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
