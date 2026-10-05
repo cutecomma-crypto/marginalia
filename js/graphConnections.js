@@ -168,6 +168,22 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     if (!cardGroups.has(v.cardEl)) cardGroups.set(v.cardEl, []);
     cardGroups.get(v.cardEl).push(v);
   }
+  // 同卡片連線的外推基準點必須是「整張卡片」的最右側外邊框，不能用
+  // person-item 自己的 getBoundingClientRect()——.group-card-body 有
+  // 0.7rem 的內距，person-item 的右邊界落在卡片邊框「內側」一整段內距
+  // 的距離，如果拿 person-item 的右邊界去加車道外推量，算出來的折角
+  // X 座標很容易還留在卡片邊框以內（內距的空白範圍內，甚至更糟時連進
+  // 卡片內容區域），造成使用者回報的「連線直接橫切穿過卡片內部文字」。
+  // 改成在這裡預先量好每一張牽涉到同卡片連線的卡片，真正的外邊框
+  // （border box）右邊界在哪，下面畫線時全部的同卡片連線都用這個基準，
+  // 保證折角一定落在卡片本身的範圍完全之外，不會因為內距大小而跑進去。
+  const cardRightByEl = new Map();
+  for (const v of sameCardRanges) {
+    if (cardRightByEl.has(v.cardEl)) continue;
+    const cardRect = v.cardEl.getBoundingClientRect();
+    cardRightByEl.set(v.cardEl, (cardRect.right - boardRect.left) / scale);
+  }
+
   // 容許一點點誤差（0.5px），剛好「相接但不重疊」（像上面家人／搭檔共用
   // 榭爾比那個 Y 座標的情況）不會被誤判成需要錯開。
   const OVERLAP_EPSILON = 0.5;
@@ -223,7 +239,7 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
   });
   svgEl.appendChild(defs);
 
-  for (const { edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter, sameCard, laneIndex } of validEdges) {
+  for (const { edge, fromEl, toEl, fromRect, toRect, fromCenter, toCenter, sameCard, laneIndex, cardEl } of validEdges) {
     // 同一對人物重複建立的關係，依序多拉開一點距離，讓每一條重複的關係都有自己獨立、
     // 點得到的線跟標籤，不會疊在同一個位置。
     const pairKey = pairKeyOf(edge);
@@ -233,32 +249,37 @@ export function drawConnections(svgEl, labelSvgEl, boardEl, edges, onEdgeClick) 
     const DUPLICATE_SPACING = 24;
     const dupSpread = dupTotal > 1 ? (dupIndex - (dupTotal - 1) / 2) * DUPLICATE_SPACING : 0;
 
-    // 兩個人物如果落在同一張群組卡片（左右邊界幾乎一樣寬），代表是卡片裡
-    // 同一欄的人物——這種情況原本的畫法是貼著卡片右邊界「內側」拉一條
-    // 直線，整條線完全被不透明的卡片背景蓋住，使用者實際完全看不到任何
-    // 線條，只看得到飄在旁邊的標籤。現在不分同卡片還是跨卡片，一律走
-    // attachSidePoint＋smoothStepPath 這同一套「從卡片外側接出去、彎到
-    // 中間再彎進對方」的畫法，讓線清楚地浮在卡片外面的空白區域。
-    const fromColRight = (fromRect.right - boardRect.left) / scale;
-    const toColRight = (toRect.right - boardRect.left) / scale;
-
-    // 兩軌固定距離——第一軌（貼邊）8px、第二軌（真的重疊時外推）16px，
-    // 兩軌間距固定 8px，不管這張卡片裡同時牽出去幾條關係線，基準距離
+    // 兩軌固定距離——第一軌（貼邊）10px、第二軌（真的重疊時外推）20px，
+    // 兩軌間距固定 10px，不管這張卡片裡同時牽出去幾條關係線，基準距離
     // 永遠是同一個值，不會因為車道數變多就整組往外推。laneIndex 另外
-    // 封頂在 2（最多 24px），就算極端情況下同一張卡片疊了三條以上互相
+    // 封頂在 2（最多 30px），就算極端情況下同一張卡片疊了三條以上互相
     // 重疊的關係線，也絕不會把線推到使用者明確禁止的 30px 以上。
-    const SAME_CARD_BEND_OFFSET = 8;
-    const OVERLAP_LANE_SPACING = 8;
+    const SAME_CARD_BEND_OFFSET = 10;
+    const OVERLAP_LANE_SPACING = 10;
     const MAX_LANE_INDEX = 2;
     const laneSpread = sameCard ? Math.min(laneIndex ?? 0, MAX_LANE_INDEX) * OVERLAP_LANE_SPACING : 0;
 
-    const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
-    const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
-    const startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
-    const end = attachSidePoint(toRectLocal, toCenter, fromCenter);
-    const bendX = sameCard
-      ? Math.max(fromColRight, toColRight) + SAME_CARD_BEND_OFFSET + laneSpread + dupSpread
-      : (startPulled.x + end.x) / 2 + dupSpread;
+    let startPulled;
+    let end;
+    let bendX;
+    if (sameCard) {
+      // 關鍵修正：起點／終點／折角一律釘在「整張卡片」量到的外邊框
+      // 右側（cardRightByEl，見上面的說明），不能用 person-item 自己的
+      // 右邊界——person-item 的右邊界落在卡片內距以內，用它當基準會讓
+      // 算出來的折角落在卡片邊框內側，使用者實測看到連線直接橫切過
+      // 卡片內部的人名文字就是這個誤差造成的。起點／終點的橫線段也是
+      // 從這個卡片外邊框的位置拉出來，不會經過卡片內容區塊一步。
+      const cardRight = cardRightByEl.get(cardEl);
+      startPulled = { x: cardRight, y: fromCenter.y };
+      end = { x: cardRight, y: toCenter.y };
+      bendX = cardRight + SAME_CARD_BEND_OFFSET + laneSpread + dupSpread;
+    } else {
+      const fromRectLocal = { width: fromRect.width / scale, height: fromRect.height / scale };
+      const toRectLocal = { width: toRect.width / scale, height: toRect.height / scale };
+      startPulled = attachSidePoint(fromRectLocal, fromCenter, toCenter);
+      end = attachSidePoint(toRectLocal, toCenter, fromCenter);
+      bendX = (startPulled.x + end.x) / 2 + dupSpread;
+    }
     const pathD = smoothStepPath(startPulled, end, bendX);
 
     const line = document.createElementNS(svgNS, 'path');
