@@ -4394,18 +4394,30 @@ button.book-completed-date:hover {
   right: calc(min(360px, 90vw) + 1rem);
 }
 
-/* 手機（≤768px）關係圖譜版面修復：
-   1. .graph-toolbar 桌機版是 flex-wrap:nowrap 硬擠一行——「← 回《書名》」
+/* 平板／手機（≤1024px）關係圖譜版面修復：
+   1. 門檻原本只訂在 ≤768px（手機），使用者反映「平常用電腦操作居多，
+      但用平板時工具列按鈕很容易被吃掉」——實測直向 iPad（820px）套用
+      桌機版 nowrap 單行＋全尺寸按鈕時，.graph-toolbar-right 的
+      scrollWidth（720px）明顯超出 clientWidth（571px），「新增人物」
+      「新增群組」整顆被擠到看不見的地方，要先發現「原來這排還能橫向
+      卷動」才找得到，體感就是使用者形容的「被吃掉」。單純把按鈕尺寸
+      縮小並不夠（實測縮小後 scrollWidth 還是大於 clientWidth，只是
+      卷動距離變短，問題沒有真的解決），门槛要拉高到 1024px（涵蓋市面
+      上主流直向平板寬度），而且要連同手機版已經驗證有效的
+      flex-wrap:wrap 換行版面一起套用，不能只縮小字級／padding。
+   2. .graph-toolbar 桌機版是 flex-wrap:nowrap 硬擠一行——「← 回《書名》」
       加「本書關係圖」標題本身在窄螢幕就吃掉大半寬度，右側縮放／面板／
       全螢幕／新增群組四組控制項被壓縮到只剩不到一半可視寬度，只能整組
       靠 .graph-toolbar-right 既有的 overflow-x:auto 卷動才看得到最後幾顆
       按鈕（實測：clientWidth 164px vs scrollWidth 560px，「新增群組」按鈕
       整顆落在 640px 處，遠遠超出螢幕右緣）。改成 flex-wrap:wrap，標題列／
       控制項列各自獨立成一整行，控制項列拿到全螢幕寬可以用，字級／padding
-      再收緊一輪，兩者相加大幅降低需要橫向卷動才看得到的機率；
-      .graph-toolbar-right 原有的 overflow-x:auto 保留當最後一道安全網
-      （字級再怎麼縮，语言設定字體大小、或極窄的裝置仍有可能放不下）。
-   2. .graph-canvas-area 加 max-width:100vw + overflow-x:hidden——畫布本身
+      再收緊一輪（按鈕高度／內距／字級／圖示尺寸都按同一個比例一起縮，
+      保持「等比例」不跑版），兩者相加大幅降低需要橫向卷動才看得到的
+      機率；.graph-toolbar-right 原有的 overflow-x:auto 保留當最後一道
+      安全網（字級再怎麼縮，语言設定字體大小、或極窄的裝置仍有可能
+      放不下）。
+   3. .graph-canvas-area 加 max-width:100vw + overflow-x:hidden——畫布本身
       的 .group-track 有 min-width:1400px（見該規則的說明），內層
       .canvas-wrap 已經是 overflow:auto 各自框住，理論上不會外溢到頁面
       層級，但這裡在外層容器再補一道 max-width:100vw 的保險，確保任何
@@ -4413,9 +4425,11 @@ button.book-completed-date:hover {
       .canvas-wrap 仍然維持 overflow:auto（不是 hidden），使用者拖曳
       平移／捲動畫布找卡片的操作不受影響，只有「外層頁面」不能因為
       裡面的畫布而橫向捲動。
-   3. 縮放起始比例已經在 graph.js 依螢幕寬度調整成 45%（見該檔案
-      DEFAULT_ZOOM 的說明），這裡不需要额外處理。 */
-@media (max-width: 768px) {
+   4. 縮放起始比例已經在 graph.js 依螢幕寬度調整成 45%（見該檔案
+      DEFAULT_ZOOM 的說明，門檻是 768px，跟這裡的 1024px 不同值是刻意
+      的——縮放比例影響的是畫布內容，平板寬度的畫布可視範圍還夠大，
+      不需要跟著工具列一起放寬門檻），這裡不需要额外處理。 */
+@media (max-width: 1024px) {
   .graph-canvas-area {
     max-width: 100vw;
     overflow-x: hidden;
