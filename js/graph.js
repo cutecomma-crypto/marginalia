@@ -294,6 +294,8 @@ export async function renderGraphPage(container, rawBookId) {
   // 不在 fullscreen 的那顆元素底下，瀏覽器只會畫出 fullscreen 元素本身跟它的子孫，
   // 結果就是全螢幕時工具列被裁切消失、開抽屜也完全看不到（抽屜根本沒被畫出來）。
   const appContainer = container.querySelector('#graph-app-container');
+  const canvasAreaEl = container.querySelector('#graph-canvas-area');
+  const toolbarEl = container.querySelector('.graph-toolbar');
   const fullscreenBtn = container.querySelector('#fullscreen-btn');
   fullscreenBtn.addEventListener('click', () => {
     if (document.fullscreenElement) {
@@ -302,6 +304,24 @@ export async function renderGraphPage(container, rawBookId) {
       (appContainer.requestFullscreen || appContainer.webkitRequestFullscreen)?.call(appContainer);
     }
   });
+  // 全螢幕時工具列是 position:fixed 浮在畫布正上方（見 styles.css 的說明），
+  // 使用者實測回報第一排的群組卡片會被工具列蓋住——因為畫布區塊只留了
+  // 固定 1rem 的 padding-top，但工具列實際渲染高度（回書籍連結＋大標題＋
+  // 一整排按鈕，三者疊起來）遠超過 1rem，浮動工具列蓋住的範圍自然超出
+  // 這一點點留白，直接壓在畫布內容上面。
+  // 寫死一個固定 padding-top 數字治標不治本：書名一長標題列換行、使用者
+  // 調整瀏覽器字級、或工具列之後又加新按鈕，固定數字遲早又對不準。改成
+  // 進入全螢幕時實際量出工具列當下渲染的高度，動態寫進一個 CSS 變數讓
+  // 畫布的 padding-top 直接使用，不管工具列實際多高，畫布內容永遠從
+  // 工具列下方一個固定間距開始，不會被蓋住。
+  function syncFullscreenToolbarGap() {
+    if (!document.fullscreenElement) {
+      canvasAreaEl.style.removeProperty('--fullscreen-toolbar-gap');
+      return;
+    }
+    const gap = toolbarEl.getBoundingClientRect().height + 16;
+    canvasAreaEl.style.setProperty('--fullscreen-toolbar-gap', `${gap}px`);
+  }
   document.addEventListener('fullscreenchange', () => {
     fullscreenBtn.textContent = document.fullscreenElement ? '✕ 退出全螢幕' : '⛶ 全螢幕展繪';
     // 側邊抽屜是 position:fixed 鋪滿右側 360px、z-index 又比一般文件流的工具列高，
@@ -309,6 +329,18 @@ export async function renderGraphPage(container, rawBookId) {
     // 工具列右側那幾顆按鈕，包含使用者剛按下去的「退出全螢幕」本身。
     // 切換全螢幕狀態時順手把抽屜收起來，兩種模式下工具列都保證按得到。
     closeDrawer();
+    // 剛切換進全螢幕的這一刻，瀏覽器還沒套用完 :fullscreen 那組 CSS（工具列
+    // 還沒真的變成 position:fixed 浮動列），這時候量到的高度是切換前、還在
+    // 文件流裡的舊版面高度，不準。等一個 requestAnimationFrame 讓瀏覽器先
+    // 套用完新樣式、版面穩定下來，再量測才會是浮動工具列實際佔用的高度。
+    requestAnimationFrame(syncFullscreenToolbarGap);
+  });
+  // 全螢幕狀態下視窗寬度改變（例如外接螢幕解析度切換、平板轉向）可能讓
+  // 標題列換行方式跟著變，連帶影響工具列實際高度，這裡只在全螢幕時才
+  // 重新量測，一般模式下完全不受影響（canvas-area 的 padding 用的是
+  // CSS 變數搭配 fallback 值，一般模式的 CSS 規則根本沒用到這個變數）。
+  window.addEventListener('resize', () => {
+    if (document.fullscreenElement) syncFullscreenToolbarGap();
   });
 
   // 縮放：直接對 .canvas-board 套 CSS transform:scale，連線用的 SVG 跟人物/群組卡片

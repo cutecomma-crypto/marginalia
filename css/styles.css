@@ -4346,10 +4346,17 @@ button.book-completed-date:hover {
   overflow: hidden;
 }
 
+/* padding-top 用 js/graph.js 的 syncFullscreenToolbarGap() 動態量出來的
+   浮動工具列實際高度（--fullscreen-toolbar-gap），不是寫死的固定數字——
+   工具列裡的書名標題換行、瀏覽器字級設定、以後工具列加新按鈕都可能
+   讓工具列變高變矮，固定數字遲早會再對不準，動態量測才能保證畫布內容
+   永遠從工具列下方開始、不會被浮動工具列蓋住。5rem 只是 JS 還沒量測
+   完成前那一瞬間的保底預設值，正常情況下進全螢幕後很快就會被蓋掉。 */
 #graph-app-container:fullscreen .graph-canvas-area,
 #graph-app-container:-webkit-full-screen .graph-canvas-area {
   height: 100vh;
   padding: 1rem;
+  padding-top: var(--fullscreen-toolbar-gap, 5rem);
   background: var(--bg);
 }
 
