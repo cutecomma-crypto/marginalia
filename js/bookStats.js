@@ -63,3 +63,4 @@ export function filterBooksByCategory(books, category) {
   if (!category) return books;
   return books.filter((book) => (book.category || '').trim() === category);
 }
+
