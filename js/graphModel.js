@@ -59,10 +59,12 @@ export function edgeColorNameForHex(hex) {
 // 人物卡片自訂底色——使用者特別問「顏色如果跟關係線那 12 個一樣會不會
 // 很奇怪」，所以刻意不跟 EDGE_COLOR_PALETTE／GROUP_COLOR_PALETTE 共用
 // 任何色號，三組色盤分屬三種不同用途（人物底色／關係線／群組標題底色），
-// 視覺上要一眼就能分辨「這是哪一種顏色選擇」，不會互相搞混。只要 6 色
-// 常用色，刻意選飽和度低很多的粉彩色系（比 EDGE_COLOR_PALETTE 更淺、更
-// 接近現在人物色塊預設的 --surface-alt 底色），背景色要襯得住上面的深色
-// 文字，不能跟關係線那種拿來當線條本身顏色的中飽和度色盤一樣搶眼。
+// 視覺上要一眼就能分辨「這是哪一種顏色選擇」，不會互相搞混。原本只有
+// 6 色，使用者實際用起來覺得不夠，要求跟關係線一樣擴充到 12 色——
+// 數量對齊但色調完全不同：刻意選飽和度低很多的粉彩色系（比
+// EDGE_COLOR_PALETTE 更淺、更接近現在人物色塊預設的 --surface-alt
+// 底色），背景色要襯得住上面的深色文字，不能跟關係線那種拿來當線條
+// 本身顏色的中飽和度色盤一樣搶眼。
 export const PERSON_COLOR_PALETTE = [
   { name: '粉彩藍', hex: '#D7E3F0' },
   { name: '粉彩綠', hex: '#DCEADC' },
@@ -70,6 +72,12 @@ export const PERSON_COLOR_PALETTE = [
   { name: '粉彩粉', hex: '#F3DEE3' },
   { name: '粉彩紫', hex: '#E6DFEF' },
   { name: '粉彩灰', hex: '#E5E2DC' },
+  { name: '粉彩橘', hex: '#F5E0CC' },
+  { name: '粉彩薄荷', hex: '#D9EDE8' },
+  { name: '粉彩靛藍', hex: '#DCE0F2' },
+  { name: '粉彩玫瑰', hex: '#F0D9DC' },
+  { name: '粉彩卡其', hex: '#EAE2D0' },
+  { name: '粉彩青', hex: '#D8EEF2' },
 ];
 
 export function personColorNameForHex(hex) {
