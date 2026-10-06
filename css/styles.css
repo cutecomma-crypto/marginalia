@@ -4277,10 +4277,12 @@ button.book-completed-date:hover {
   justify-content: center;
 }
 
-#zoom-reset-btn {
+#zoom-reset-btn,
+#zoom-fit-btn {
   width: auto;
   padding: 0 0.5rem;
   font-size: 0.8125rem;
+  white-space: nowrap;
 }
 
 .canvas-tool-btn:hover {

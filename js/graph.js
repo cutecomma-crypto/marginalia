@@ -38,6 +38,7 @@ export async function renderGraphPage(container, rawBookId) {
             <span class="canvas-zoom-level" id="zoom-level">100%</span>
             <button type="button" class="canvas-tool-btn" id="zoom-in-btn" data-tooltip="放大" aria-label="放大">＋</button>
             <button type="button" class="canvas-tool-btn" id="zoom-reset-btn" title="重設縮放">重設</button>
+            <button type="button" class="canvas-tool-btn" id="zoom-fit-btn" data-tooltip="自動縮放到剛好看到全部卡片" aria-label="縮放至全部可見">⊡ 全部可見</button>
           </div>
           <button type="button" class="btn graph-toolbar-secondary-btn drawer-toggle-btn" id="drawer-toggle-btn">${ICON_LINK}關係／編輯面板</button>
           <button type="button" class="btn graph-toolbar-secondary-btn" id="fullscreen-btn" title="讓畫布鋪滿螢幕">⛶ 全螢幕展繪</button>
@@ -90,6 +91,7 @@ export async function renderGraphPage(container, rawBookId) {
   `;
 
   const boardEl = container.querySelector('#canvas-board');
+  const canvasWrapEl = container.querySelector('#canvas-wrap');
   const trackEl = container.querySelector('#group-track');
   const svgEl = container.querySelector('#connections-svg');
   const labelSvgEl = container.querySelector('#connections-labels-svg');
@@ -346,6 +348,71 @@ export async function renderGraphPage(container, rawBookId) {
     zoomLevel = DEFAULT_ZOOM;
     applyZoom();
   });
+
+  // 使用者反映圖譜卡片一多，100% 縮放完全塞不進畫面，但手動一直點 −／＋
+  // 猜縮放比例「不直覺」——這顆按鈕直接算出剛好能把目前所有卡片（含
+  // 關係連線／標籤，見下面 computeContentBounds 的說明）都塞進可視範圍
+  // 的縮放比例，一鍵套用並捲動到內容左上角，不用自己猜。
+  //
+  // 卡片的 offsetLeft／offsetTop／offsetWidth／offsetHeight 是版面配置
+  // 用的內部尺寸，不受祖先 .canvas-board 的 transform:scale 影響，天生
+  // 就是「縮放套用之前」的座標系統——跟 graphConnections.js 畫連線用的
+  // 座標系統（同樣除過 scale）是同一套單位，兩者可以直接拿來比大小、
+  // 取聯集，不用再額外換算。
+  function computeContentBounds() {
+    const cards = Array.from(trackEl.querySelectorAll('.group-card'));
+    if (cards.length === 0) return null;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const card of cards) {
+      minX = Math.min(minX, card.offsetLeft);
+      minY = Math.min(minY, card.offsetTop);
+      maxX = Math.max(maxX, card.offsetLeft + card.offsetWidth);
+      maxY = Math.max(maxY, card.offsetTop + card.offsetHeight);
+    }
+    // 同卡片的弧線、跨卡片連線的轉角都可能凸出卡片邊界一小段，直接拿
+    // SVG 自己算好的 bounding box 聯集進來，確保「全部可見」真的連連線
+    // 跟標籤都算在內，不會把凸出範圍硬生生裁在可視範圍外。空的 SVG
+    // 在部分瀏覽器呼叫 getBBox() 會丟例外，沒內容時直接略過即可。
+    for (const svg of [svgEl, labelSvgEl]) {
+      try {
+        const box = svg.getBBox();
+        if (box.width === 0 && box.height === 0) continue;
+        minX = Math.min(minX, box.x);
+        minY = Math.min(minY, box.y);
+        maxX = Math.max(maxX, box.x + box.width);
+        maxY = Math.max(maxY, box.y + box.height);
+      } catch {
+        // 忽略，見上面的說明。
+      }
+    }
+    return { minX, minY, maxX, maxY };
+  }
+
+  container.querySelector('#zoom-fit-btn').addEventListener('click', () => {
+    const bounds = computeContentBounds();
+    if (!bounds) return;
+    const FIT_PADDING = 40;
+    const contentWidth = bounds.maxX - bounds.minX + FIT_PADDING * 2;
+    const contentHeight = bounds.maxY - bounds.minY + FIT_PADDING * 2;
+    const wrapWidth = canvasWrapEl.clientWidth;
+    const wrapHeight = canvasWrapEl.clientHeight;
+    // 上限鎖在 100%：內容本來就比畫面小的時候，「全部可見」的目的已經
+    // 達到了，不需要再放大填滿空白，放大反而會讓使用者誤以為是「縮放
+    // 至填滿」這個不同的功能。下限放寬到比一般手動縮放的 MIN_ZOOM（0.4）
+    // 更低，圖譜真的很大的時候才能真正整個塞進畫面，這正是這顆按鈕
+    // 存在的意義——手動縮放不能縮到這麼小，自動算的才可以。
+    const fitScale = Math.min(wrapWidth / contentWidth, wrapHeight / contentHeight, 1);
+    zoomLevel = Math.max(0.1, Math.round(fitScale * 100) / 100);
+    applyZoom();
+    requestAnimationFrame(() => {
+      canvasWrapEl.scrollLeft = Math.max(0, (bounds.minX - FIT_PADDING) * zoomLevel);
+      canvasWrapEl.scrollTop = Math.max(0, (bounds.minY - FIT_PADDING) * zoomLevel);
+    });
+  });
+
   // 滾輪／觸控板縮放刻意不做：畫布縮放完全交給頂部工具列的 −／＋／重設三顆按鈕，
   // 使用者在瀏覽或用滾輪捲動畫布找位置時，不會不小心把畫面滾到暴增暴縮。
   // 拿掉這個監聽器後，滾輪在 .canvas-wrap 上就是它原生 overflow:auto 的捲動行為。
