@@ -4898,9 +4898,11 @@ button.book-completed-date:hover {
   color: var(--text);
 }
 
+/* 15 色剛好排成 5 欄 x 3 排整齊對齊（原本 12 色時是 6 欄 x 2 排，擴充到
+   15 色後維持同一種「整除、沒有零散最後一排」的排法，只是欄數跟著调整）。 */
 .edge-color-swatches {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 0.5rem;
   padding: 0.2rem 0;
 }
@@ -4946,13 +4948,13 @@ button.book-completed-date:hover {
 /* 人物卡片底色選色——跟上面 .edge-color-swatches 同一套視覺語言（圓形
    色塊＋選中打勾＋下方文字說明目前顏色），只有「預設」那顆特別處理：
    它本身沒有實際顏色可以當背景，用虛線邊框＋打勾圖示表示「清除顏色」，
-   不會跟其他 12 個有實色背景的色塊混在一起分不出哪個是「沒有自訂色」。
-   7 欄剛好把「預設＋12 色」13 顆排成 7+6 兩排，不會有單獨落單一顆的
-   情況。 */
+   不會跟其他 15 個有實色背景的色塊混在一起分不出哪個是「沒有自訂色」。
+   8 欄剛好把「預設＋15 色」16 顆排成兩排整齊的 8+8，不會有單獨落單
+   一顆的情況。 */
 .person-color-swatches {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.45rem;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.4rem;
   padding: 0.2rem 0;
 }
 
