@@ -56,6 +56,27 @@ export function edgeColorNameForHex(hex) {
   return found ? found.name : null;
 }
 
+// 人物卡片自訂底色——使用者特別問「顏色如果跟關係線那 12 個一樣會不會
+// 很奇怪」，所以刻意不跟 EDGE_COLOR_PALETTE／GROUP_COLOR_PALETTE 共用
+// 任何色號，三組色盤分屬三種不同用途（人物底色／關係線／群組標題底色），
+// 視覺上要一眼就能分辨「這是哪一種顏色選擇」，不會互相搞混。只要 6 色
+// 常用色，刻意選飽和度低很多的粉彩色系（比 EDGE_COLOR_PALETTE 更淺、更
+// 接近現在人物色塊預設的 --surface-alt 底色），背景色要襯得住上面的深色
+// 文字，不能跟關係線那種拿來當線條本身顏色的中飽和度色盤一樣搶眼。
+export const PERSON_COLOR_PALETTE = [
+  { name: '粉彩藍', hex: '#D7E3F0' },
+  { name: '粉彩綠', hex: '#DCEADC' },
+  { name: '粉彩黃', hex: '#F8EFD6' },
+  { name: '粉彩粉', hex: '#F3DEE3' },
+  { name: '粉彩紫', hex: '#E6DFEF' },
+  { name: '粉彩灰', hex: '#E5E2DC' },
+];
+
+export function personColorNameForHex(hex) {
+  const found = PERSON_COLOR_PALETTE.find((c) => c.hex.toLowerCase() === (hex || '').toLowerCase());
+  return found ? found.name : null;
+}
+
 // 常見關係預設顏色／線寬，選到這些關係字時自動套用，不用手動調
 const COUPLE_LABELS = ['戀人', '夫妻'];
 const COUPLE_COLOR = '#c9738f';

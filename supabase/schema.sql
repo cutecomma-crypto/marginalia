@@ -158,6 +158,9 @@ create index groups_book_id_idx on groups ("bookId");
 -- 這個欄位，PostgREST 收到不認識的欄位名稱會直接拒絕整筆 update，導致
 -- 「勾選主角」連同那次編輯的其他欄位（姓名／頭銜／群組……）全部沒有真的
 -- 存進雲端——不是只有星星那個功能單獨壞掉。
+-- color（人物卡片自訂底色）是同樣道理後來才補上的第二個欄位，既有專案
+-- 一樣單獨補執行這一行就好，不用重跑整份 create table：
+--   alter table nodes add column if not exists color text;
 create table nodes (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -169,6 +172,7 @@ create table nodes (
   description text,
   "order" integer,
   "isProtagonist" boolean default false,
+  color text,
   "createdAt" timestamptz default now()
 );
 

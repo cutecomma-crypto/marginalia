@@ -4767,7 +4767,10 @@ button.book-completed-date:hover {
 }
 
 .person-item {
-  background: var(--surface-alt);
+  /* 人物自訂底色透過 --person-color 這個 CSS 變數帶進來（見
+     graphTemplates.js 的 personItemHtml 說明），沒設定就退回原本的
+     --surface-alt 預設底色——跟群組卡片的 --group-color 是同一套做法。 */
+  background: var(--person-color, var(--surface-alt));
   border-radius: 6px;
   padding: 0.4rem 45px 0.4rem 0.55rem;
   cursor: grab;
@@ -4925,6 +4928,60 @@ button.book-completed-date:hover {
 }
 
 .edge-color-current-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  min-height: 1.1em;
+  margin-top: 0.35rem;
+}
+
+/* 人物卡片底色選色——跟上面 .edge-color-swatches 同一套視覺語言（圓形
+   色塊＋選中打勾＋下方文字說明目前顏色），只有「預設」那顆特別處理：
+   它本身沒有實際顏色可以當背景，用虛線邊框＋打勾圖示表示「清除顏色」，
+   不會跟其他 6 個有實色背景的色塊混在一起分不出哪個是「沒有自訂色」。 */
+.person-color-swatches {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.45rem;
+  padding: 0.2rem 0;
+}
+
+.person-color-swatch {
+  position: relative;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.person-color-swatch-none {
+  background: var(--surface-alt);
+  border: 2px dashed var(--border);
+}
+
+.person-color-swatch.is-selected {
+  border-color: var(--text);
+  border-style: solid;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.person-color-check {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.person-color-swatch.is-selected .person-color-check {
+  display: flex;
+}
+
+.person-color-current-label {
   font-size: 0.8125rem;
   color: var(--text-muted);
   min-height: 1.1em;

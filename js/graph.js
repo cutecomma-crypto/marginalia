@@ -3,7 +3,7 @@ import { escapeHtml, showToast } from './utils.js';
 import { pushEscapeHandler } from './services/keyboardShortcutsService.js';
 import { ICON_LINK } from './icons.js';
 import { nextGroupColor, loadGraphData, readEdgeStyleFields } from './graphModel.js';
-import { edgeStyleFieldsHtml, wireCoupleAutoColor, wireEdgeColorSwatches } from './graphTemplates.js';
+import { edgeStyleFieldsHtml, wireCoupleAutoColor, wireEdgeColorSwatches, personColorFieldHtml, wirePersonColorSwatches } from './graphTemplates.js';
 import { drawConnections, clearAllEdgeOffsets } from './graphConnections.js';
 import { renderBoardView } from './graphBoardView.js';
 
@@ -172,6 +172,9 @@ export async function renderGraphPage(container, rawBookId) {
           <textarea name="description" rows="2" placeholder="輸入簡短背景或重要記事...">${escapeHtml(person.description)}</textarea>
         </label>
         <label class="checkbox"><input type="checkbox" name="isProtagonist" ${person.isProtagonist ? 'checked' : ''}> ★ 主角／重要角色</label>
+        <label>卡片顏色
+          ${personColorFieldHtml(person)}
+        </label>
         <label>群組
           <select name="groupId">
             <option value="">未分組</option>
@@ -185,6 +188,7 @@ export async function renderGraphPage(container, rawBookId) {
       </form>
     `;
     const form = selectionPanel.querySelector('#edit-person-form');
+    wirePersonColorSwatches(form);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const data = Object.fromEntries(new FormData(form).entries());
@@ -209,6 +213,7 @@ export async function renderGraphPage(container, rawBookId) {
           status: (data.status || '').trim(),
           description: (data.description || '').trim(),
           isProtagonist: form.elements.isProtagonist.checked,
+          color: data.color || '',
           createdAt: person.createdAt,
         });
       } catch (error) {

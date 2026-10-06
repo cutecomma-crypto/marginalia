@@ -8,7 +8,9 @@ import {
   DEFAULT_GROUP_COLOR,
   GROUP_COLOR_PALETTE,
   EDGE_COLOR_PALETTE,
+  PERSON_COLOR_PALETTE,
   edgeColorNameForHex,
+  personColorNameForHex,
   presetColorForLabel,
   DIRECTION_OPTIONS,
 } from './graphModel.js';
@@ -31,9 +33,17 @@ export function directionOptionsHtml(selected) {
 // 方向——先試過「整張卡片虛線外框」、又試過「空白圓形頭像」兩種都不是
 // 他要的，最後比對三張參考圖後明確選了這個：跟群組內人物項目同樣式的
 // 小色塊，只是沒有外層大卡片包著。
+// 人物自訂底色（person.color）透過 CSS 變數帶進去，不是直接寫
+// style="background:...”——跟群組卡片的 --group-color 同一個做法，
+// styles.css 的 .person-item 用 var(--person-color, var(--surface-alt))
+// 當底色，沒設自訂色就自動退回原本的預設底色，不用在這裡判斷要不要輸出
+// style 屬性。主角的金色漸層樣式（.person-item.is-protagonist）在 CSS
+// 裡用兩個 class 疊出來的選擇器整個覆蓋掉 background，優先度自然蓋過
+// 這個變數，不用特別判斷「是主角就不要套自訂色」。
 function personItemHtml(person, { standalone = false } = {}) {
+  const colorStyle = person.color ? ` style="--person-color: ${escapeHtml(person.color)};"` : '';
   return `
-    <div class="person-item${person.isProtagonist ? ' is-protagonist' : ''}${standalone ? ' person-item-standalone' : ''}" data-node-id="${person.id}">
+    <div class="person-item${person.isProtagonist ? ' is-protagonist' : ''}${standalone ? ' person-item-standalone' : ''}" data-node-id="${person.id}"${colorStyle}>
       <div class="person-item-main">
         <span class="person-name">${person.isProtagonist ? '★ ' : ''}${escapeHtml(person.label)}</span>
         ${person.title ? `<span class="person-title">${escapeHtml(person.title)}</span>` : ''}
@@ -174,6 +184,50 @@ export function edgeStyleFieldsHtml(edge) {
       </select>
     </label>
   `;
+}
+
+// 人物卡片底色選色——跟 edgeColorSwatchesHtml 同一套做法（固定色盤＋打勾
+// 選中狀態＋隱藏欄位存目前選的 hex），差別是人物顏色是「可選」的，不是
+// 每個人物都一定要有顏色（沒選就維持系統預設的 --surface-alt 底色），
+// 所以多一顆「預設」色塊放在最前面，選它會把隱藏欄位清空，退回沒有
+// 自訂色的狀態。
+function personColorSwatchesHtml(currentColor) {
+  const current = currentColor || '';
+  const currentName = personColorNameForHex(current);
+  return `
+    <input type="hidden" name="color" value="${escapeHtml(current)}">
+    <div class="person-color-swatches">
+      <button type="button" class="person-color-swatch person-color-swatch-none${current ? '' : ' is-selected'}" data-hex="" data-tooltip="預設底色" aria-label="清除顏色，使用預設底色">
+        <span class="person-color-check">✓</span>
+      </button>
+      ${PERSON_COLOR_PALETTE.map((c) => `
+        <button type="button" class="person-color-swatch${c.hex.toLowerCase() === current.toLowerCase() ? ' is-selected' : ''}" data-hex="${c.hex}" style="background: ${c.hex};" data-tooltip="${escapeHtml(c.name)}" aria-label="選擇人物顏色 ${escapeHtml(c.name)}">
+          <span class="person-color-check">✓</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="person-color-current-label">${currentName ? `目前顏色：${escapeHtml(currentName)}` : '目前顏色：預設'}</div>
+  `;
+}
+
+function applyPersonColor(form, hex) {
+  form.elements.color.value = hex;
+  form.querySelectorAll('.person-color-swatch').forEach((b) => b.classList.toggle('is-selected', (b.dataset.hex || '').toLowerCase() === hex.toLowerCase()));
+  const label = form.querySelector('.person-color-current-label');
+  if (label) {
+    const name = personColorNameForHex(hex);
+    label.textContent = `目前顏色：${name || '預設'}`;
+  }
+}
+
+export function wirePersonColorSwatches(form) {
+  form.querySelectorAll('.person-color-swatch').forEach((btn) => {
+    btn.addEventListener('click', () => applyPersonColor(form, btn.dataset.hex || ''));
+  });
+}
+
+export function personColorFieldHtml(person) {
+  return personColorSwatchesHtml(person ? person.color : '');
 }
 
 export function personOptionsHtml(nodes, groups) {
