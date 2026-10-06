@@ -21,9 +21,19 @@ export function directionOptionsHtml(selected) {
   return DIRECTION_OPTIONS.map((opt) => `<option value="${opt.value}" ${opt.value === selected ? 'selected' : ''}>${opt.label}</option>`).join('');
 }
 
-function personItemHtml(person) {
+// circleStyle 只有獨立（未分組）人物卡片會傳 true（見 ungroupedPersonCardHtml
+// 的說明）——群組卡片裡的人物項目維持原本那種有底色的矩形清單樣式，不受影響。
+// 圓形樣式多畫一個「頭像」圓圈，裡面放名字的第一個字當作沒有照片時的替代視覺——
+// 用 Array.from() 取第一個字元而不是 charAt(0)，是為了讓名字萬一是由兩個
+// UTF-16 code unit 組成的字（例如罕見字、emoji）時也能正確取到完整一個字，
+// 不會切到一半變成亂碼。
+function personItemHtml(person, { circleStyle = false } = {}) {
+  const avatarHtml = circleStyle
+    ? `<div class="person-avatar-circle">${escapeHtml(Array.from(person.label.trim())[0] || '?')}</div>`
+    : '';
   return `
-    <div class="person-item${person.isProtagonist ? ' is-protagonist' : ''}" data-node-id="${person.id}">
+    <div class="person-item${person.isProtagonist ? ' is-protagonist' : ''}${circleStyle ? ' person-item-circle' : ''}" data-node-id="${person.id}">
+      ${avatarHtml}
       <div class="person-item-main">
         <span class="person-name">${person.isProtagonist ? '★ ' : ''}${escapeHtml(person.label)}</span>
         ${person.title ? `<span class="person-title">${escapeHtml(person.title)}</span>` : ''}
@@ -64,7 +74,7 @@ export function groupCardHtml(group, people, fallbackX, fallbackY) {
         <input class="group-subtitle-input" data-group-id="${group.id}" value="${escapeHtml(group.subtitle || '')}" placeholder="副標（選填）">
       </div>
       <div class="group-card-body" data-drop-group="${group.id}">
-        ${people.map(personItemHtml).join('')}
+        ${people.map((p) => personItemHtml(p)).join('')}
         <form class="quick-add-person-form" data-group-id="${group.id}">
           <input name="name" list="existing-people-list" placeholder="＋ 新增人物，Enter 送出（打已存在的名字會直接移過來，不會重複）">
         </form>
@@ -80,9 +90,6 @@ export function groupCardHtml(group, people, fallbackX, fallbackY) {
 // 每個未分組的人物各自是一張獨立的小卡片（跟一般群組卡片同一套網格
 // 定位，見呼叫端 renderBoardView() 怎麼算 x/y），沒有標題列、沒有群組
 // 名字、沒有提示文字，直接漂浮在畫布上。
-// 沿用既有的 .ungrouped-tray 虛線邊框樣式（本來是整個「未分組」容器
-// 用的，現在套在每一張獨立卡片上）：視覺上繼續用虛線框跟其他有實色
-// 邊框的群組卡片區分「這個人還沒分類」，不用另外寫新的 CSS 規則。
 // data-drop-group="ungrouped" 直接放在卡片本身（不像群組卡片是放在
 // .group-card-body 上）——既有的拖放邏輯（graphDragDrop.js）靠
 // .closest('[data-drop-group]') 從被拖曳／被懸停的人物卡片往上找最近的
@@ -92,15 +99,22 @@ export function groupCardHtml(group, people, fallbackX, fallbackY) {
 // （拖進某個群組、或在同一張卡片裡重新排序）已經被既有的 .person-item
 // 拖曳邏輯佔用了（見 graphDragDrop.js），不能讓整張卡片的拖曳跟它共用
 // 同一個觸發區域，不然兩種拖曳意圖（「移動這張獨立卡片本身」跟「把這個
-// 人拖進某個群組」）會互相打架、分不清楚使用者到底想做哪一個。加一條
-// 跟群組卡片標題列同樣視覺語言的拖曳把手（⠿），單獨佔一小條，按住它
-// 拖的是整張卡片的位置，跟底下人物項目本身的拖曳互不干擾。
+// 人拖進某個群組」）會互相打架、分不清楚使用者到底想做哪一個。保留一個
+// 很小的拖曳把手（⠿，CSS 改成浮在頭像圓圈右上角的小圓點，平常半透明、
+// hover／拖曳時才完全顯示，見 styles.css 的說明），按住它拖的是整張卡片
+// 的位置，跟底下人物項目本身的拖曳互不干擾。
+// 使用者後來又反映虛線方框的外觀看起來太像「正式的群組」，他想要的是
+// 參考戲劇人物關係圖那種「圓形頭像＋名字」的簡約呈現，沒有外框——這裡
+// 把 personItemHtml 的 circleStyle 選項打開（只有這裡會用到，一般群組
+// 卡片內的人物清單完全不受影響），卡片本身的虛線邊框／底色也在
+// styles.css 透過 .ungrouped-tray 的規則整個拿掉，只留下頭像圓圈本身
+// 看得見。
 export function ungroupedPersonCardHtml(person, x, y) {
   return `
     <div class="group-card ungrouped-tray" data-drop-group="ungrouped" style="left: ${x}px; top: ${y}px;">
       <div class="ungrouped-card-handle" data-tooltip="按住拖曳可自由移動位置" aria-label="按住拖曳可自由移動位置">⠿</div>
       <div class="group-card-body">
-        ${personItemHtml(person)}
+        ${personItemHtml(person, { circleStyle: true })}
       </div>
     </div>
   `;

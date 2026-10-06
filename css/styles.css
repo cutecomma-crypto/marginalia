@@ -4534,30 +4534,60 @@ button.book-completed-date:hover {
 }
 
 /* 未分組的人物每個各自是一張獨立卡片（見 graphTemplates.js 的
-   ungroupedPersonCardHtml），沒有標題列、沒有群組色，這裡的虛線邊框是
-   唯一用來跟一般群組卡片（實色邊框）區分的視覺線索。 */
+   ungroupedPersonCardHtml）——原本沿用群組卡片的虛線方框樣式，使用者
+   反映看起來太像「正式分類好的群組」，想要的是類似戲劇人物關係圖那種
+   「圓形頭像＋名字」的簡約呈現，不要外框。這裡把 .group-card 共用規則
+   的邊框／底色／陰影／固定寬度整個蓋掉，改成完全透明、寬度跟著內容走
+   的殼，卡片唯一看得見的東西是裡面的頭像圓圈（.person-avatar-circle，
+   見下面 .person-item-circle 的說明）。 */
 .group-card.ungrouped-tray {
-  border-style: dashed;
-  border-color: var(--border);
+  width: auto;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
 }
 
-/* 獨立人物卡片專用的拖曳把手——跟群組卡片標題列同一種視覺語言（灰底、
-   ⠿ 圖示），但因為獨立卡片沒有標題列可以附著，這裡單獨拉出一條很窄的
-   橫條，只負責「拖這張卡片本身到畫布任何位置」，跟卡片內部人物項目
-   本身的拖曳（拖進某個群組）完全分開，兩種拖曳意圖不會互相干擾。 */
-.ungrouped-card-handle {
-  background: var(--surface-alt);
-  border-bottom: 1px dashed var(--border);
+.group-card.ungrouped-tray .group-card-body {
+  padding: 0.3rem;
+  min-height: 0;
+  background: transparent;
+}
+
+/* 獨立人物卡片專用的拖曳把手——只負責「拖這張卡片本身到畫布任何位置」，
+   跟卡片內部人物項目本身的拖曳（拖進某個群組）完全分開，兩種拖曳意圖
+   不會互相干擾（見 ungroupedPersonCardHtml 的說明）。改成浮在頭像圓圈
+   右上角的一顆小圓點（不是原本那條跨滿整個卡片寬度的灰底橫條），平常
+   半透明、滑鼠移過去或拖曳中才完全顯示，才不會讓「拿掉外框、看起來像
+   單純一個頭像」的效果又被一條明顯的橫條破壞掉。 */
+.group-card.ungrouped-tray .ungrouped-card-handle {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
   color: var(--text-muted);
-  text-align: center;
-  font-size: 0.8rem;
+  font-size: 0.65rem;
   line-height: 1;
-  padding: 0.25rem 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: grab;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  border-radius: 8px 8px 0 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+}
+
+.group-card.ungrouped-tray:hover .ungrouped-card-handle,
+.group-card.ungrouped-tray.is-dragging .ungrouped-card-handle {
+  opacity: 1;
 }
 
 .ungrouped-card-handle:active {
@@ -4771,6 +4801,67 @@ button.book-completed-date:hover {
 
 .person-item.is-protagonist .person-title {
   color: #8a6a2c;
+}
+
+/* 獨立（未分組）人物卡片的圓形呈現——只有 personItemHtml() 傳
+   circleStyle:true 時才會有 person-item-circle 這個 class（目前只有
+   ungroupedPersonCardHtml 會用到），一般群組卡片內的矩形清單樣式完全
+   不受影響。拿掉 .person-item 原本的底色／內距／邊框，改成直向置中排列
+   「頭像圓圈 + 名字 + 頭銜」，狀態徽章維持原本的膠囊樣式但置中對齊。 */
+.person-item.person-item-circle {
+  background: transparent;
+  border: none;
+  padding: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+}
+
+/* 主角的強調樣式原本是整個矩形項目套金色漸層底＋外框；圓形樣式底色
+   已經拿掉了，金色強調改套在頭像圓圈本身上（見下面
+   .person-item-circle.is-protagonist .person-avatar-circle），這裡要
+   把矩形版的底色／外框／陰影蓋掉，不然會變成圓形頭像外面還包著一層
+   看不出所以然的金色矩形殘影。 */
+.person-item.person-item-circle.is-protagonist {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* 沒有照片功能，頭像圓圈裡用名字的第一個字當替代視覺——跟手繪／戲劇
+   海報那種「圓形照片＋名字」人物關係圖的呈現方式一致，比純文字清單
+   多一點可以快速用眼睛辨識、記憶的視覺錨點。 */
+.person-avatar-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.person-item.person-item-circle.is-protagonist .person-avatar-circle {
+  background: linear-gradient(180deg, #fbe7ae, #f6d888);
+  border-color: #c9971f;
+  color: #6b4c14;
+  box-shadow: 0 1px 3px rgba(201, 151, 31, 0.35);
+}
+
+.person-item-circle .person-item-main {
+  align-items: center;
+  text-align: center;
+}
+
+.person-item-circle .person-name,
+.person-item-circle .person-title {
+  text-align: center;
 }
 
 .person-item-main {
