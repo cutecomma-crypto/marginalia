@@ -23,13 +23,12 @@ export function directionOptionsHtml(selected) {
 
 // circleStyle 只有獨立（未分組）人物卡片會傳 true（見 ungroupedPersonCardHtml
 // 的說明）——群組卡片裡的人物項目維持原本那種有底色的矩形清單樣式，不受影響。
-// 圓形樣式多畫一個「頭像」圓圈，裡面放名字的第一個字當作沒有照片時的替代視覺——
-// 用 Array.from() 取第一個字元而不是 charAt(0)，是為了讓名字萬一是由兩個
-// UTF-16 code unit 組成的字（例如罕見字、emoji）時也能正確取到完整一個字，
-// 不會切到一半變成亂碼。
+// 圓形樣式多畫一個空白的「頭像」圓圈——原本想放名字第一個字當替代視覺，
+// 使用者反映他看的書基本上沒有角色圖像可以配，圓圈裡面放文字反而畫蛇
+// 添足，改成單純一個空白圓形就好，名字本身已經寫在圓圈下方不會看不到。
 function personItemHtml(person, { circleStyle = false } = {}) {
   const avatarHtml = circleStyle
-    ? `<div class="person-avatar-circle">${escapeHtml(Array.from(person.label.trim())[0] || '?')}</div>`
+    ? `<div class="person-avatar-circle"></div>`
     : '';
   return `
     <div class="person-item${person.isProtagonist ? ' is-protagonist' : ''}${circleStyle ? ' person-item-circle' : ''}" data-node-id="${person.id}">
