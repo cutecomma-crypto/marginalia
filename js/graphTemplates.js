@@ -230,12 +230,42 @@ export function personColorFieldHtml(person) {
   return personColorSwatchesHtml(person ? person.color : '');
 }
 
+// 「新增關係」的「從／到」下拉選單原本是一長串「群組 › 人物」的平面清單，
+// 順序照人物的資料庫 id（新增先後），同一個群組的人物會散落在清單各處，
+// 使用者反映要很認真找才找得到——跟畫布上「同一個群組的人擠在同一張
+// 卡片裡」的視覺邏輯完全對不上，等於要使用者自己在腦中重新排序一次。
+// 改成瀏覽器原生的 <optgroup>：每個群組自己是一塊有粗體標題的區塊，
+// 群組內的人物彼此緊鄰（照卡片上的排列順序 order，不是資料庫 id），
+// 跟畫布上看到的分組方式一致，找人直接「先認群組、再認名字」，不用
+// 每個選項都重新讀一次群組名稱前綴。未分組的人統一歸在最後一個
+// 「未分組」區塊。原生 <optgroup> 不用額外寫 CSS／JS，手機上的原生
+// 選單 UI 也會自動呈現同樣分組效果。
+function byOrder(a, b) {
+  return (a.order ?? 0) - (b.order ?? 0) || a.id - b.id;
+}
+
 export function personOptionsHtml(nodes, groups) {
-  const groupNameById = new Map(groups.map((g) => [g.id, g.name]));
-  return nodes
-    .map((p) => {
-      const groupLabel = p.groupId ? (groupNameById.get(p.groupId) || '未分組') : '未分組';
-      return `<option value="${p.id}">${escapeHtml(groupLabel)} › ${escapeHtml(p.label)}</option>`;
-    })
+  const peopleByGroup = new Map();
+  const ungrouped = [];
+  for (const person of nodes) {
+    if (person.groupId && groups.some((g) => g.id === person.groupId)) {
+      if (!peopleByGroup.has(person.groupId)) peopleByGroup.set(person.groupId, []);
+      peopleByGroup.get(person.groupId).push(person);
+    } else {
+      ungrouped.push(person);
+    }
+  }
+  const personOptionHtml = (p) => `<option value="${p.id}">${escapeHtml(p.label)}</option>`;
+  const groupsHtml = groups
+    .filter((g) => peopleByGroup.has(g.id))
+    .map((g) => `
+      <optgroup label="${escapeHtml(g.name)}">
+        ${peopleByGroup.get(g.id).sort(byOrder).map(personOptionHtml).join('')}
+      </optgroup>
+    `)
     .join('');
+  const ungroupedHtml = ungrouped.length
+    ? `<optgroup label="未分組">${ungrouped.sort(byOrder).map(personOptionHtml).join('')}</optgroup>`
+    : '';
+  return groupsHtml + ungroupedHtml;
 }
