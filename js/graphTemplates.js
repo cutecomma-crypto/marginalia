@@ -21,18 +21,19 @@ export function directionOptionsHtml(selected) {
   return DIRECTION_OPTIONS.map((opt) => `<option value="${opt.value}" ${opt.value === selected ? 'selected' : ''}>${opt.label}</option>`).join('');
 }
 
-// circleStyle 只有獨立（未分組）人物卡片會傳 true（見 ungroupedPersonCardHtml
-// 的說明）——群組卡片裡的人物項目維持原本那種有底色的矩形清單樣式，不受影響。
-// 圓形樣式多畫一個空白的「頭像」圓圈——原本想放名字第一個字當替代視覺，
-// 使用者反映他看的書基本上沒有角色圖像可以配，圓圈裡面放文字反而畫蛇
-// 添足，改成單純一個空白圓形就好，名字本身已經寫在圓圈下方不會看不到。
-function personItemHtml(person, { circleStyle = false } = {}) {
-  const avatarHtml = circleStyle
-    ? `<div class="person-avatar-circle"></div>`
-    : '';
+// standalone 只有獨立（未分組）人物卡片會傳 true（見 ungroupedPersonCardHtml
+// 的說明）——群組卡片裡的人物項目維持原本那種有底色的矩形清單樣式，不受影響，
+// 外觀上完全一樣（同樣的底色／圓角／字級），差別只在 CSS 把寬度從「撐滿
+// 固定 210px 卡片」改成「跟著文字內容縮放」（見 styles.css 的
+// .person-item-standalone），讓它能單獨浮在畫布上、看起來就是一個獨立的
+// 小色塊，不需要外面再包一層大卡片。這是使用者參考幾張小說／戲劇人物
+// 關係圖（Xmind 那種「小色塊＋名字，線條直接連過去」的畫法）之後選定的
+// 方向——先試過「整張卡片虛線外框」、又試過「空白圓形頭像」兩種都不是
+// 他要的，最後比對三張參考圖後明確選了這個：跟群組內人物項目同樣式的
+// 小色塊，只是沒有外層大卡片包著。
+function personItemHtml(person, { standalone = false } = {}) {
   return `
-    <div class="person-item${person.isProtagonist ? ' is-protagonist' : ''}${circleStyle ? ' person-item-circle' : ''}" data-node-id="${person.id}">
-      ${avatarHtml}
+    <div class="person-item${person.isProtagonist ? ' is-protagonist' : ''}${standalone ? ' person-item-standalone' : ''}" data-node-id="${person.id}">
       <div class="person-item-main">
         <span class="person-name">${person.isProtagonist ? '★ ' : ''}${escapeHtml(person.label)}</span>
         ${person.title ? `<span class="person-title">${escapeHtml(person.title)}</span>` : ''}
@@ -99,21 +100,15 @@ export function groupCardHtml(group, people, fallbackX, fallbackY) {
 // 拖曳邏輯佔用了（見 graphDragDrop.js），不能讓整張卡片的拖曳跟它共用
 // 同一個觸發區域，不然兩種拖曳意圖（「移動這張獨立卡片本身」跟「把這個
 // 人拖進某個群組」）會互相打架、分不清楚使用者到底想做哪一個。保留一個
-// 很小的拖曳把手（⠿，CSS 改成浮在頭像圓圈右上角的小圓點，平常半透明、
+// 很小的拖曳把手（⠿，CSS 改成浮在色塊右上角的小圓點，平常半透明、
 // hover／拖曳時才完全顯示，見 styles.css 的說明），按住它拖的是整張卡片
 // 的位置，跟底下人物項目本身的拖曳互不干擾。
-// 使用者後來又反映虛線方框的外觀看起來太像「正式的群組」，他想要的是
-// 參考戲劇人物關係圖那種「圓形頭像＋名字」的簡約呈現，沒有外框——這裡
-// 把 personItemHtml 的 circleStyle 選項打開（只有這裡會用到，一般群組
-// 卡片內的人物清單完全不受影響），卡片本身的虛線邊框／底色也在
-// styles.css 透過 .ungrouped-tray 的規則整個拿掉，只留下頭像圓圈本身
-// 看得見。
 export function ungroupedPersonCardHtml(person, x, y) {
   return `
     <div class="group-card ungrouped-tray" data-drop-group="ungrouped" style="left: ${x}px; top: ${y}px;">
       <div class="ungrouped-card-handle" data-tooltip="按住拖曳可自由移動位置" aria-label="按住拖曳可自由移動位置">⠿</div>
       <div class="group-card-body">
-        ${personItemHtml(person, { circleStyle: true })}
+        ${personItemHtml(person, { standalone: true })}
       </div>
     </div>
   `;
