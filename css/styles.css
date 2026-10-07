@@ -4612,6 +4612,28 @@ button.book-completed-date:hover {
   z-index: 20;
 }
 
+/* 框選範圍本身——拖曳過程中即時呈現的半透明矩形，位置／大小由
+   graphDragDrop.js 的 wireMarqueeSelection() 直接寫 inline style，
+   這裡只負責視覺樣式。pointer-events:none 避免它自己擋住底下卡片的
+   點擊／拖曳判定（拖曳框選的當下本來就不會再去點卡片，但保險起見）。 */
+.marquee-select-box {
+  position: absolute;
+  border: 1px solid var(--primary);
+  background: rgba(107, 90, 62, 0.12);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 15;
+}
+
+/* 被框選中的獨立人物卡片——跟 .is-dragging 用不同的視覺語言（實線外框
+   光暈，不是透明度／陰影），拖曳途中跟靜止時都要看得出「這些卡片是
+   一組」，不會跟單純「正在被拖曳」的狀態搞混。 */
+.group-card.ungrouped-tray.is-multi-selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 .group-card-header {
   background: var(--group-color, var(--surface-alt));
   padding: 0.45rem 0.5rem;

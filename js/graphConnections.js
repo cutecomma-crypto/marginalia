@@ -164,7 +164,7 @@ function bulgeCurvePath(start, end, cardX, peakOffset) {
 // 倍率，換算回「縮放套用之前」的座標系統，這樣整條連線（含 SVG 本身的
 // width/height 屬性）才會跟卡片一樣，只被 transform 縮放「一次」，不管
 // 使用者縮放到多少都能維持跟卡片對齊。
-function getBoardScale(boardEl) {
+export function getBoardScale(boardEl) {
   const transform = getComputedStyle(boardEl).transform;
   if (!transform || transform === 'none') return 1;
   // 縮放功能只會用 scale()（見 graph.js 的 applyZoom()，沒有旋轉/歪斜），

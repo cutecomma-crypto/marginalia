@@ -7,7 +7,26 @@
 // 最新值，要嘛每個函式簽名都要多帶好幾個參數，前者明顯乾淨很多。
 // 一樣是從 graph.js 拆出來降低單一檔案行數的一部分（見 js/graphModel.js 開頭的說明）。
 import { UNGROUPED } from './graphModel.js';
-import { drawConnections } from './graphConnections.js';
+import { drawConnections, getBoardScale } from './graphConnections.js';
+
+// 使用者反映未分組的獨立人物一多（支線角色還沒整理進群組），要一張一張
+// 拖曳調整位置「有點累」——這裡補上類似繪圖軟體常見的「框選＋一起拖曳」：
+// 在畫布空白處按住拖出一個框，框到的獨立卡片就加入選取，之後拖曳其中
+// 任何一張被選取的卡片，所有被選取的卡片會一起移動，不用再一張一張拖。
+// 選取狀態（selectedPersonIds）刻意放在模組層級，不是 state 或 DOM 屬性——
+// reload() 會把 trackEl 底下整批 DOM 換新，選取狀態要撐過這次換新才有
+// 意義（撐到下一次拖曳），放在 state 上也可以，但這個狀態純粹是畫布的
+// 暫時性 UI 狀態（不用存檔、也不是書的資料），獨立出來不跟著 state 混在
+// 一起，語意上更清楚。
+const selectedPersonIds = new Set();
+
+function applySelectionHighlight(trackEl) {
+  trackEl.querySelectorAll('.group-card.ungrouped-tray').forEach((card) => {
+    const personEl = card.querySelector('.person-item');
+    const id = personEl ? Number(personEl.dataset.nodeId) : null;
+    card.classList.toggle('is-multi-selected', id != null && selectedPersonIds.has(id));
+  });
+}
 
 // 存下群組卡片自由拖曳後的畫布座標。
 async function saveGroupPosition(DB, state, groupId, x, y) {
@@ -77,9 +96,107 @@ function clearDropHighlights(trackEl) {
   trackEl.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
 }
 
+// 在畫布空白處（不是卡片本身）按住拖出一個框，鬆開時把框到的獨立人物
+// 卡片整批加入選取。只在 trackEl 自己的空白區域才會觸發——event.target
+// 落在任何 .group-card 裡面（包含分組卡片）一律當作「使用者是要拖卡片
+// 或點卡片」，不搶走那個手勢，直接 return。
+// 框選範圍要換算成「縮放套用之前」的本地座標（除以 getBoardScale() 量到
+// 的倍率）才能跟卡片的 offsetLeft／offsetTop（本來就是縮放前的版面座標，
+// 見 graphConnections.js 開頭的說明）放在同一套單位比較，不然縮放不是
+// 100% 時框選範圍會跟畫面上看到的位置對不上。
+// 按下去沒有真的拖出範圍（純點擊）就當作「點空白處清除選取」，不用
+// 另外做一個「取消選取」按鈕。
+function wireMarqueeSelection(trackEl, boardEl) {
+  // wireGroupCardEvents() 每次 reload() 都會重新呼叫一次，底下那些用
+  // trackEl.querySelectorAll(...) 抓「卡片內部元素」掛監聽器的寫法天生
+  // 沒事——trackEl.innerHTML 整批換新，舊的子節點連同監聽器一起被丟棄，
+  // 新節點才會被掛上新的監聽器，不會疊加。但這裡監聽器是直接掛在
+  // trackEl 本身，trackEl 這個節點從頭到尾只建立一次（只有它的 innerHTML
+  // 被整批換掉，節點本身沒有被換掉），如果每次 reload() 都重新掛一次，
+  // 監聽器會一直疊加、同一次框選動作觸發好幾倍次的選取邏輯。用一個
+  // dataset 旗標擋掉第二次以後的掛載，保證整個頁面存活期間只掛一次。
+  if (trackEl.dataset.marqueeWired) return;
+  trackEl.dataset.marqueeWired = '1';
+  // selectedPersonIds 是整個模組共用的狀態，換到別本書的關係圖（trackEl
+  // 第一次被建立）時清空一次——人物 id 是跨書共用的全域流水號，不清空
+  // 的話，上一本書選取過的 id 萬一剛好跟這本書的某個人物 id 相同，會
+  // 出現莫名其妙的選取外框。
+  selectedPersonIds.clear();
+  trackEl.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    if (event.target.closest('.group-card')) return;
+    event.preventDefault();
+    const scale = getBoardScale(boardEl);
+    const trackRect = trackEl.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let moved = false;
+    const box = document.createElement('div');
+    box.className = 'marquee-select-box';
+    trackEl.appendChild(box);
+
+    function localRectFrom(curX, curY) {
+      const x1 = Math.min(startX, curX);
+      const x2 = Math.max(startX, curX);
+      const y1 = Math.min(startY, curY);
+      const y2 = Math.max(startY, curY);
+      return {
+        left: (x1 - trackRect.left) / scale,
+        top: (y1 - trackRect.top) / scale,
+        width: (x2 - x1) / scale,
+        height: (y2 - y1) / scale,
+      };
+    }
+
+    function onMove(moveEvent) {
+      if (!moved) {
+        if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 4) return;
+        moved = true;
+      }
+      const rect = localRectFrom(moveEvent.clientX, moveEvent.clientY);
+      box.style.left = `${rect.left}px`;
+      box.style.top = `${rect.top}px`;
+      box.style.width = `${rect.width}px`;
+      box.style.height = `${rect.height}px`;
+    }
+
+    function onUp(upEvent) {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      box.remove();
+      if (moved) {
+        const rect = localRectFrom(upEvent.clientX, upEvent.clientY);
+        selectedPersonIds.clear();
+        trackEl.querySelectorAll('.group-card.ungrouped-tray').forEach((card) => {
+          const intersects = card.offsetLeft < rect.left + rect.width
+            && card.offsetLeft + card.offsetWidth > rect.left
+            && card.offsetTop < rect.top + rect.height
+            && card.offsetTop + card.offsetHeight > rect.top;
+          if (!intersects) return;
+          const personEl = card.querySelector('.person-item');
+          if (personEl) selectedPersonIds.add(Number(personEl.dataset.nodeId));
+        });
+      } else {
+        selectedPersonIds.clear();
+      }
+      applySelectionHighlight(trackEl);
+    }
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  });
+}
+
 // ctx: { state, DB, bookId, boardEl, svgEl, labelSvgEl, reload, showPersonPanel, showEdgePanel }
 export function wireGroupCardEvents(trackEl, ctx) {
   const { state, DB, bookId, boardEl, svgEl, labelSvgEl, reload, showPersonPanel, showEdgePanel } = ctx;
+
+  // reload() 每次都會把 trackEl 底下整批 DOM 換新，換新後的卡片當然不會
+  // 自動帶著「這張之前有被框選」的樣式——用模組層級存的 selectedPersonIds
+  // 重新套用一次，拖完一批之後的選取狀態才能延續到下一次操作，不會每次
+  // reload() 就悄悄清空。
+  applySelectionHighlight(trackEl);
+  wireMarqueeSelection(trackEl, boardEl);
 
   // 人物卡片改用 Pointer Events 手動判斷拖曳，不用瀏覽器原生 HTML5 drag-and-drop——
   // 原生拖曳在觸控板上常常判斷不到「這是一個拖曳」，導致卡片完全拖不動，
@@ -211,6 +328,17 @@ export function wireGroupCardEvents(trackEl, ctx) {
   // 目標是 .ungrouped-card-handle（獨立卡片沒有標題列可以附著，見
   // graphTemplates.js 的說明）、放開後存位置的地方是 localStorage 不是
   // Supabase（見 saveUngroupedPosition 的說明）。
+  //
+  // 使用者後來反映獨立人物一多，一張一張拖曳調整位置「有點累」，這裡
+  // 加上「拖其中一張，框選中的全部一起動」：按下去的這張卡片如果本身
+  // 就在目前的框選範圍（selectedPersonIds）裡、且框選範圍不只一張，
+  // 就把所有被選取的卡片都當成這次拖曳的對象，用同一組滑鼠位移量平移；
+  // 否則維持原本「只拖這一張」的行為——即使框選範圍裡還有別的卡片，
+  // 拖一張不在選取範圍內的卡片也只會移動它自己，不會波及其他已選取的
+  // 卡片，使用者才能在框選一批之後，還是能單獨挑一張出來微調位置。
+  // 滑鼠位移量要除以 getBoardScale() 量到的縮放倍率，換算回卡片
+  // offsetLeft／offsetTop 用的那套「縮放前」座標，不然縮放不是 100%
+  // 時卡片移動的距離會跟滑鼠實際移動的距離對不上。
   trackEl.querySelectorAll('.ungrouped-card-handle').forEach((handle) => {
     handle.addEventListener('pointerdown', (event) => {
       event.preventDefault();
@@ -219,24 +347,39 @@ export function wireGroupCardEvents(trackEl, ctx) {
       const personEl = card.querySelector('.person-item');
       const personId = personEl ? Number(personEl.dataset.nodeId) : null;
       if (personId == null) return;
+
+      const isMultiDrag = selectedPersonIds.has(personId) && selectedPersonIds.size > 1;
+      const dragCards = isMultiDrag
+        ? Array.from(trackEl.querySelectorAll('.group-card.ungrouped-tray')).filter((c) => {
+          const p = c.querySelector('.person-item');
+          return p && selectedPersonIds.has(Number(p.dataset.nodeId));
+        })
+        : [card];
+
+      const scale = getBoardScale(boardEl);
       const startX = event.clientX;
       const startY = event.clientY;
-      const originLeft = card.offsetLeft;
-      const originTop = card.offsetTop;
-      card.classList.add('is-dragging');
+      const origins = dragCards.map((c) => ({ card: c, left: c.offsetLeft, top: c.offsetTop }));
+      dragCards.forEach((c) => c.classList.add('is-dragging'));
 
       function onMove(moveEvent) {
-        const nextLeft = Math.max(0, originLeft + (moveEvent.clientX - startX));
-        const nextTop = Math.max(0, originTop + (moveEvent.clientY - startY));
-        card.style.left = `${nextLeft}px`;
-        card.style.top = `${nextTop}px`;
+        const dx = (moveEvent.clientX - startX) / scale;
+        const dy = (moveEvent.clientY - startY) / scale;
+        origins.forEach(({ card: c, left, top }) => {
+          c.style.left = `${Math.max(0, left + dx)}px`;
+          c.style.top = `${Math.max(0, top + dy)}px`;
+        });
         drawConnections(svgEl, labelSvgEl, boardEl, state.edges, showEdgePanel, bookId);
       }
       async function onUp() {
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
-        card.classList.remove('is-dragging');
-        saveUngroupedPosition(bookId, personId, card.offsetLeft, card.offsetTop);
+        origins.forEach(({ card: c }) => {
+          c.classList.remove('is-dragging');
+          const p = c.querySelector('.person-item');
+          const id = p ? Number(p.dataset.nodeId) : null;
+          if (id != null) saveUngroupedPosition(bookId, id, c.offsetLeft, c.offsetTop);
+        });
         await reload();
       }
       document.addEventListener('pointermove', onMove);
