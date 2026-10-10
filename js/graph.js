@@ -171,7 +171,7 @@ export async function renderGraphPage(container, rawBookId) {
           <input type="text" name="status" value="${escapeHtml(person.status)}" placeholder="例如：死亡、失蹤、待驗證、黑化...">
         </label>
         <label>人物簡介
-          <textarea name="description" rows="2" placeholder="輸入簡短背景或重要記事...">${escapeHtml(person.description)}</textarea>
+          <textarea name="description" rows="6" placeholder="輸入簡短背景或重要記事...">${escapeHtml(person.description)}</textarea>
         </label>
         <label class="checkbox"><input type="checkbox" name="isProtagonist" ${person.isProtagonist ? 'checked' : ''}> ★ 主角／重要角色</label>
         <label>卡片顏色
