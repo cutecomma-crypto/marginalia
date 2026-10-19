@@ -3,9 +3,10 @@ import { renderReadingSection } from './readingRecords.js';
 import { renderPersonalNotes } from './notes.js';
 import { renderQuotesWorkspace } from './quotes.js';
 import { getFavoriteAuthorMap } from './authors.js';
-import { escapeHtml, renderTagChip, confirmModal, wireCoverImage } from './utils.js';
+import { escapeHtml, renderTagChip, confirmModal, wireCoverImage, showToast } from './utils.js';
 import { DEFAULT_RETENTION_STATUS, LIBRARY_SOURCE_FORMAT } from './bookForm.js';
-import { ICON_GRAPH, ICON_EDIT, ICON_DELETE, ICON_NOTEBOOK, ICON_QUOTE } from './icons.js';
+import { ICON_GRAPH, ICON_EDIT, ICON_DELETE, ICON_NOTEBOOK, ICON_QUOTE, ICON_CLIPBOARD } from './icons.js';
+import { duplicateBook } from './bookDuplicate.js';
 
 // rawValue：少數需要在文字裡插入自己 HTML 片段（例如喜愛作者的 ♥ 圖示要單獨上色）
 // 的欄位可以傳這個代替純文字 value，呼叫端要自己先 escapeHtml() 過使用者輸入的部分。
@@ -53,6 +54,7 @@ export async function renderBookDetail(container, rawId) {
       <div class="toolbar-actions">
         <a class="btn detail-action-btn" href="#/books/${bookId}/graph" data-tooltip="關係圖譜">${ICON_GRAPH}<span class="btn-label">關係圖譜</span></a>
         <a class="btn detail-action-btn" href="#/books/${bookId}/edit" data-tooltip="編輯">${ICON_EDIT}<span class="btn-label">編輯</span></a>
+        <button type="button" class="btn detail-action-btn" id="duplicate-book" data-tooltip="複製書籍">${ICON_CLIPBOARD}<span class="btn-label">複製</span></button>
         <button type="button" class="btn btn-danger detail-action-btn" id="delete-book" data-tooltip="刪除">${ICON_DELETE}<span class="btn-label">刪除</span></button>
       </div>
     </div>
@@ -120,6 +122,19 @@ export async function renderBookDetail(container, rawId) {
       window.location.hash = `#/books?category=${encodeURIComponent(categoryLinkBtn.dataset.category)}`;
     });
   }
+
+  container.querySelector('#duplicate-book').addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    btn.disabled = true;
+    try {
+      const newBookId = await duplicateBook(bookId);
+      showToast(`已複製《${book.title || '（未命名）'}》，請填寫新書資訊`);
+      window.location.hash = `#/books/${newBookId}/edit`;
+    } catch (error) {
+      showToast(`複製失敗：${error?.message || String(error)}`, 6000);
+      btn.disabled = false;
+    }
+  });
 
   container.querySelector('#delete-book').addEventListener('click', async () => {
     const confirmed = await confirmModal({
