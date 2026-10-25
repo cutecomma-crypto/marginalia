@@ -3563,6 +3563,44 @@ button.book-completed-date:hover {
   transition: all 0.2s ease;
 }
 
+/* 批量選取合併：勾選框用 position:absolute 疊在卡片左上角，不影響既有
+   .output-item-actions（float:right）跟內文 <p> 的繞排規則——另外開一條
+   左側留白讓勾選框跟文字／日期不重疊，只有批量模式開啟時才會加這個
+   class（見 notes.js 的 noteItem()）。 */
+.output-item.is-batch-selectable {
+  padding-left: 2.1rem;
+}
+
+.note-select-checkbox {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.7rem;
+  cursor: pointer;
+}
+
+.note-select-checkbox input {
+  width: 1.05rem;
+  height: 1.05rem;
+  cursor: pointer;
+}
+
+.notes-batch-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.6rem 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.notes-batch-bar label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
 .output-item:hover {
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);

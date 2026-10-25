@@ -37,7 +37,13 @@ async function getLegacyMotivationsForBook(bookId) {
 // 行內編輯功能（沿用合併前就有的限制，見 outputs.js 的 renderLegacyReflectionItem），
 // 只有 notes 來源的項目會走這裡。data-source="notes"：跟舊 outputs 項目共用
 // 同一批 .output-delete class，靠這個屬性分流刪除時該動哪張表。
-function noteItem(note, isEditing) {
+// batchActive：批量選取模式有沒有開啟（見下面 renderPersonalNotes 的
+// batchState）。正在編輯中的卡片不顯示勾選框——編輯跟合併是互斥的兩種
+// 「對這則筆記做什麼」的意圖，同時出現容易誤觸。
+function noteItem(note, isEditing, batchActive, isChecked) {
+  const checkboxHtml = batchActive && !isEditing
+    ? `<label class="note-select-checkbox"><input type="checkbox" class="note-batch-checkbox" data-id="${note.id}" ${isChecked ? 'checked' : ''}></label>`
+    : '';
   if (isEditing) {
     return `
       <div class="output-item" data-id="${note.id}" data-source="notes">
@@ -51,7 +57,8 @@ function noteItem(note, isEditing) {
     `;
   }
   return `
-    <div class="output-item" data-id="${note.id}" data-source="notes">
+    <div class="output-item${batchActive ? ' is-batch-selectable' : ''}" data-id="${note.id}" data-source="notes">
+      ${checkboxHtml}
       <div class="output-item-actions">
         <button type="button" class="btn output-edit" data-id="${note.id}" data-tooltip="編輯" aria-label="編輯">${ICON_EDIT}</button>
         <button type="button" class="btn btn-danger output-delete" data-id="${note.id}" data-source="notes" data-tooltip="刪除" aria-label="刪除">${ICON_DELETE}</button>
@@ -78,6 +85,16 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
   // 已經被換掉的舊輸入框內容，可能一路累加、卡在假警報（同一個成因跟
   // bookList.js 的 inline-status-popover 都處理過的問題一樣）。
   container._unsavedGuardDestroy?.();
+  // 批量選取合併狀態：同一個 #notes-section 容器在新增／刪除／編輯筆記時
+  // 會被這個函式重新呼叫自己好幾次（每次都整個重繪 DOM），狀態要存在
+  // container 本身上才能跨這些重繪存活，跟上面 _unsavedGuardDestroy 是
+  // 同一個道理。離開這本書的詳情頁會拿到全新的 #notes-section 元素，
+  // 自然重置，不需要另外清理。
+  if (!container._noteBatchState) {
+    container._noteBatchState = { active: false, selectedIds: new Set() };
+  }
+  const batchState = container._noteBatchState;
+
   const [notes, reflections, motivations] = await Promise.all([
     getNotesForBook(bookId),
     getLegacyReflectionsForBook(bookId),
@@ -85,11 +102,23 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
   ]);
   const merged = [...notes, ...reflections, ...motivations].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
+  // 舊 outputs 心得／動機沒有行內編輯能力，合併功能只認「快速筆記」這批，
+  // 批量選取勾選框也只會出現在這批卡片上（見 noteItem()）。
+  batchState.selectedIds.forEach((id) => {
+    if (!notes.some((n) => n.id === id)) batchState.selectedIds.delete(id);
+  });
+
   function renderItem(item) {
-    if (item._source === 'notes') return noteItem(item, item.id === editingId);
+    if (item._source === 'notes') return noteItem(item, item.id === editingId, batchState.active, batchState.selectedIds.has(item.id));
     if (item._kind === 'motivation') return renderLegacyMotivationItem(item);
     return renderLegacyReflectionItem(item);
   }
+
+  // 「同一天寫了好幾段，結果存成好幾則零碎筆記」是實測抓到的真實使用痛點
+  // ——使用者一段一段寫、一段一段按儲存，回頭想整理修正的時候，內容被切
+  // 得七零八落，沒有辦法當成一篇文章整體編輯。批量選取只有兩則以上筆記
+  // 時才有意義，不滿兩則就不顯示這排工具列。
+  const canBatch = notes.length >= 2;
 
   container.innerHTML = `
     <div class="notes-section">
@@ -103,6 +132,18 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
           <button type="submit" class="btn btn-primary">儲存</button>
         </div>
       </form>
+      ${canBatch ? `
+      <div class="notes-batch-bar">
+        <label>
+          <input type="checkbox" id="notes-batch-toggle" ${batchState.active ? 'checked' : ''}>
+          批量選取，合併成一則
+        </label>
+        ${batchState.active ? `
+          <span class="notes-batch-count">已選 ${batchState.selectedIds.size} 則</span>
+          <button type="button" class="btn btn-primary" id="notes-batch-merge" ${batchState.selectedIds.size < 2 ? 'disabled' : ''}>合併選取的筆記</button>
+        ` : ''}
+      </div>
+      ` : ''}
       <div class="output-list">
         ${merged.length === 0 ? '<p class="empty">還沒有任何筆記。</p>' : merged.map(renderItem).join('')}
       </div>
@@ -150,6 +191,72 @@ export async function renderPersonalNotes(container, bookId, { editingId = null,
   textarea.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       form.requestSubmit();
+    }
+  });
+
+  // 批量選取合併：開關本身切換就要整個重繪（卡片要多出/收起勾選框），
+  // 但「勾選某一則」只是更新 Set＋這排工具列上的計數字／合併按鈕
+  // disabled 狀態，不需要整個重繪整份清單——不然每點一次勾選框，畫面
+  // 就要整個重新渲染一次，容易感覺跳動，也沒有必要。
+  const notesBatchToggle = container.querySelector('#notes-batch-toggle');
+  notesBatchToggle?.addEventListener('change', () => {
+    batchState.active = notesBatchToggle.checked;
+    if (!batchState.active) batchState.selectedIds.clear();
+    renderPersonalNotes(container, bookId, { onQuoteAdded });
+  });
+
+  function refreshNotesBatchBar() {
+    const countEl = container.querySelector('.notes-batch-count');
+    const mergeBtn = container.querySelector('#notes-batch-merge');
+    if (countEl) countEl.textContent = `已選 ${batchState.selectedIds.size} 則`;
+    if (mergeBtn) mergeBtn.disabled = batchState.selectedIds.size < 2;
+  }
+
+  container.querySelectorAll('.note-batch-checkbox').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const id = Number(checkbox.dataset.id);
+      if (checkbox.checked) batchState.selectedIds.add(id);
+      else batchState.selectedIds.delete(id);
+      refreshNotesBatchBar();
+    });
+  });
+
+  // 合併：把選取的幾則筆記依寫下的先後順序（createdAt 由舊到新）接成一篇，
+  // 段落間留一行空白——這樣讀起來還是像同一天陸續寫下來的連貫內容，不是
+  // 把零碎句子硬黏在一起。合併完立刻用 editingId 直接把新的這一則切進
+  // 編輯模式，使用者可以馬上動手「統一修正」文字，不用合併完還要自己
+  // 再點一次編輯。原本被選取的幾則合併成功後就地刪除，不留重複內容。
+  container.querySelector('#notes-batch-merge')?.addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    const selectedNotes = notes
+      .filter((n) => batchState.selectedIds.has(n.id))
+      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    if (selectedNotes.length < 2) return;
+    const confirmed = await confirmModal({
+      title: `確定要合併這 ${selectedNotes.length} 則筆記嗎？`,
+      message: '合併後會變成一則新筆記，可以直接接著編輯內容；原本選取的這幾則合併後就會被刪除，此動作無法復原。',
+      confirmText: '合併',
+      cancelText: '取消',
+      danger: true,
+    });
+    if (!confirmed) return;
+    btn.disabled = true;
+    btn.textContent = '合併中…';
+    try {
+      const mergedText = selectedNotes.map((n) => n.text).join('\n\n');
+      const newId = await DB.add('notes', { bookId, text: mergedText });
+      for (const note of selectedNotes) {
+        await DB.remove('notes', note.id);
+      }
+      batchState.active = false;
+      batchState.selectedIds.clear();
+      showToast(`已合併 ${selectedNotes.length} 則筆記，可以繼續修改內容`);
+      await renderPersonalNotes(container, bookId, { editingId: newId, onQuoteAdded });
+    } catch (error) {
+      showToast(`合併失敗：${error?.message || String(error)}`, 6000);
+      console.error('[Marginalia 閱讀心得] 合併筆記失敗：', error);
+      btn.disabled = false;
+      btn.textContent = '合併選取的筆記';
     }
   });
 
