@@ -629,18 +629,18 @@ header h1 a {
   color: var(--accent-hover);
 }
 
-/* Logo 文字右邊一齣迴圈播放的小短劇：紙飛機飛過去、快到底的時候收起，
-   在原地「攤開」變成一本攤平的書——書頁左右兩瓣往上揚，整體輪廓刻意
-   畫成淺淺的「M」字形（也像海鷗展翅的剪影），攤開後兩瓣書頁還會繼續
-   小幅度煽動，停留一下再收合淡出，從頭開始。
-   紙飛機／書本是兩顆分開的 SVG 疊在同一個落點，靠彼此交錯的 opacity／
-   scale 時間點做出「紙飛機收起來、書在原地展開」的錯覺，不是真的去把
-   一個圖案的路徑動畫變形成另一個圖案（那需要兩邊路徑點數/結構完全
-   對應，純 CSS 很難穩定做到，這種「交棒」手法是常見且穩定的替代方案）。
-   書頁的煽動则是貨真價實的動畫：左右兩瓣是各自獨立的 path，transform-origin
-   釘在書脊那一端（靠 transform-box: fill-box 讓百分比原點以「這個 path
-   自己的範圍」為準，不是整個 SVG viewBox），各自用 rotate() 小角度來回
-   擺動，兩瓣方向相反，看起來就像兩片翅膀同步拍動。 */
+/* Logo 文字右邊一齣迴圈播放的小短劇：紙飛機飛過去、快到底時俯衝下壓，
+   跟原地「長出來」的書本畫面重疊淡入淡出（不是飛機先整個消失、書才
+   從無到有冒出來——中間留一截兩者都看不到的空白會很像畫面卡頓，這裡
+   刻意拉長交疊區間，飛機淡出的同時書已經在淡入，一路無縫接手），書
+   落地時帶一點回彈跟兩下小幅度翻頁式搖晃，很快就靜止，停留一下再
+   收合淡出，從頭開始。
+   書本直接沿用全站既有的 ICON_BOOK_OPEN 那顆翻開書圖案（見 icons.js），
+   不是重畫一個新造型——確保動畫落地那一刻看起來「就是一本書」，而不是
+   變成另一種抽象圖案、失去書本的識別度。紙飛機／書是兩顆分開的 SVG
+   疊在同一個落點，靠彼此交錯的 opacity／scale 時間點做出「飛機收起、
+   書在原地攤開」的錯覺，不是真的把路徑動畫變形成另一個圖案（那需要
+   兩邊路徑點數/結構完全對應，純 CSS 很難穩定做到）。 */
 .brand-flight {
   position: relative;
   display: inline-block;
@@ -665,6 +665,8 @@ header h1 a {
 }
 
 .brand-book {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
   animation: brand-book-land 6s ease-in-out infinite;
 }
 
@@ -672,43 +674,18 @@ header h1 a {
   0% { transform: translate(0, 3px) rotate(-10deg) scale(0.85); opacity: 0; }
   8% { opacity: 0.9; }
   22% { transform: translate(0.45rem, -3px) rotate(6deg) scale(1); opacity: 0.9; }
-  38% { transform: translate(0.95rem, 1px) rotate(-4deg) scale(1); opacity: 0.9; }
-  46%, 100% { transform: translate(1.05rem, 0) rotate(0deg) scale(0.5); opacity: 0; }
+  36% { transform: translate(0.85rem, 0) rotate(0deg) scale(1); opacity: 0.85; }
+  50% { transform: translate(1.05rem, 2px) rotate(35deg) scale(0.55); opacity: 0; }
+  100% { opacity: 0; }
 }
 
 @keyframes brand-book-land {
-  0%, 44% { transform: translate(1.05rem, 0) scale(0.3); opacity: 0; }
-  54% { transform: translate(1.05rem, 0) scale(1.1); opacity: 0.95; }
-  60%, 84% { transform: translate(1.05rem, 0) scale(1); opacity: 0.95; }
-  94%, 100% { transform: translate(1.05rem, 0) scale(0.75); opacity: 0; }
-}
-
-.brand-wing {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  transform-box: fill-box;
-}
-
-.brand-wing-left {
-  transform-origin: 100% 100%;
-  animation: brand-wing-flap-left 0.55s ease-in-out infinite;
-}
-
-.brand-wing-right {
-  transform-origin: 0% 100%;
-  animation: brand-wing-flap-right 0.55s ease-in-out infinite;
-}
-
-@keyframes brand-wing-flap-left {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-18deg); }
-}
-
-@keyframes brand-wing-flap-right {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(18deg); }
+  0%, 36% { transform: translate(1.05rem, 0) rotate(0deg) scale(0.3); opacity: 0; }
+  50% { transform: translate(1.05rem, 0) rotate(0deg) scale(1.08); opacity: 0.95; }
+  56% { transform: translate(1.05rem, 0) rotate(-6deg) scale(1); opacity: 0.95; }
+  62% { transform: translate(1.05rem, 0) rotate(4deg) scale(1); opacity: 0.95; }
+  68%, 84% { transform: translate(1.05rem, 0) rotate(0deg) scale(1); opacity: 0.95; }
+  94%, 100% { transform: translate(1.05rem, 0) rotate(0deg) scale(0.8); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -717,10 +694,6 @@ header h1 a {
     animation: none;
     opacity: 0.85;
     transform: translate(1.05rem, 0) scale(1);
-  }
-  .brand-wing-left,
-  .brand-wing-right {
-    animation: none;
   }
 }
 
