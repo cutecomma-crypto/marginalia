@@ -620,10 +620,55 @@ header h1 a {
   color: var(--accent);
   cursor: pointer;
   transition: color 0.15s ease;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
 }
 
 .brand-logo:hover {
   color: var(--accent-hover);
+}
+
+/* Logo 底下一筆迴圈播放的「手寫底線」小動畫——呼應 Marginalia（書頁空白處
+   寫眉批）這個品牌意象本身，用 SVG path 的 stroke-dasharray／dashoffset
+   畫出一筆波浪線、停留一下再淡出重來，比單純閃爍的進度條式動畫更貼題，
+   純 CSS 動畫不需要額外的 JS 或圖片素材。尊重使用者「減少動態效果」的
+   系統設定，開啟該設定時直接不跑動畫、底線維持靜止淡出的那個畫面格。 */
+.brand-underline {
+  display: block;
+  width: 7rem;
+  height: 0.6rem;
+  margin-top: 0.1rem;
+  overflow: visible;
+}
+
+.brand-underline path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 160;
+  stroke-dashoffset: 160;
+  opacity: 0;
+  animation: brand-underline-draw 4s ease-in-out infinite;
+}
+
+@keyframes brand-underline-draw {
+  0% { stroke-dashoffset: 160; opacity: 0; }
+  12% { opacity: 0.85; }
+  45% { stroke-dashoffset: 0; opacity: 0.85; }
+  75% { stroke-dashoffset: 0; opacity: 0.85; }
+  92% { opacity: 0; }
+  100% { stroke-dashoffset: -160; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-underline path {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 0.6;
+  }
 }
 
 .toolbar {
