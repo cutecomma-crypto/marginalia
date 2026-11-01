@@ -629,72 +629,54 @@ header h1 a {
   color: var(--accent-hover);
 }
 
-/* Logo 文字右邊一齣迴圈播放的小短劇：紙飛機飛過去、快到底時俯衝下壓，
-   跟原地「長出來」的書本畫面重疊淡入淡出（不是飛機先整個消失、書才
-   從無到有冒出來——中間留一截兩者都看不到的空白會很像畫面卡頓，這裡
-   刻意拉長交疊區間，飛機淡出的同時書已經在淡入，一路無縫接手），書
-   落地時帶一點回彈跟兩下小幅度翻頁式搖晃，很快就靜止，停留一下再
-   收合淡出，從頭開始。
-   書本直接沿用全站既有的 ICON_BOOK_OPEN 那顆翻開書圖案（見 icons.js），
-   不是重畫一個新造型——確保動畫落地那一刻看起來「就是一本書」，而不是
-   變成另一種抽象圖案、失去書本的識別度。紙飛機／書是兩顆分開的 SVG
-   疊在同一個落點，靠彼此交錯的 opacity／scale 時間點做出「飛機收起、
-   書在原地攤開」的錯覺，不是真的把路徑動畫變形成另一個圖案（那需要
-   兩邊路徑點數/結構完全對應，純 CSS 很難穩定做到）。 */
+/* Logo 文字右邊一齣迴圈播放的小短劇，這次故事方向反過來：書本是「主體」，
+   從頭到尾都安安靜靜待在原地、完全不會消失或變形（直接沿用全站既有的
+   ICON_BOOK_OPEN 翻開書圖案，見 icons.js），書本的識別度因此不會有任何
+   疑慮。每一輪週期裡，書的右上角會「撕下一頁」——一張小角先折起來，
+   再展開變成紙飛機，從書裡飛出去、越飛越遠、淡出消失，接著重新開始。
+   紙飛機從無到有（opacity 0、折疊成一小團、旋轉）展開變成飛行姿態
+   這一段，手法跟之前「紙飛機變書」是同一招的反過來用：靠 opacity／
+   scale／rotate 在同一個時間軸上連續變化做出「從書裡長出來」的錯覺，
+   不是真的去把書的路徑變形成飛機的路徑。 */
 .brand-flight {
   position: relative;
   display: inline-block;
-  width: 2rem;
+  width: 1.3rem;
   height: 1.3rem;
   flex-shrink: 0;
+  overflow: visible;
   pointer-events: none;
 }
 
-.brand-plane,
 .brand-book {
   position: absolute;
   left: 0;
   top: 0.1rem;
   width: 1.05rem;
   height: 1.05rem;
-  opacity: 0;
+  opacity: 0.9;
 }
 
 .brand-plane {
-  animation: brand-plane-fly 6s ease-in-out infinite;
+  position: absolute;
+  left: 0.55rem;
+  top: 0.1rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  opacity: 0;
+  animation: brand-plane-takeoff 6s ease-in-out infinite;
 }
 
-.brand-book {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: brand-book-land 6s ease-in-out infinite;
-}
-
-@keyframes brand-plane-fly {
-  0% { transform: translate(0, 3px) rotate(-10deg) scale(0.85); opacity: 0; }
-  8% { opacity: 0.9; }
-  22% { transform: translate(0.45rem, -3px) rotate(6deg) scale(1); opacity: 0.9; }
-  36% { transform: translate(0.85rem, 0) rotate(0deg) scale(1); opacity: 0.85; }
-  50% { transform: translate(1.05rem, 2px) rotate(35deg) scale(0.55); opacity: 0; }
-  100% { opacity: 0; }
-}
-
-@keyframes brand-book-land {
-  0%, 36% { transform: translate(1.05rem, 0) rotate(0deg) scale(0.3); opacity: 0; }
-  50% { transform: translate(1.05rem, 0) rotate(0deg) scale(1.08); opacity: 0.95; }
-  56% { transform: translate(1.05rem, 0) rotate(-6deg) scale(1); opacity: 0.95; }
-  62% { transform: translate(1.05rem, 0) rotate(4deg) scale(1); opacity: 0.95; }
-  68%, 84% { transform: translate(1.05rem, 0) rotate(0deg) scale(1); opacity: 0.95; }
-  94%, 100% { transform: translate(1.05rem, 0) rotate(0deg) scale(0.8); opacity: 0; }
+@keyframes brand-plane-takeoff {
+  0%, 56% { transform: translate(0, 0) rotate(-30deg) scale(0.25); opacity: 0; }
+  63% { transform: translate(0.05rem, -0.05rem) rotate(-10deg) scale(0.95); opacity: 0.95; }
+  70% { transform: translate(0.5rem, -0.3rem) rotate(4deg) scale(1); opacity: 0.95; }
+  86% { transform: translate(1.5rem, -0.55rem) rotate(10deg) scale(1); opacity: 0.55; }
+  96%, 100% { transform: translate(2.3rem, -0.75rem) rotate(16deg) scale(0.7); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .brand-plane { display: none; }
-  .brand-book {
-    animation: none;
-    opacity: 0.85;
-    transform: translate(1.05rem, 0) scale(1);
-  }
 }
 
 .toolbar {
